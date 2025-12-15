@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   Referee Training Platform - Dark Theme
+   ============================================ */
+
+:root {
+  /* IFAB-inspired color palette - Sophisticated slate gray and gold */
+  --color-dark-900: #252D38;
+  --color-dark-800: #2F3A47;
+  --color-dark-700: #3A4656;
+  --color-dark-600: #485566;
+  --color-dark-500: #576575;
+  --color-dark-400: #6A7888;
+  
+  /* IFAB accent - Elegant light gold/champagne */
+  --color-accent: #E8E09A;
+  --color-accent-dark: #DDD29C;
+  --color-accent-darker: #CFC288;
+  --color-accent-muted: #B8AD7A;
+  
+  /* Secondary accent - Soft gray-blue */
+  --color-secondary: #8A95A5;
+  --color-secondary-dark: #6F7A89;
+  
+  /* Text - IFAB style */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #D1D5DB;
+  --color-text-muted: #9CA3AF;
+  --color-text-gold: #E8E09A;
+  
+  /* Borders - Subtle grays */
+  --color-border: #3A4656;
+  --color-border-subtle: #2F3A47;
+  --color-border-highlight: #485566;
+  
+  /* Status colors */
+  --color-success: #E8E09A;
+  --color-warning: #DDD29C;
+  --color-error: #B89090;
+}
+
+/* Base styles */
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: "DIN 2014", Inter, var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(180deg, #252D38 0%, #2F3A47 100%);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   Custom Animations
+   ============================================ */
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ============================================
+   Custom Utility Classes
+   ============================================ */
+
+@layer utilities {
+  /* Accent line - IFAB-inspired gold */
+  .accent-line {
+    height: 3px;
+    background: linear-gradient(90deg, transparent 0%, var(--color-accent) 50%, transparent 100%);
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+  
+  .accent-line-thin {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--color-border-highlight) 50%, transparent 100%);
+  }
+  
+  .accent-line-vertical {
+    width: 3px;
+    background: linear-gradient(180deg, transparent 0%, var(--color-accent) 50%, transparent 100%);
+    border-radius: 2px;
+    opacity: 0.3;
+  }
+
+  /* Glow effects - Subtle gold glow */
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(232, 224, 154, 0.15);
+  }
+  
+  .glow-accent-strong {
+    box-shadow: 0 0 30px rgba(232, 224, 154, 0.25);
+  }
+
+  /* Text glow - Removed, too harsh */
+  .text-glow {
+    text-shadow: none;
+  }
+
+  /* Glass effect - IFAB slate with blur */
+  .glass {
+    background: rgba(47, 58, 71, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .glass-darker {
+    background: rgba(37, 45, 56, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Card styles - IFAB slate */
+  .card-dark {
+    background: linear-gradient(180deg, #3A4656 0%, #2F3A47 100%);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+  }
+
+  /* Gradient text - IFAB gold gradient */
+  .gradient-text {
+    background: linear-gradient(90deg, #E8E09A 0%, #DDD29C 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Stadium/pitch pattern overlay - Very subtle gold lines */
+  .pitch-pattern {
+    background-image: 
+      radial-gradient(ellipse 100% 50% at 50% 100%, rgba(232, 224, 154, 0.03) 0%, transparent 70%),
+      linear-gradient(180deg, #2F3A47 0%, #252D38 100%);
+  }
+}
+
+/* ============================================
+   Sliding Background Effect
+   ============================================ */
+
+.sliding-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.sliding-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(37, 45, 56, 0.80) 0%,
+    rgba(37, 45, 56, 0.88) 30%,
+    rgba(37, 45, 56, 0.92) 60%,
+    rgba(37, 45, 56, 0.96) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sliding-background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: object-position 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: object-position;
+}
+
+/* ============================================
+   Component Styles
+   ============================================ */
+
+@layer components {
+  /* Primary button - IFAB gold accent */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           font-semibold text-dark-900 rounded-lg
+           bg-accent
+           hover:bg-accent-dark
+           focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900
+           transition-all duration-200;
+  }
+  
+  /* Secondary button - IFAB outline style */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3
+           font-semibold text-white rounded-lg
+           bg-transparent border border-accent/40
+           hover:bg-accent/10 hover:border-accent/60
+           focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900
+           transition-all duration-200;
+  }
+
+  /* Ghost button - IFAB style */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3
+           font-semibold text-accent rounded-lg
+           bg-transparent border border-accent/20
+           hover:bg-accent/5 hover:border-accent/30
+           focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900
+           transition-all duration-200;
+  }
+
+  /* Input field - Deep navy and white */
+  .input-dark {
+    @apply w-full px-4 py-3 
+           bg-dark-800 border border-white/20 rounded-lg
+           text-white placeholder:text-text-muted
+           focus:outline-none focus:border-white/50 focus:ring-2 focus:ring-white/20
+           transition-all duration-200;
+  }
+
+  /* Card component - IFAB slate with gold border */
+  .card {
+    @apply bg-dark-800/80
+           border border-accent/10 rounded-xl
+           shadow-lg;
+  }
+
+  /* Section with accent line */
+  .section-accent {
+    @apply relative;
+  }
+  
+  .section-accent::before {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-[3px];
+    background: linear-gradient(90deg, transparent 0%, #E8E09A 50%, transparent 100%);
+  }
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dark-500);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dark-400);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-dark-500) var(--color-dark-800);
+}
+
+/* ============================================
+   Selection Styling
+   ============================================ */
+
+::selection {
+  background-color: rgba(232, 224, 154, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   Focus Styles
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid #E8E09A;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Link Styles
+   ============================================ */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent);
+}

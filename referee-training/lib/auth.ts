@@ -1,0 +1,96 @@
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
+import FacebookProvider from "next-auth/providers/facebook";
+import { compare } from "bcryptjs";
+import { prisma } from "./prisma";
+import { Role } from "@prisma/client";
+
+export const authOptions: NextAuthOptions = {
+  debug: process.env.NODE_ENV === "development",
+  session: {
+    strategy: "jwt",
+  },
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        console.log('[AUTH] Authorize called with email:', credentials?.email);
+        
+        if (!credentials?.email || !credentials.password) {
+          console.log('[AUTH] Missing credentials');
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        console.log('[AUTH] User found:', !!user, 'Has password:', !!user?.password);
+
+        if (!user?.password) {
+          console.log('[AUTH] No user or no password');
+          return null;
+        }
+
+        const isValid = await compare(credentials.password, user.password);
+        console.log('[AUTH] Password valid:', isValid);
+        
+        if (!isValid) {
+          console.log('[AUTH] Invalid password');
+          return null;
+        }
+
+        console.log('[AUTH] Login successful for:', user.email);
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          country: user.country,
+        };
+      },
+    }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    AppleProvider({
+      clientId: process.env.APPLE_CLIENT_ID ?? "",
+      clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
+    }),
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID ?? "",
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET ?? "",
+    }),
+  ],
+  pages: {
+    signIn: "/auth/login",
+  },
+  callbacks: {
+    async session({ session, token }) {
+      if (session.user) {
+        const tokenWithRole = token as { role?: Role; country?: string | null; sub?: string };
+        session.user.id = tokenWithRole.sub ?? "";
+        session.user.role = tokenWithRole.role ?? Role.REFEREE;
+        session.user.country = tokenWithRole.country ?? null;
+      }
+      return session;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        const userWithRole = user as { role?: Role; country?: string | null };
+        token.role = userWithRole.role;
+        token.country = userWithRole.country;
+      }
+      return token;
+    },
+  },
+};
+
