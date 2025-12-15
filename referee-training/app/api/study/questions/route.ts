@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const lawNumber = searchParams.get("lawNumber");
+    const readStatus = searchParams.get("readStatus"); // "read", "unread", or "all"
+
+    // Build the filter for questions
+    const questionFilter: any = {
+      type: "LOTG_TEXT",
+      isActive: true,
+    };
+
+    // Filter by law number if provided
+    if (lawNumber && lawNumber !== "all") {
+      questionFilter.lawNumber = parseInt(lawNumber);
+    }
+
+    // Get all questions
+    const questions = await prisma.question.findMany({
+      where: questionFilter,
+      include: {
+        answerOptions: {
+          orderBy: { order: "asc" },
+        },
+        category: true,
+      },
+      orderBy: [
+        { lawNumber: "asc" },
+        { createdAt: "asc" },
+      ],
+    });
+
+    // Get user's study progress for these questions
+    const questionIds = questions.map((q) => q.id);
+    const studyProgress = questionIds.length > 0
+      ? await prisma.studyProgress.findMany({
+          where: {
+            userId: session.user.id,
+            questionId: { in: questionIds },
+          },
+        })
+      : [];
+
+    // Create a map for quick lookup
+    const progressMap = new Map(
+      studyProgress.map((sp) => [sp.questionId, sp])
+    );
+
+    // Combine questions with progress
+    let questionsWithProgress = questions.map((q) => {
+      const progress = progressMap.get(q.id);
+      return {
+        ...q,
+        isRead: progress?.isRead ?? false,
+        readAt: progress?.readAt ?? null,
+      };
+    });
+
+    // Filter by read status if provided
+    if (readStatus === "read") {
+      questionsWithProgress = questionsWithProgress.filter((q) => q.isRead);
+    } else if (readStatus === "unread") {
+      questionsWithProgress = questionsWithProgress.filter((q) => !q.isRead);
+    }
+
+    return NextResponse.json({
+      questions: questionsWithProgress,
+      total: questionsWithProgress.length,
+    });
+  } catch (error) {
+    console.error("Error fetching study questions:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch study questions" },
+      { status: 500 }
+    );
+  }
+}
+

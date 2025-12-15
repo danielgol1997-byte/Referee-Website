@@ -11,6 +11,19 @@ type CreateSessionParams = {
   mandatoryTestId?: string;
 };
 
+/**
+ * Fisher-Yates shuffle algorithm for true randomization
+ * This ensures uniform distribution unlike Array.sort()
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export async function createTestSession({
   userId,
   type,
@@ -30,22 +43,58 @@ export async function createTestSession({
     throw new Error("Category not found");
   }
 
-  const questionWhere: Prisma.QuestionWhereInput = { type, categoryId: category.id };
-  if (lawNumbers?.length) {
-    questionWhere.lawNumber = { in: lawNumbers };
+  let selected: any[] = [];
+
+  // Check if this is a mandatory test with specific question IDs
+  if (mandatoryTestId) {
+    const mandatoryTest = await prisma.mandatoryTest.findUnique({
+      where: { id: mandatoryTestId },
+    });
+
+    // If test has specific question IDs, use those (question-specific test)
+    if (mandatoryTest?.questionIds && mandatoryTest.questionIds.length > 0) {
+      // Question-specific test: use the exact questions, but randomize their order
+      const specificQuestions = await prisma.question.findMany({
+        where: {
+          id: { in: mandatoryTest.questionIds },
+        },
+        include: { answerOptions: true },
+      });
+
+      if (specificQuestions.length === 0) {
+        throw new Error("No questions found for this test.");
+      }
+
+      // Randomize the order of the specific questions
+      selected = shuffleArray(specificQuestions);
+    }
   }
 
-  const allQuestions = await prisma.question.findMany({
-    where: questionWhere,
-    include: { answerOptions: true },
-  });
+  // If no specific questions, select randomly from the pool
+  if (selected.length === 0) {
+    const questionWhere: Prisma.QuestionWhereInput = { 
+      type, 
+      categoryId: category.id,
+      isActive: true 
+    };
+    
+    if (lawNumbers?.length) {
+      questionWhere.lawNumber = { in: lawNumbers };
+    }
 
-  if (allQuestions.length === 0) {
-    throw new Error("No questions available for this category.");
+    const allQuestions = await prisma.question.findMany({
+      where: questionWhere,
+      include: { answerOptions: true },
+    });
+
+    if (allQuestions.length === 0) {
+      throw new Error("No questions available for this category.");
+    }
+
+    // Use Fisher-Yates shuffle for true randomization
+    const shuffled = shuffleArray(allQuestions);
+    selected = shuffled.slice(0, totalQuestions);
   }
-
-  const shuffled = allQuestions.sort(() => 0.5 - Math.random());
-  const selected = shuffled.slice(0, totalQuestions);
 
   const session = await prisma.testSession.create({
     data: {

@@ -1060,7 +1060,7 @@ export function LawSnippetsCarousel() {
         setCurrentIndex((prev) => (prev + 1) % lawSnippets.length);
         setIsAnimating(false);
       }, 500);
-    }, 10000);
+    }, 6000);
 
     return () => clearInterval(interval);
   }, [isPaused]);

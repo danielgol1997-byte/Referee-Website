@@ -229,3 +229,16 @@ model UserTestCompletion {
 
   @@unique([userId, mandatoryTestId])
 }
+
+model StudyProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  questionId  String
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId, isRead])
+}

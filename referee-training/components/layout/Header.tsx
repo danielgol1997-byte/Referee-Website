@@ -56,7 +56,7 @@ export function Header() {
   }, [session, status]);
 
   return (
-    <header className="sticky top-0 z-40 glass border-b border-accent/10">
+    <header className="sticky top-0 z-40 bg-dark-900/95 backdrop-blur-md border-b border-accent/10">
       {/* Accent line at top */}
       <div className="accent-line-thin" />
       

@@ -156,27 +156,38 @@ async function createQuestions() {
     ];
 
     for (const q of lotgQuestions) {
-      const created = await prisma.question.create({
-        data: {
-          type: QuestionType.LOTG_TEXT,
-          categoryId: lotgCategory.id,
-          lawNumber: q.lawNumber ?? null,
+      // Check if question already exists to prevent duplicates
+      const existingQuestion = await prisma.question.findFirst({
+        where: {
           text: q.text,
-          explanation: q.explanation,
-          answerOptions: {
-            create: q.answers.map((a, idx) => ({
-              label: a.label,
-              code: `OPT_${idx}`,
-              isCorrect: a.isCorrect,
-              order: idx,
-            })),
+          categoryId: lotgCategory.id,
+          lawNumber: q.lawNumber
+        }
+      });
+      
+      if (!existingQuestion) {
+        const created = await prisma.question.create({
+          data: {
+            type: QuestionType.LOTG_TEXT,
+            categoryId: lotgCategory.id,
+            lawNumber: q.lawNumber ?? null,
+            text: q.text,
+            explanation: q.explanation,
+            answerOptions: {
+              create: q.answers.map((a, idx) => ({
+                label: a.label,
+                code: `OPT_${idx}`,
+                isCorrect: a.isCorrect,
+                order: idx,
+              })),
+            },
           },
-        },
-      });
-      await prisma.question.update({
-        where: { id: created.id },
-        data: { difficulty: 1 },
-      });
+        });
+        await prisma.question.update({
+          where: { id: created.id },
+          data: { difficulty: 1 },
+        });
+      }
     }
   }
 
