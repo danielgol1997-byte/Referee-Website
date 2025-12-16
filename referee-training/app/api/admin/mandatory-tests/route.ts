@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       isActive = true,
       isMandatory = false,
       isUserGenerated = false,
+      includeVar = false,
     } = body ?? {};
 
     // Only super admins can create mandatory tests
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
         isActive,
         isMandatory,
         isUserGenerated,
+        includeVar,
         createdById: session.user.id,
       },
       include: { category: true },

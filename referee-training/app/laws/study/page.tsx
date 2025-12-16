@@ -18,7 +18,7 @@ export default function StudyModePage() {
           </Link>
         </div>
         
-        <h1 className="text-3xl font-bold text-white">Study Mode</h1>
+        <h1 className="text-3xl font-bold text-premium">Study Mode</h1>
       </div>
 
       {/* Study Viewer */}

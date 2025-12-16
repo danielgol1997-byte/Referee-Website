@@ -3,8 +3,8 @@ import Link from "next/link";
 const footerLinks = [
   { label: "Laws of the Game", href: "/laws" },
   { label: "Practice", href: "/practice" },
-  { label: "Library", href: "/library" },
-  { label: "My Training", href: "/my-training" },
+  { label: "Video Library", href: "/library" },
+  { label: "Stats", href: "/stats" },
 ];
 
 export function Footer() {

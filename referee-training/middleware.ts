@@ -47,7 +47,7 @@ export const config = {
     "/laws/:path*",
     "/practice/:path*",
     "/library/:path*",
-    "/my-training",
+    "/stats",
     "/admin/:path*",
     "/super-admin/:path*",
   ],

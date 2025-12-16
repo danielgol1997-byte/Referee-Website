@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { QuotesCarousel } from "@/components/QuotesCarousel";
 
@@ -60,8 +61,8 @@ function PreLoginPage() {
             </p>
             
             <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight tracking-tight">
-              <span className="text-accent">LAWS OF THE GAME</span>
-              <span className="block mt-2 text-white/90">Training Platform</span>
+              <span className="text-premium-accent">LAWS OF THE GAME</span>
+              <span className="block mt-2 text-white/90 text-premium">Training Platform</span>
             </h1>
             
             <p className="text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
@@ -111,6 +112,8 @@ function PreLoginPage() {
   );
 }
 
+import { CategoryCard } from "@/components/ui/tilt-card";
+
 // Post-login dashboard
 function PostLoginPage() {
   const practiceCategories = [
@@ -118,62 +121,43 @@ function PostLoginPage() {
       title: "Laws of the Game Test", 
       href: "/laws/test", 
       description: "Text-based multiple choice practice with instant explanations.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      )
+      gif: "/logo/whistle-laws.webp", // Using webp as per Header.tsx
+      backgroundImage: "/card-backgrounds/laws-bg.png"
     },
     { 
       title: "Referees Practice", 
       href: "/practice", 
       description: "Video challenges for Offside, Handball, DOGSO/SPA, and more.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      )
+      gif: "/logo/whistle-practice-new.gif",
+      backgroundImage: "/card-backgrounds/referee-practice-bg.png"
     },
     { 
       title: "VAR Practice", 
       href: "/practice/var", 
       description: "Referee decision + VAR recommendation scenarios.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      )
+      gif: "/logo/whistle-var-liquid.gif",
+      backgroundImage: "/card-backgrounds/var-bg.png"
     },
     { 
       title: "A.R. Practice", 
       href: "/practice/ar", 
       description: "Offside and teamwork clips for assistant referees.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-        </svg>
-      )
+      gif: "/logo/whistle-ar-liquid.gif",
+      backgroundImage: "/card-backgrounds/ar-bg.png"
     },
     { 
-      title: "Library", 
+      title: "Video Library", 
       href: "/library", 
       description: "Conceptual guides for handball, offside, DOGSO/SPA.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      )
+      gif: "/logo/whistle-library-liquid.gif",
+      backgroundImage: "/card-backgrounds/video-library-bg.png"
     },
     { 
-      title: "My Training", 
-      href: "/my-training", 
+      title: "Stats", 
+      href: "/stats", 
       description: "Assignments, recent scores, and category progress.",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      )
+      gif: "/logo/whistle-training-liquid.gif",
+      backgroundImage: "/card-backgrounds/stats-bg.png"
     },
   ];
 
@@ -220,30 +204,16 @@ function PostLoginPage() {
       {/* Quick Actions Section */}
       <section className="relative py-12 bg-dark-800/40">
         <div className="mx-auto max-w-screen-xl px-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {practiceCategories.map((item) => (
-              <Link 
-                key={item.href} 
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {practiceCategories.map((item, idx) => (
+              <CategoryCard
+                key={item.href}
                 href={item.href}
-                className="group relative card p-6 hover:border-accent/20 transition-all duration-300 backdrop-blur-sm"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-accent/5 flex items-center justify-center text-accent/80 group-hover:bg-accent/10 transition-colors">
-                    {item.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white group-hover:text-accent transition-colors mb-2">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm text-text-secondary">
-                      {item.description}
-                    </p>
-                  </div>
-                  <svg className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </Link>
+                title={item.title}
+                gif={item.gif}
+                index={idx}
+                backgroundImage={item.backgroundImage}
+              />
             ))}
           </div>
         </div>

@@ -35,6 +35,7 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(0);
@@ -68,6 +69,7 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
   const isFirst = current === 0;
   const isLast = current === questions.length - 1;
   const answeredCount = Object.keys(answers).filter(k => answers[k].selectedOptionId).length;
+  const allAnswered = answeredCount === questions.length;
 
   const handleSelectAnswer = (optionId: string) => {
     if (!currentQuestion) return;
@@ -151,7 +153,7 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
     return -1;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
     // Check if all questions are answered
     const firstIncomplete = findFirstIncompleteQuestion();
     if (firstIncomplete !== -1) {
@@ -167,6 +169,11 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
       return;
     }
 
+    // Show confirmation
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
@@ -191,6 +198,10 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCancelSubmit = () => {
+    setShowConfirmation(false);
   };
 
   if (loading) {
@@ -270,8 +281,11 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
                     }
                   `}
                   style={{
+                    animationName: 'slideInFromLeft',
+                    animationDuration: '0.4s',
+                    animationTimingFunction: 'ease-out',
                     animationDelay: `${idx * 50}ms`,
-                    animation: 'slideInFromLeft 0.4s ease-out',
+                    animationFillMode: 'both',
                   }}
                   onClick={() => handleSelectAnswer(option.id)}
                 >
@@ -414,7 +428,8 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
             </svg>
           </button>
           
-          {!isLast ? (
+          {/* Show Next button if not on last question AND not all answered yet */}
+          {!isLast && !allAnswered && (
             <button
               onClick={goNext}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-40 p-3 rounded-full bg-dark-900/90 border border-dark-600 text-white hover:bg-dark-800 hover:border-accent/30 hover:scale-110 transition-all shadow-lg backdrop-blur-sm"
@@ -423,19 +438,19 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
-          ) : (
+          )}
+
+          {/* Show Submit button if all questions are answered */}
+          {allAnswered && !showConfirmation && (
             <div
-              onClick={handleSubmit}
+              onClick={handleSubmitClick}
               className={`
                 absolute right-0 top-1/2 -translate-y-1/2 z-40
                 flex items-center gap-2 px-4 py-2 rounded-lg
                 bg-gradient-to-r from-accent via-cyan-400 to-accent
                 hover:opacity-90 shadow-lg shadow-accent/30
                 transition-all cursor-pointer
-                ${submitting || answeredCount < questions.length 
-                  ? 'opacity-50 cursor-pointer' 
-                  : ''
-                }
+                ${submitting ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
               {submitting ? (
@@ -451,6 +466,41 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
                   <span className="text-dark-900 font-medium">Submit Test</span>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Show Confirmation buttons if confirmation is active */}
+          {showConfirmation && (
+            <div
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200"
+            >
+              <button
+                onClick={handleCancelSubmit}
+                className="px-4 py-2 rounded-lg bg-dark-700 text-white font-medium border-2 border-dark-600 hover:border-accent/50 hover:bg-dark-600 transition-all shadow-lg"
+              >
+                Not yet
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                disabled={submitting}
+                className={`
+                  px-4 py-2 rounded-lg
+                  bg-gradient-to-r from-accent via-cyan-400 to-accent
+                  text-dark-900 font-medium
+                  hover:opacity-90 shadow-lg shadow-accent/30
+                  transition-all
+                  ${submitting ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+              >
+                {submitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-dark-900 border-t-transparent rounded-full animate-spin" />
+                    <span>Submitting...</span>
+                  </div>
+                ) : (
+                  'Yes, submit'
+                )}
+              </button>
             </div>
           )}
         </div>

@@ -19,8 +19,8 @@ const navItems = [
   { href: "/practice", label: "Referees practice" },
   { href: "/practice/var", label: "VAR practice" },
   { href: "/practice/ar", label: "A.R. practice" },
-  { href: "/library", label: "Library" },
-  { href: "/my-training", label: "My training" },
+  { href: "/library", label: "Video Library" },
+  { href: "/stats", label: "Stats" },
 ];
 
 export function Header() {
@@ -33,7 +33,7 @@ export function Header() {
     ? "/logo/whistle-laws.webp"
     : pathname.startsWith('/library')
     ? "/logo/whistle-library-liquid.gif"
-    : pathname.startsWith('/my-training')
+    : pathname.startsWith('/stats')
     ? "/logo/whistle-training-liquid.gif"
     : pathname.startsWith('/practice/var')
     ? "/logo/whistle-var-liquid.gif"
@@ -56,11 +56,17 @@ export function Header() {
   }, [session, status]);
 
   return (
-    <header className="sticky top-0 z-40 bg-dark-900/95 backdrop-blur-md border-b border-accent/10">
-      {/* Accent line at top */}
-      <div className="accent-line-thin" />
+    <header className="sticky top-0 z-40 backdrop-blur-xl bg-dark-900/75 border-b border-white/5 shadow-lg shadow-black/20 supports-[backdrop-filter]:bg-dark-900/60">
+      {/* Glass sheen effect */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
       
-      <div className="mx-auto flex max-w-screen-xl items-center px-6 py-4 gap-8">
+      {/* Top accent glow */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/50 to-transparent shadow-[0_0_10px_rgba(232,224,154,0.5)]" />
+      
+      {/* Bottom accent glow - subtle */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
+      
+      <div className="relative mx-auto flex max-w-screen-xl items-center px-6 py-4 gap-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-4 group">
           <div className="w-[88px] h-[88px] flex items-center justify-center relative -my-4">

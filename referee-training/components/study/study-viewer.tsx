@@ -55,6 +55,7 @@ export function StudyViewer() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [lawFilter, setLawFilter] = useState<number[]>([]); // Array of selected law numbers
   const [readFilter, setReadFilter] = useState<string>("all");
+  const [includeVar, setIncludeVar] = useState(false);
   const [isLawDropdownOpen, setIsLawDropdownOpen] = useState(false);
   const lawDropdownRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -134,6 +135,7 @@ export function StudyViewer() {
         params.append("lawNumbers", lawFilter.join(","));
       }
       if (readFilter !== "all") params.append("readStatus", readFilter);
+      if (includeVar) params.append("includeVar", "true");
 
       const res = await fetch(`/api/study/questions?${params}`, {
         signal: abortController.signal,
@@ -178,7 +180,7 @@ export function StudyViewer() {
         setLoading(false);
       }
     }
-  }, [lawFilter, readFilter]);
+  }, [lawFilter, readFilter, includeVar]);
 
   useEffect(() => {
     fetchQuestions();
@@ -443,7 +445,30 @@ export function StudyViewer() {
 
           <div className="flex-1" />
 
-          {/* Reset Button */}
+          {/* VAR Toggle Switch */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-text-secondary cursor-pointer select-none" htmlFor="includeVar">
+              Include VAR
+            </label>
+            <button
+              id="includeVar"
+              type="button"
+              onClick={() => setIncludeVar(!includeVar)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-dark-900 ${
+                includeVar ? "bg-cyan-500" : "bg-dark-600"
+              }`}
+              role="switch"
+              aria-checked={includeVar}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                  includeVar ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Mark All as Unread Button */}
           <button
             onClick={handleResetAll}
             className="px-4 py-2 rounded-lg bg-dark-800 border border-cyan-500/20 text-text-secondary hover:text-white hover:border-cyan-500/50 transition-all cursor-pointer flex items-center gap-2"
@@ -451,7 +476,7 @@ export function StudyViewer() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Reset Progress
+            Mark all as unread
           </button>
         </div>
       </div>

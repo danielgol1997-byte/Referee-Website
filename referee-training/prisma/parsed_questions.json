@@ -1,0 +1,255 @@
+[
+  {
+    "text": "Team A plays a pass along the ground into the opponents'\r\npenalty area. An attacker from Team A, who is in an offside\r\nposition and close to a defender from Team B, clearly\r\nmoves towards the ball and then allows it to go through\r\ntheir legs. The attacker's movement affects the defender\r\nwho is unsure what will happen to the ball; the ball goes to\r\nanother Team A player who scores. What is the correct\r\ndecision?",
+    "explanation": "If the attacker's action clearly impacted the ability of the\r\ndefender to play the ball, this is considered interfering with\r\nan opponent' and therefore an offside offence, even if the\r\nattacker did not play the ball. The referee must disallow the\r\ngoal and award an indirect free kick to the defending team.",
+    "lawNumbers": [],
+    "answerOptions": [
+      {
+        "label": "Dropped ball",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": true
+      },
+      {
+        "label": "Direct free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Play continues",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "Play is restarted with a dropped ball for Team A. After the\r\nball touches the ground, a Team A player touches it several\r\ntimes with their feet, runs into the opponents' penalty area,\r\nand is recklessly tackled by a Team B defender. What is the\r\ncorrect decision?",
+    "explanation": "The player receiving the dropped ball can dribble or continue\r\nplaying the ball, with no limit to the number of touches. At\r\nthe time of the tackle, the ball was in play, so the\r\nreferee awards a penalty kick. Since the foul was reckless,\r\nthe defender is cautioned (yellow card) for\r\nunsporting behaviour.",
+    "lawNumbers": [
+      8,
+      12,
+      14
+    ],
+    "answerOptions": [
+      {
+        "label": "Corner kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Penalty kick",
+        "isCorrect": true
+      },
+      {
+        "label": "Award the goal",
+        "isCorrect": false
+      },
+      {
+        "label": "Play continues",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "The ball goes out of play while two players are challenging\r\nfor it near the touchline. The assistant referee indicates that\r\nthe throw-in is awarded to Team A but a Team B player\r\nquickly picks up the ball and throws it onto the field before\r\nthe referee intervenes. What is the correct decision?",
+    "explanation": "The throw-in is retaken by Team A from the same position.\r\nThere is no disciplinary sanction for the Team B player.",
+    "lawNumbers": [
+      6,
+      15
+    ],
+    "answerOptions": [
+      {
+        "label": "Retake the restart",
+        "isCorrect": true
+      },
+      {
+        "label": "Direct free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Play continues",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "When the ball is slowly heading out for a corner kick, an\r\nattacking team player picks it up with their hands while it is\r\nstill on the field of play, close to the goal line. What is the\r\ncorrect decision if no other player has the opportunity to\r\ntouch the ball before it leaves the field?",
+    "explanation": "The referee awards a direct free kick to the defending team\r\nbecause the attacking player deliberately handled the ball\r\nwhile it was still in play; the player is not cautioned.",
+    "lawNumbers": [
+      12
+    ],
+    "answerOptions": [
+      {
+        "label": "Penalty kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Play continues",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Direct free kick",
+        "isCorrect": true
+      }
+    ]
+  },
+  {
+    "text": "Team A is leading by one goal a few minutes before the end\r\nof the second half. While the ball is in play, a player from\r\nTeam A uses significant force to deliberately kick the ball\r\nover the touchline, despite not being under pressure from\r\nany opponent. What is the correct decision?",
+    "explanation": "A throw-in is awarded to Team B. The Laws of the Game do\r\nnot identify the player's behaviour as a yellow card offence,\r\nespecially as it cannot be considered delaying the restart of\r\nplay because the ball was in play when it was kicked.\r\nHowever, the referee must make correct allowance for the\r\ntime lost when determining the amount of additional time.",
+    "lawNumbers": [
+      7,
+      12
+    ],
+    "answerOptions": [
+      {
+        "label": "Dropped ball",
+        "isCorrect": false
+      },
+      {
+        "label": "Retake the restart",
+        "isCorrect": false
+      },
+      {
+        "label": "Yellow card (Caution)",
+        "isCorrect": true
+      },
+      {
+        "label": "Award the goal",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "A midfielder plays a through ball towards two team-mates:\r\na winger in an onside position (who controls the ball) and\r\nan attacker in an offside position (who does not move\r\ntowards the ball and does not interfere with any opponent).\r\nBoth players then run into the opponents' penalty area, and\r\nthe winger passes the ball to the attacker, who is now in an\r\nonside position. What is the correct decision if the attacker\r\nscores a goal?",
+    "explanation": "The attacker who was initially in an offside position did not\r\ncommit an offside offence when the ball went to and was\r\ninitially played by the winger (their team-mate). After that, a\r\nnew phase of play started, and the attacker was then onside\r\nwhen the ball was passed to them, so the referee awards the",
+    "lawNumbers": [
+      11
+    ],
+    "answerOptions": [
+      {
+        "label": "See explanation for correct ruling",
+        "isCorrect": true
+      },
+      {
+        "label": "Penalty kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal kick",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "A goalkeeper catches the ball inside their penalty area and\r\nprepares to make a long kick, while an opposing attacker is\r\na few metres away, walking with their back to the\r\ngoalkeeper. After the ball is kicked by the goalkeeper, it\r\nrebounds off the attacker and goes into the goal. What is\r\nthe correct decision?",
+    "explanation": "The referee awards the goal because the attacker was not\r\nacting in a way to prevent the goalkeeper from releasing the\r\nball (they had their back to the goalkeeper).",
+    "lawNumbers": [
+      12
+    ],
+    "answerOptions": [
+      {
+        "label": "Direct free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Award the goal",
+        "isCorrect": true
+      },
+      {
+        "label": "Penalty kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Dropped ball",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "A defender from Team A kicks the ball backwards to their\r\ngoalkeeper. The pass is unsuccessful as the ball deflects\r\noff an opponent from Team B and then goes to a Team B\r\nattacker who has remained in an offside position since the\r\ndefender kicked the ball. The attacker controls the ball and\r\nscores a goal. What is the correct decision?",
+    "explanation": "The referee disallows the goal and awards an indirect free\r\nkick to Team A for offside. It does not matter whether the\r\nball went from one Team B player to another Team B player\r\n(who was in an offside position) accidentally or deliberately.",
+    "lawNumbers": [
+      11
+    ],
+    "answerOptions": [
+      {
+        "label": "Play continues",
+        "isCorrect": false
+      },
+      {
+        "label": "Penalty kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": true
+      },
+      {
+        "label": "Direct free kick",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "After the referee awards a free kick against Team A, the\r\ncaptain approaches the referee and shows dissent while\r\nthe referee is explaining the decision. What action can be\r\ntaken against the captain?",
+    "explanation": "Referees' decisions must always be respected and a team\r\ncaptain can be punished for dissent, just like any other\r\nplayer. Therefore, if a captain fails to interact with the referee\r\nin a respectful manner, a caution (yellow card) is issued.",
+    "lawNumbers": [
+      5,
+      12
+    ],
+    "answerOptions": [
+      {
+        "label": "Retake the restart",
+        "isCorrect": false
+      },
+      {
+        "label": "Award the goal",
+        "isCorrect": false
+      },
+      {
+        "label": "Yellow card (Caution)",
+        "isCorrect": true
+      },
+      {
+        "label": "Red card (Sending-off)",
+        "isCorrect": false
+      }
+    ]
+  },
+  {
+    "text": "An attacker is in an offside position at the moment a team-\r\nmate takes a direct free kick. While the ball is in the air, the\r\nattacker jumps to head it but does not touch the ball. The\r\nattacker's movement confuses the goalkeeper, who fails to\r\nmake a save, and the ball enters the goal. What is the\r\ncorrect decision?",
+    "explanation": "The attacker who was in an offside position has an impact\r\non the goalkeeper by clearly attempting to play the ball when\r\nit is close. This is an offside offence, so the referee awards\r\nan indirect free kick to the goalkeeper's team.",
+    "lawNumbers": [
+      11
+    ],
+    "answerOptions": [
+      {
+        "label": "Retake the restart",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick",
+        "isCorrect": true
+      },
+      {
+        "label": "Direct free kick",
+        "isCorrect": false
+      },
+      {
+        "label": "Penalty kick",
+        "isCorrect": false
+      }
+    ]
+  }
+]

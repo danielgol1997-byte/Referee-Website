@@ -9,7 +9,7 @@ import Link from "next/link";
 export default async function MyTrainingPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    redirect("/auth/login?callbackUrl=/my-training");
+    redirect("/auth/login?callbackUrl=/stats");
   }
 
   const userId = session.user.id;
@@ -45,7 +45,7 @@ export default async function MyTrainingPage() {
       {/* Header */}
       <div>
         <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
-        <h1 className="text-3xl font-bold text-text-primary">My Training</h1>
+        <h1 className="text-3xl font-bold text-premium">Stats</h1>
         <p className="mt-2 text-text-secondary">Track your progress and performance</p>
       </div>
 

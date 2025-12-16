@@ -21,7 +21,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: { q?
       {/* Header */}
       <div>
         <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
-        <h1 className="text-3xl font-bold text-text-primary">Library</h1>
+        <h1 className="text-3xl font-bold text-premium">Video Library</h1>
         <p className="mt-2 text-text-secondary">
           Conceptual guides for Handball, Offside, DOGSO/SPA, Simulation, and more
         </p>

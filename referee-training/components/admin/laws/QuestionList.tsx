@@ -12,6 +12,7 @@ const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
 
 const LAW_FILTER_OPTIONS = [
   { value: "", label: "All" },
+  { value: "unassigned", label: "No Law Assigned" },
   ...LAW_NUMBERS.map((num) => ({ value: num, label: `${num}` })),
 ];
 
@@ -48,8 +49,23 @@ type EditForm = {
   answers: EditFormAnswer[];
 };
 
+const VAR_FILTER_OPTIONS = [
+  { value: "exclude", label: "Exclude VAR" },
+  { value: "include", label: "Include VAR" },
+  { value: "only", label: "Only VAR" },
+];
+
+const EXPLANATION_FILTER_OPTIONS = [
+  { value: "all", label: "All Explanations" },
+  { value: "blank", label: "Blank/Show Answer" },
+  { value: "placeholder", label: "Placeholder Answers" },
+];
+
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
-  const [lawFilter, setLawFilter] = useState<number | "">("");
+  const [lawFilter, setLawFilter] = useState<number | string>("");
+  const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [varFilter, setVarFilter] = useState<string>("exclude");
+  const [explanationFilter, setExplanationFilter] = useState<string>("all");
   const [questions, setQuestions] = useState<QuestionWithRelations[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +74,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [perPage, setPerPage] = useState(10);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingQuestionId, setViewingQuestionId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     lawNumbers: [],
     text: "",
@@ -72,6 +89,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   });
   const [isEditLawDropdownOpen, setIsEditLawDropdownOpen] = useState(false);
   const editLawDropdownRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const PER_PAGE_OPTIONS = [
     { value: 10, label: "10" },
@@ -86,6 +104,13 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       const params = new URLSearchParams();
       params.set("type", "LOTG_TEXT");
       if (lawFilter !== "") params.set("lawNumber", String(lawFilter));
+      
+      if (varFilter === "include") params.set("includeVar", "true");
+      if (varFilter === "only") params.set("onlyVar", "true");
+      
+      if (explanationFilter === "blank") params.set("blankExplanation", "true");
+      if (explanationFilter === "placeholder") params.set("placeholderAnswers", "true");
+      
       params.set("categorySlug", "laws-of-the-game");
       const res = await fetch(`/api/admin/questions?${params.toString()}`);
       const data = await res.json();
@@ -242,24 +267,58 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     };
   }, [isEditLawDropdownOpen]);
 
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        // Clicked outside modal - close it
+        setViewingQuestionId(null);
+      }
+    };
+
+    if (viewingQuestionId) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [viewingQuestionId]);
+
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, lawFilter]);
+  }, [refreshKey, lawFilter, varFilter, explanationFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
     : questions;
 
-  const totalPages = Math.ceil(filtered.length / perPage);
+  // Sort by law numbers if sort order is set
+  const sortedQuestions = lawSortOrder ? [...filtered].sort((a, b) => {
+    const aLaws = (a as any).lawNumbers || [];
+    const bLaws = (b as any).lawNumbers || [];
+    
+    // Get the first (lowest) law number for each question, or use 999 if no laws
+    const aFirstLaw = aLaws.length > 0 ? Math.min(...aLaws) : 999;
+    const bFirstLaw = bLaws.length > 0 ? Math.min(...bLaws) : 999;
+    
+    if (lawSortOrder === "asc") {
+      return aFirstLaw - bFirstLaw;
+    } else {
+      return bFirstLaw - aFirstLaw;
+    }
+  }) : filtered;
+
+  const totalPages = Math.ceil(sortedQuestions.length / perPage);
   const startIndex = (currentPage - 1) * perPage;
   const endIndex = startIndex + perPage;
-  const paginatedQuestions = filtered.slice(startIndex, endIndex);
+  const paginatedQuestions = sortedQuestions.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, lawFilter, perPage]);
+  }, [search, lawFilter, varFilter, explanationFilter, perPage, lawSortOrder]);
 
   const isEditFormValid = () => {
     return (
@@ -279,9 +338,24 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
               <label className="text-sm text-text-secondary">Law</label>
               <Select
                 value={lawFilter}
-                onChange={(val) => setLawFilter(val === "" ? "" : Number(val))}
+                onChange={(val) => {
+                  setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
+                  setLawSortOrder(null); // Reset sort order when manually changing filter
+                }}
                 options={LAW_FILTER_OPTIONS}
-                className="w-32"
+                className="w-48"
+              />
+              <Select
+                value={varFilter}
+                onChange={(val) => setVarFilter(val)}
+                options={VAR_FILTER_OPTIONS}
+                className="w-40"
+              />
+              <Select
+                value={explanationFilter}
+                onChange={(val) => setExplanationFilter(val)}
+                options={EXPLANATION_FILTER_OPTIONS}
+                className="w-48"
               />
             </div>
             <Input
@@ -295,8 +369,8 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
           {/* Results info and per-page selector */}
           <div className="flex items-center justify-between text-sm text-text-secondary border-t border-dark-600 pt-3">
             <span>
-              {filtered.length > 0 ? (
-                <>Showing {startIndex + 1}-{Math.min(endIndex, filtered.length)} of {filtered.length}</>
+              {sortedQuestions.length > 0 ? (
+                <>Showing {startIndex + 1}-{Math.min(endIndex, sortedQuestions.length)} of {sortedQuestions.length}</>
               ) : (
                 <>No questions found</>
               )}
@@ -317,7 +391,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       {loading && <p className="text-sm text-text-secondary">Loading questions…</p>}
       {error && <p className="text-sm text-status-danger">{error}</p>}
 
-      {!loading && filtered.length === 0 ? (
+      {!loading && sortedQuestions.length === 0 ? (
         <p className="text-sm text-text-secondary">No questions found.</p>
       ) : (
         <>
@@ -325,8 +399,25 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
             <table className="min-w-full divide-y divide-dark-600">
               <thead className="bg-dark-800/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80">
-                    Law
+                  <th 
+                    className={cn(
+                      "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer transition-colors",
+                      lawSortOrder 
+                        ? "text-accent" 
+                        : "text-accent/80 hover:text-accent"
+                    )}
+                    onClick={() => {
+                      if (lawSortOrder === null || lawSortOrder === "desc") {
+                        // First click (or after descending): Sort ascending (low to high)
+                        setLawSortOrder("asc");
+                      } else {
+                        // Second click: Sort descending (high to low)
+                        setLawSortOrder("desc");
+                      }
+                    }}
+                    title={lawSortOrder === "asc" ? "Click to sort descending (high to low)" : "Click to sort ascending (low to high)"}
+                  >
+                    Law {lawSortOrder === "asc" ? "↑" : lawSortOrder === "desc" ? "↓" : ""}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80">
                     Question
@@ -423,15 +514,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                                   )}
                                 </div>
                               </div>
-                              <div className="space-y-1">
-                                <label className="text-sm font-medium text-white">Difficulty</label>
-                                <Select
-                                  value={editForm.difficulty}
-                                  onChange={(val) => setEditForm({ ...editForm, difficulty: Number(val) })}
-                                  options={DIFFICULTY_OPTIONS}
-                                  className="w-full"
-                                />
-                              </div>
                             </div>
 
                             <div className="space-y-1">
@@ -507,10 +589,22 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                   }
 
                   return (
-                    <tr key={q.id} className={cn(
-                      "hover:bg-dark-800/30 transition-colors",
-                      !isActive && "opacity-50"
-                    )}>
+                    <tr 
+                      key={q.id} 
+                      className={cn(
+                        "hover:bg-dark-800/30 transition-colors cursor-pointer",
+                        !isActive && "opacity-50",
+                        viewingQuestionId === q.id && "bg-dark-800/50"
+                      )}
+                      onClick={(e) => {
+                        // Don't trigger if clicking on action buttons
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('svg')) {
+                          return;
+                        }
+                        setViewingQuestionId(viewingQuestionId === q.id ? null : q.id);
+                      }}
+                    >
                       <td className="px-4 py-3 text-sm text-white whitespace-nowrap">
                         {(q as any).lawNumbers?.length > 0 
                           ? (q as any).lawNumbers.join(", ") 
@@ -545,7 +639,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-white">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => startEdit(q)}
                             disabled={actionLoading === q.id}
@@ -656,6 +750,117 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
         </svg>
         Refresh
       </Button>
+
+      {/* Question View Modal - Temporary Popup */}
+      {viewingQuestionId && (() => {
+        const viewingQuestion = questions.find(q => q.id === viewingQuestionId);
+        if (!viewingQuestion) return null;
+        const isActive = viewingQuestion.isActive !== false;
+
+        return (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => {
+              // Close when clicking on backdrop
+              setViewingQuestionId(null);
+            }}
+          >
+            <div 
+              ref={modalRef}
+              className="relative w-full max-w-lg max-h-[70vh] overflow-y-auto rounded-xl border-2 border-accent/40 bg-dark-800 shadow-2xl shadow-black/50 animate-in zoom-in-95 duration-150"
+              onClick={(e) => {
+                // Stop propagation to prevent closing when clicking inside modal
+                e.stopPropagation();
+                // Close when clicking on the modal content itself
+                setViewingQuestionId(null);
+              }}
+            >
+              <div className="p-4 space-y-3">
+                {/* Question */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(viewingQuestion as any).lawNumbers?.length > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">
+                        {(viewingQuestion as any).lawNumbers.length === 1
+                          ? `Law ${(viewingQuestion as any).lawNumbers[0]}`
+                          : `Laws ${(viewingQuestion as any).lawNumbers.join(", ")}`
+                        }
+                      </span>
+                    )}
+                    {isActive ? (
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">Active</span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-dark-700 text-text-secondary rounded-full">Inactive</span>
+                    )}
+                  </div>
+                  <h3 className="text-sm font-medium text-white leading-relaxed">
+                    {viewingQuestion.text}
+                  </h3>
+                </div>
+
+                {/* Explanation */}
+                <div className="space-y-1.5 pt-1.5 border-t border-dark-600">
+                  <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Explanation</h4>
+                  <div className="p-2.5 rounded-lg bg-dark-900/50 border border-dark-600">
+                    <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-4">
+                      {viewingQuestion.explanation || <span className="italic text-text-muted">No explanation provided</span>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Answer Options */}
+                <div className="space-y-1.5 pt-1.5 border-t border-dark-600">
+                  <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Answers</h4>
+                  <div className="space-y-1">
+                    {viewingQuestion.answerOptions
+                      .sort((a, b) => (a.order || 0) - (b.order || 0))
+                      .map((opt, idx) => (
+                        <div
+                          key={opt.id}
+                          className={cn(
+                            "p-2 rounded-lg border transition-all",
+                            opt.isCorrect
+                              ? "bg-accent/10 border-accent/30"
+                              : "bg-dark-900/30 border-dark-600"
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={cn(
+                              "flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-semibold",
+                              opt.isCorrect
+                                ? "bg-accent border-accent text-dark-900"
+                                : "bg-dark-800 border-dark-600 text-text-secondary"
+                            )}>
+                              {String.fromCharCode(65 + idx)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-xs leading-relaxed break-words",
+                                opt.isCorrect ? "text-white font-medium" : "text-text-secondary"
+                              )}>
+                                {opt.label}
+                              </p>
+                            </div>
+                            {opt.isCorrect && (
+                              <svg className="w-3.5 h-3.5 flex-shrink-0 text-accent mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Close hint */}
+                <div className="pt-1.5 border-t border-dark-600">
+                  <p className="text-xs text-center text-text-muted italic">Click anywhere to close</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

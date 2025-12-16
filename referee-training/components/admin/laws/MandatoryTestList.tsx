@@ -24,6 +24,7 @@ type MandatoryTest = {
   dueDate?: string | null;
   isActive: boolean;
   isMandatory: boolean;
+  includeVar?: boolean;
   completions?: Array<{ id: string }>;
 };
 

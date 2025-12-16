@@ -13,7 +13,7 @@ const NAV_POSITIONS: Record<string, number> = {
   "/practice/var": 3, // VAR practice
   "/practice/ar": 4, // A.R. practice
   "/library": 5,
-  "/my-training": 6,
+  "/stats": 6,
 };
 
 export function SlidingBackground() {

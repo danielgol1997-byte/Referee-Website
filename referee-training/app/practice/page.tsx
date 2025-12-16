@@ -57,7 +57,7 @@ export default async function PracticePage() {
           <p className="text-sm uppercase tracking-widest text-cyan-500 mb-2">
             Referees practice
           </p>
-          <h1 className="text-3xl font-bold text-text-primary">
+          <h1 className="text-3xl font-bold text-premium">
             Video challenges by category
           </h1>
           <p className="mt-3 text-text-secondary max-w-2xl">

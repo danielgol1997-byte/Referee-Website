@@ -22,6 +22,7 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   const [passingScore, setPassingScore] = useState<number | undefined>(undefined);
   const [dueDate, setDueDate] = useState<string>("");
   const [isMandatory, setIsMandatory] = useState(false);
+  const [includeVar, setIncludeVar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
         dueDate: dueDate || null,
         isActive: true, // Always active when creating
         isMandatory: isMandatory, // This determines mandatory vs pool
+        includeVar,
       };
       
       const res = await fetch("/api/admin/mandatory-tests", {
@@ -83,6 +85,7 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       setPassingScore(undefined);
       setDueDate("");
       setIsMandatory(false);
+      setIncludeVar(false);
       setSelectedQuestionIds([]);
       setSuccess(isMandatory ? "Mandatory test created" : "Test created and added to pool");
       onCreated?.();
@@ -176,7 +179,32 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       </div>
 
       <div className="space-y-1">
-        <label className="text-sm font-medium text-white">Question Selection</label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-white">Question Selection</label>
+          {selectionMode === "random" && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-white cursor-pointer" htmlFor="var-toggle">
+                Include VAR
+              </label>
+              <button
+                id="var-toggle"
+                type="button"
+                onClick={() => setIncludeVar(!includeVar)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900 ${
+                  includeVar ? "bg-accent" : "bg-dark-600"
+                }`}
+                role="switch"
+                aria-checked={includeVar}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                    includeVar ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer group">
             <input
@@ -221,12 +249,12 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
         <>
           <div className="space-y-1">
             <label className="text-sm font-medium text-white">Select laws</label>
-            <p className="text-xs text-text-secondary mb-2">Questions will be randomly selected from these laws</p>
+            <p className="text-xs text-text-secondary mb-2">Leave empty to include all laws. Questions will be randomly selected from selected laws (or all laws if none selected)</p>
             <MultiSelect
               value={lawNumbers}
               onChange={setLawNumbers}
               options={LAW_OPTIONS}
-              placeholder="Add Law"
+              placeholder="Select laws (or leave empty for all)"
             />
           </div>
 
@@ -296,7 +324,6 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
           disabled={
             loading || 
             !title || 
-            (selectionMode === "random" && lawNumbers.length === 0) ||
             (selectionMode === "specific" && selectedQuestionIds.length === 0)
           }
         >

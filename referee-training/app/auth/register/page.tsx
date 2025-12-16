@@ -78,9 +78,9 @@ export default function RegisterPage() {
             Professional Training Platform
           </p>
           
-          <h1 className="text-4xl lg:text-5xl font-bold text-text-primary leading-tight mb-6">
+          <h1 className="text-4xl lg:text-5xl font-bold text-premium leading-tight mb-6">
             Start Your
-            <span className="block gradient-text">Referee Journey</span>
+            <span className="block text-premium-accent">Referee Journey</span>
           </h1>
           
           <ul className="space-y-4 text-text-secondary">
@@ -106,7 +106,7 @@ export default function RegisterPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <span>Learn key concepts with our comprehensive library</span>
+              <span>Learn key concepts with our comprehensive video library</span>
             </li>
           </ul>
         </div>

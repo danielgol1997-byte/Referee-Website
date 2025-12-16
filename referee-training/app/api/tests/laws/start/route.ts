@@ -15,6 +15,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const lawNumbersRaw = body?.lawNumbers;
     const mandatoryTestId = body?.mandatoryTestId as string | undefined;
+    const includeVarProvided = body?.includeVar !== undefined;
+    const includeVar = body?.includeVar === true;
     
     // If mandatoryTestId is provided, fetch the test to get its totalQuestions
     let totalQuestions = typeof body?.totalQuestions === "number" 
@@ -31,6 +33,7 @@ export async function POST(req: Request) {
         : undefined;
 
     // If mandatoryTestId is provided, use the test's configuration
+    let finalIncludeVar = includeVar;
     if (mandatoryTestId) {
       const test = await prisma.mandatoryTest.findUnique({
         where: { id: mandatoryTestId },
@@ -42,8 +45,13 @@ export async function POST(req: Request) {
           totalQuestions = test.totalQuestions;
         }
         // Use test's lawNumbers if not explicitly provided in request
-        if (!lawNumbers && test.lawNumbers.length > 0) {
-          lawNumbers = test.lawNumbers;
+        // Empty array means all laws, so pass undefined
+        if (!lawNumbers) {
+          lawNumbers = test.lawNumbers.length > 0 ? test.lawNumbers : undefined;
+        }
+        // Use test's includeVar if not explicitly provided in request
+        if (!includeVarProvided) {
+          finalIncludeVar = test.includeVar;
         }
       }
     }
@@ -59,6 +67,7 @@ export async function POST(req: Request) {
       totalQuestions: finalTotalQuestions,
       lawNumbers,
       mandatoryTestId,
+      includeVar: finalIncludeVar,
     });
 
     return NextResponse.json({ session: testSession, questions });

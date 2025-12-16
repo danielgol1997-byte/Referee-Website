@@ -119,6 +119,7 @@ model Question {
   text           String
   explanation    String
   difficulty     Int            @default(1) // 1-3
+  isVar          Boolean        @default(false)
   isActive       Boolean        @default(true)
   answerOptions  AnswerOption[]
   testAnswers    TestAnswer[]
@@ -206,6 +207,7 @@ model MandatoryTest {
   isMandatory     Boolean               @default(true)  // Type: true=mandatory, false=pool
   isUserGenerated Boolean               @default(false) // User-created vs admin-created
   questionIds     String[]              // For manually selected specific questions
+  includeVar      Boolean               @default(false) // Include VAR questions
   createdById     String
   createdBy       User                  @relation(fields: [createdById], references: [id])
   testSessions    TestSession[]

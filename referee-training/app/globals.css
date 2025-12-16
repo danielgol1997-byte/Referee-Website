@@ -164,10 +164,10 @@ body {
   height: 100%;
   background: linear-gradient(
     to bottom,
-    rgba(37, 45, 56, 0.80) 0%,
-    rgba(37, 45, 56, 0.88) 30%,
-    rgba(37, 45, 56, 0.92) 60%,
-    rgba(37, 45, 56, 0.96) 100%
+    rgba(37, 45, 56, 0.72) 0%,
+    rgba(37, 45, 56, 0.80) 30%,
+    rgba(37, 45, 56, 0.84) 60%,
+    rgba(37, 45, 56, 0.88) 100%
   );
   z-index: 1;
   pointer-events: none;
@@ -304,4 +304,20 @@ a {
 
 a:hover {
   color: var(--color-accent);
+}
+
+/* ============================================
+   Text Utilities
+   ============================================ */
+
+@layer utilities {
+  /* Premium 3D Text Effect */
+  .text-premium {
+    @apply bg-gradient-to-b from-white via-white/95 to-white/70 bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)];
+  }
+
+  /* Accent Gradient Text */
+  .text-premium-accent {
+    @apply bg-gradient-to-b from-accent via-accent/90 to-accent/70 bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)];
+  }
 }

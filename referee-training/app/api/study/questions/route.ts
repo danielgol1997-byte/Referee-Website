@@ -14,12 +14,18 @@ export async function GET(req: NextRequest) {
     const lawNumber = searchParams.get("lawNumber"); // Legacy single law support
     const lawNumbers = searchParams.get("lawNumbers"); // New multiple laws support
     const readStatus = searchParams.get("readStatus"); // "read", "unread", or "all"
+    const includeVar = searchParams.get("includeVar") === "true";
 
     // Build the filter for questions
     const questionFilter: any = {
       type: "LOTG_TEXT",
       isActive: true,
     };
+
+    // Filter out VAR questions by default unless requested
+    if (!includeVar) {
+      questionFilter.isVar = false;
+    }
 
     // Filter by law numbers if provided (support both single and multiple)
     if (lawNumbers) {

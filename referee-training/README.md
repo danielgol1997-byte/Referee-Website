@@ -28,8 +28,8 @@ That's it! First run installs everything automatically (takes 3-5 minutes), then
 - 🎥 **Referees Practice** - Video challenges (Offside, Handball, DOGSO/SPA, etc.)
 - 📹 **VAR Practice** - Decision scenarios with VAR recommendations
 - 🚩 **A.R. Practice** - Assistant referee training
-- 📚 **Library** - Reference materials and frameworks
-- 📊 **My Training** - Personal progress dashboard
+- 📚 **Video Library** - Reference materials and frameworks
+- 📊 **Stats** - Personal progress dashboard
 - 📈 **Admin Stats** - Performance analytics (Admin role)
 
 ---

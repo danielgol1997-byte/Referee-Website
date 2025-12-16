@@ -23,7 +23,7 @@ export default async function LibraryArticlePage({ params }: { params: Promise<{
     <div className="mx-auto max-w-screen-md px-6 py-10 space-y-6">
       <div>
         <p className="text-sm uppercase tracking-[0.12em] text-neutrals-textOnLightSecondary">
-          {article.category?.name ?? "Library"}
+          {article.category?.name ?? "Video Library"}
         </p>
         <h1 className="text-3xl font-bold text-neutrals-textOnLightPrimary">{article.title}</h1>
       </div>

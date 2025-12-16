@@ -26,8 +26,20 @@ export async function GET(req: Request) {
   const categorySlug = searchParams.get("categorySlug");
   const type = searchParams.get("type") as QuestionType | null;
   const ids = searchParams.get("ids");
+  const includeVar = searchParams.get("includeVar") === "true";
+  const onlyVar = searchParams.get("onlyVar") === "true";
+  const blankExplanation = searchParams.get("blankExplanation") === "true";
+  const placeholderAnswers = searchParams.get("placeholderAnswers") === "true";
 
   const where: Prisma.QuestionWhereInput = {};
+
+  // VAR filtering
+  if (onlyVar) {
+    where.isVar = true;
+  } else if (!includeVar) {
+    where.isVar = false;
+  }
+
 
   // Filter by specific IDs if provided
   if (ids) {
@@ -45,10 +57,14 @@ export async function GET(req: Request) {
       where.lawNumbers = { hasSome: lawNumberArray };
     }
   } else if (lawNumber) {
-    // Legacy support for single lawNumber parameter
-    const parsed = Number(lawNumber);
-    if (!Number.isNaN(parsed)) {
-      where.lawNumbers = { has: parsed };
+    if (lawNumber === "unassigned") {
+      where.lawNumbers = { equals: [] };
+    } else {
+      // Legacy support for single lawNumber parameter
+      const parsed = Number(lawNumber);
+      if (!Number.isNaN(parsed)) {
+        where.lawNumbers = { has: parsed };
+      }
     }
   }
 
@@ -65,11 +81,30 @@ export async function GET(req: Request) {
     }
   }
 
-  const questions = await prisma.question.findMany({
+  let questions = await prisma.question.findMany({
     where,
     include: { answerOptions: true, category: true },
     orderBy: { updatedAt: "desc" },
   });
+
+  // Filter for blank/show answer explanations (post-fetch filtering)
+  if (blankExplanation) {
+    questions = questions.filter((q) => {
+      const explanation = q.explanation?.trim() || "";
+      const hasBlankExplanation = explanation === "";
+      const hasShowAnswerOnly = explanation.toLowerCase() === "show answer";
+      return hasBlankExplanation || hasShowAnswerOnly;
+    });
+  }
+
+  // Filter for placeholder answers (post-fetch filtering)
+  if (placeholderAnswers) {
+    questions = questions.filter((q) => {
+      return q.answerOptions.some((opt) =>
+        opt.label.toLowerCase().includes("see explanation for correct ruling")
+      );
+    });
+  }
 
   return NextResponse.json({ questions });
 }

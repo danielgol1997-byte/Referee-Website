@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
-  // Default to home page "/" instead of "/my-training" to allow users to access any page
+  // Default to home page "/" instead of "/stats" to allow users to access any page
   const callbackUrl = params.get("callbackUrl") ?? "/";
 
   const [email, setEmail] = useState("");
@@ -73,9 +73,9 @@ export default function LoginPage() {
             Professional Training Platform
           </p>
           
-          <h1 className="text-4xl lg:text-5xl font-bold text-text-primary leading-tight mb-6">
+          <h1 className="text-4xl lg:text-5xl font-bold text-premium leading-tight mb-6">
             Master the Art of
-            <span className="block gradient-text">Match Officiating</span>
+            <span className="block text-premium-accent">Match Officiating</span>
           </h1>
           
           <ul className="space-y-4 text-text-secondary">

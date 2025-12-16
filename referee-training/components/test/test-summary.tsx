@@ -75,42 +75,51 @@ export function TestSummary({
   return (
     <div className="space-y-8">
       {/* Results Header Card */}
-      <div className="relative rounded-xl border border-dark-600 bg-gradient-to-br from-dark-700 to-dark-800 overflow-hidden">
-        {/* Decorative gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-transparent" />
+      <div className="relative rounded-xl border border-dark-600 bg-dark-800/80 backdrop-blur-sm overflow-hidden shadow-xl">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/20 via-transparent to-cyan-400/20" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-accent/5 to-transparent animate-pulse" style={{ animationDuration: '3s' }} />
+        </div>
         
-        <div className="relative p-8 md:p-12 text-center space-y-6">
+        {/* Glowing border effect */}
+        <div className="absolute inset-0 rounded-xl opacity-50">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+        </div>
+        
+        <div className="relative p-6 md:p-8 text-center space-y-4">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-dark-900/50 border border-dark-600">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-900/80 border border-accent/30 shadow-lg shadow-accent/10">
             <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-sm font-medium text-text-secondary uppercase tracking-wider">
+            <span className="text-xs font-medium text-white uppercase tracking-wider">
               Test Complete
             </span>
           </div>
 
           {/* Score Display */}
-          <div className="space-y-3">
-            <h1 className="text-5xl md:text-6xl font-bold text-white">
+          <div className="space-y-2">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-white to-text-secondary bg-clip-text text-transparent">
               {score} <span className="text-text-secondary">/ {data.session.totalQuestions}</span>
             </h1>
-            <p className="text-xl text-text-secondary">
+            <p className="text-lg text-text-secondary">
               {percentage}% Correct
             </p>
           </div>
 
           {/* Pass/Fail Indicator */}
           {passed ? (
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-status-success/20 border border-status-success/30">
-              <svg className="w-5 h-5 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-status-success/10 border border-status-success/30 shadow-lg shadow-status-success/10">
+              <svg className="w-4 h-4 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-semibold text-status-success">Great work!</span>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-500/20 border border-amber-500/30">
-              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <span className="text-sm font-semibold text-amber-400">Keep practicing!</span>
@@ -118,11 +127,11 @@ export function TestSummary({
           )}
 
           {/* Action Button */}
-          <div className="pt-4">
+          <div className="pt-2">
             <Button 
               asChild 
               size="lg"
-              className="gap-2 bg-gradient-to-r from-accent via-cyan-400 to-accent hover:opacity-90"
+              className="gap-2 bg-dark-700 text-white border-2 border-accent/30 hover:border-accent hover:bg-dark-600 hover:scale-105 shadow-lg hover:shadow-accent/20 transition-all"
             >
               <Link href={restartHref}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

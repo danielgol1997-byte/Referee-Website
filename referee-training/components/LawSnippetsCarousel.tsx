@@ -1084,16 +1084,12 @@ export function LawSnippetsCarousel() {
   const currentSnippet = lawSnippets[currentIndex];
 
   return (
-    <div className="relative">
-      {/* Animated background glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 animate-pulse" 
-           style={{ animationDuration: '4s' }} />
-      
+    <div className="relative h-full">
       {/* Liquid glass card */}
       <div 
-        className="relative backdrop-blur-xl bg-dark-700/40 border border-accent/20 rounded-xl shadow-lg p-6 
+        className="relative h-full backdrop-blur-xl bg-dark-700/40 border border-accent/20 rounded-xl shadow-lg p-6 
                     hover:border-accent/30 transition-all duration-500
-                    hover:shadow-[0_0_30px_rgba(232,224,154,0.15)]"
+                    hover:shadow-[0_0_30px_rgba(232,224,154,0.15)] flex flex-col items-center justify-center text-center"
         onMouseEnter={() => {
           setIsPaused(true);
           setIsHovered(true);
@@ -1103,71 +1099,83 @@ export function LawSnippetsCarousel() {
           setIsHovered(false);
         }}
       >
+        {/* Animated background glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 animate-pulse rounded-xl" 
+             style={{ animationDuration: '4s' }} />
+
         {/* Shimmer effect overlay */}
-        <div className="absolute inset-0 rounded-xl overflow-hidden">
+        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
           <div className="absolute inset-0 -translate-x-full animate-[shimmer_8s_ease-in-out_infinite] 
                           bg-gradient-to-r from-transparent via-white/3 to-transparent" />
         </div>
 
         {/* Content */}
-        <div className={`relative transition-all duration-500 ${isAnimating ? 'opacity-0 -translate-x-8' : 'opacity-100 translate-x-0'}`}>
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <a 
-                href={currentSnippet.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1 rounded-lg bg-accent/10 border border-accent/30 
-                          hover:bg-accent/20 hover:border-accent/50 hover:scale-105
-                          transition-all duration-200 group"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span className="text-xs font-bold text-accent tracking-wider group-hover:text-accent-dark">
-                  {currentSnippet.law}
-                </span>
-              </a>
-              <h3 className="text-lg font-semibold text-white">
-                {currentSnippet.title}
-              </h3>
-            </div>
-          </div>
+        <div className={`relative w-full transition-all duration-500 ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
           
-          <p className="text-text-secondary leading-relaxed mb-4">
-            {currentSnippet.snippet}
-          </p>
+          {/* Law Badge */}
+          <div className="mb-3">
+            <a 
+              href={currentSnippet.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-3 py-1 rounded-full bg-accent/10 border border-accent/30 
+                        text-xs font-bold text-accent tracking-widest uppercase
+                        hover:bg-accent/20 hover:border-accent/50 hover:scale-105 hover:text-white
+                        transition-all duration-300 shadow-glow"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {currentSnippet.law}
+            </a>
+          </div>
 
-          {/* Navigation Controls - Hidden by default, shown on hover */}
-          <div 
-            className={`flex items-center justify-between transition-all duration-300 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <button
-                onClick={goToPrev}
-                className="p-2 rounded-lg bg-dark-600/50 hover:bg-dark-600 text-accent/70 hover:text-accent transition-all duration-200"
-                aria-label="Previous snippet"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                onClick={goToNext}
-                className="p-2 rounded-lg bg-dark-600/50 hover:bg-dark-600 text-accent/70 hover:text-accent transition-all duration-200"
-                aria-label="Next snippet"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+          <h3 className="text-xl md:text-2xl font-bold text-white mb-3 tracking-tight">
+            {currentSnippet.title}
+          </h3>
+          
+          <div className="relative mb-4">
+            <p className="text-base md:text-lg text-text-secondary leading-relaxed px-4 font-medium line-clamp-2 md:line-clamp-3">
+              {currentSnippet.snippet}
+            </p>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center gap-3 mt-auto justify-center">
+            <button
+              onClick={goToPrev}
+              className="p-2 rounded-full bg-dark-600/50 border border-white/5 hover:bg-accent hover:text-dark-900 hover:border-accent text-text-muted transition-all duration-300 group"
+              aria-label="Previous snippet"
+            >
+              <svg className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            {/* Dots */}
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    i === 1 ? "w-6 bg-accent" : "w-1 bg-dark-600"
+                  }`} 
+                />
+              ))}
             </div>
+
+            <button
+              onClick={goToNext}
+              className="p-2 rounded-full bg-dark-600/50 border border-white/5 hover:bg-accent hover:text-dark-900 hover:border-accent text-text-muted transition-all duration-300 group"
+              aria-label="Next snippet"
+            >
+              <svg className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Bottom accent line with animation */}
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent/50 to-transparent 
-                        opacity-50" />
+        {/* Bottom accent line */}
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
       </div>
     </div>
   );

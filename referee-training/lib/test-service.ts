@@ -9,6 +9,7 @@ type CreateSessionParams = {
   lawNumbers?: number[];
   totalQuestions?: number;
   mandatoryTestId?: string;
+  includeVar?: boolean;
 };
 
 /**
@@ -32,6 +33,7 @@ export async function createTestSession({
   lawNumbers,
   totalQuestions = 10,
   mandatoryTestId,
+  includeVar = false,
 }: CreateSessionParams) {
   const where: Prisma.CategoryWhereInput = {};
   if (categorySlug) where.slug = categorySlug;
@@ -79,6 +81,11 @@ export async function createTestSession({
       categoryId: category.id,
       isActive: true 
     };
+    
+    // Filter out VAR questions by default unless requested
+    if (!includeVar) {
+      questionWhere.isVar = false;
+    }
     
     // Filter by lawNumbers - questions that have ANY of the specified law numbers
     if (lawNumbers?.length) {

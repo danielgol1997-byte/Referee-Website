@@ -6,7 +6,7 @@ const TABS = [
   { label: "Referees Practice", value: "referee" },
   { label: "VAR Practice", value: "var" },
   { label: "AR Practice", value: "ar" },
-  { label: "Library", value: "library" },
+  { label: "Video Library", value: "library" },
 ];
 
 export default async function SuperAdminPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
@@ -49,10 +49,10 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
           </p>
         )}
         
-        {/* Coming Soon: Library */}
+        {/* Coming Soon: Video Library */}
         {activeTab === "library" && (
           <p className="text-sm text-text-secondary">
-            Library management will let you create and order articles, snippets, and reference material.
+            Video Library management will let you create and order articles, snippets, and reference material.
           </p>
         )}
       </div>

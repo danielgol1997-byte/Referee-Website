@@ -13,6 +13,7 @@ type MandatoryTest = {
   passingScore?: number | null;
   dueDate?: string | null;
   isActive: boolean;
+  includeVar?: boolean;
 };
 
 export function MandatoryTestsSection() {
@@ -52,9 +53,10 @@ export function MandatoryTestsSection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lawNumbers: test.lawNumbers,
+          lawNumbers: test.lawNumbers.length > 0 ? test.lawNumbers : undefined,
           totalQuestions: test.totalQuestions,
           mandatoryTestId: test.id,
+          includeVar: test.includeVar,
         }),
       });
       const data = await res.json();

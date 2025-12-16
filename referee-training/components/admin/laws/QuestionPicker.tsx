@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
@@ -27,9 +27,46 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
   const [search, setSearch] = useState("");
   const [lawFilter, setLawFilter] = useState<number | "">("");
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSelected, setLoadingSelected] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const fetchSelectedQuestions = useCallback(async () => {
+    if (selectedQuestionIds.length === 0) {
+      setSelectedQuestions([]);
+      return;
+    }
+
+    setLoadingSelected(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("type", "LOTG_TEXT");
+      params.set("categorySlug", "laws-of-the-game");
+      params.set("ids", selectedQuestionIds.join(","));
+      
+      const res = await fetch(`/api/admin/questions?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok) {
+        // Preserve the order of selectedQuestionIds
+        const ordered = selectedQuestionIds
+          .map((id) => data.questions?.find((q: Question) => q.id === id))
+          .filter(Boolean) as Question[];
+        setSelectedQuestions(ordered);
+      }
+    } catch (err) {
+      console.error("Failed to load selected questions", err);
+    } finally {
+      setLoadingSelected(false);
+    }
+  }, [selectedQuestionIds]);
+
+  // Fetch selected questions automatically when selectedQuestionIds changes
+  useEffect(() => {
+    fetchSelectedQuestions();
+  }, [fetchSelectedQuestions]);
 
   useEffect(() => {
     if (isOpen) {
@@ -83,50 +120,80 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
     onQuestionsChange(selectedQuestionIds.filter((id) => id !== questionId));
   };
 
-  const selectedQuestions = questions.filter((q) => selectedQuestionIds.includes(q.id));
-
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
   return (
     <div className="space-y-3">
-      {/* Selected Questions Display */}
-      {selectedQuestions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-text-secondary font-medium">
-            {selectedQuestions.length} question{selectedQuestions.length !== 1 ? 's' : ''} selected
-          </p>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {selectedQuestions.map((question) => (
-              <div
-                key={question.id}
-                className="flex items-start gap-3 p-3 rounded-lg bg-dark-800 border border-dark-600"
+      {/* Selected Questions Display - Always visible when there are selected questions */}
+      {selectedQuestionIds.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-dark-600 bg-dark-800/50 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsSelectedCollapsed(!isSelectedCollapsed)}
+            className="w-full flex items-center justify-between p-3 hover:bg-dark-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <svg 
+                className={`w-4 h-4 text-text-secondary transition-transform ${isSelectedCollapsed ? '' : 'rotate-90'}`}
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
               >
-                <div className="flex-1 text-sm text-white line-clamp-2">
-                  {question.lawNumbers && question.lawNumbers.length > 0 && (
-                    <span className="text-xs text-accent font-medium mr-2">
-                      {question.lawNumbers.length === 1 
-                        ? `Law ${question.lawNumbers[0]}`
-                        : `Laws ${question.lawNumbers.join(", ")}`
-                      }
-                    </span>
-                  )}
-                  {question.text}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <p className="text-sm font-medium text-white">
+                {selectedQuestionIds.length} question{selectedQuestionIds.length !== 1 ? 's' : ''} selected
+              </p>
+            </div>
+            {loadingSelected && (
+              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+            )}
+          </button>
+          
+          {!isSelectedCollapsed && (
+            <div className="px-3 pb-3 space-y-2 max-h-60 overflow-y-auto">
+              {loadingSelected ? (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-text-secondary">Loading questions...</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeQuestion(question.id)}
-                  className="flex-shrink-0 p-1 text-text-secondary hover:text-status-danger transition-colors"
-                  title="Remove question"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+              ) : selectedQuestions.length > 0 ? (
+                selectedQuestions.map((question) => (
+                  <div
+                    key={question.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-dark-900 border border-dark-600"
+                  >
+                    <div className="flex-1 text-sm text-white line-clamp-2">
+                      {question.lawNumbers && question.lawNumbers.length > 0 && (
+                        <span className="text-xs text-accent font-medium mr-2">
+                          {question.lawNumbers.length === 1 
+                            ? `Law ${question.lawNumbers[0]}`
+                            : `Laws ${question.lawNumbers.join(", ")}`
+                          }
+                        </span>
+                      )}
+                      {question.text}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeQuestion(question.id)}
+                      className="flex-shrink-0 p-1 text-text-secondary hover:text-status-danger transition-colors"
+                      title="Remove question"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-text-secondary">Loading selected questions...</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -140,7 +207,7 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          {selectedQuestions.length > 0 ? 'Add More Questions' : 'Add Questions'}
+          {selectedQuestionIds.length > 0 ? 'Add More Questions' : 'Add Questions'}
         </button>
       ) : (
         <div className="space-y-3 p-4 rounded-lg border border-accent/20 bg-dark-800/50">
