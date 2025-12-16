@@ -111,7 +111,7 @@ model VideoClip {
 model Question {
   id             String         @id @default(cuid())
   type           QuestionType
-  lawNumber      Int?
+  lawNumbers     Int[]          @default([])
   categoryId     String
   category       Category       @relation(fields: [categoryId], references: [id])
   videoClipId    String?

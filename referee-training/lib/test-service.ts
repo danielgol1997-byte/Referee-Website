@@ -54,9 +54,11 @@ export async function createTestSession({
     // If test has specific question IDs, use those (question-specific test)
     if (mandatoryTest?.questionIds && mandatoryTest.questionIds.length > 0) {
       // Question-specific test: use the exact questions, but randomize their order
+      // Filter for active questions only, consistent with regular question selection
       const specificQuestions = await prisma.question.findMany({
         where: {
           id: { in: mandatoryTest.questionIds },
+          isActive: true,
         },
         include: { answerOptions: true },
       });
@@ -78,8 +80,9 @@ export async function createTestSession({
       isActive: true 
     };
     
+    // Filter by lawNumbers - questions that have ANY of the specified law numbers
     if (lawNumbers?.length) {
-      questionWhere.lawNumber = { in: lawNumbers };
+      questionWhere.lawNumbers = { hasSome: lawNumbers };
     }
 
     const allQuestions = await prisma.question.findMany({

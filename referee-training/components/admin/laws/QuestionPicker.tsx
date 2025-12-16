@@ -15,7 +15,7 @@ const QUESTIONS_PER_PAGE = 20;
 type Question = {
   id: string;
   text: string;
-  lawNumber?: number | null;
+  lawNumbers?: number[];
 };
 
 interface QuestionPickerProps {
@@ -104,8 +104,13 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                 className="flex items-start gap-3 p-3 rounded-lg bg-dark-800 border border-dark-600"
               >
                 <div className="flex-1 text-sm text-white line-clamp-2">
-                  {question.lawNumber && (
-                    <span className="text-xs text-accent font-medium mr-2">Law {question.lawNumber}</span>
+                  {question.lawNumbers && question.lawNumbers.length > 0 && (
+                    <span className="text-xs text-accent font-medium mr-2">
+                      {question.lawNumbers.length === 1 
+                        ? `Law ${question.lawNumbers[0]}`
+                        : `Laws ${question.lawNumbers.join(", ")}`
+                      }
+                    </span>
                   )}
                   {question.text}
                 </div>
@@ -212,8 +217,13 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-1 text-sm text-white">
-                        {question.lawNumber && (
-                          <span className="text-xs text-accent font-medium mr-2">Law {question.lawNumber}</span>
+                        {question.lawNumbers && question.lawNumbers.length > 0 && (
+                          <span className="text-xs text-accent font-medium mr-2">
+                            {question.lawNumbers.length === 1 
+                              ? `Law ${question.lawNumbers[0]}`
+                              : `Laws ${question.lawNumbers.join(", ")}`
+                            }
+                          </span>
                         )}
                         <span className="line-clamp-2">{question.text}</span>
                       </div>

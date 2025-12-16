@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const lawNumber = searchParams.get("lawNumber");
+    const lawNumber = searchParams.get("lawNumber"); // Legacy single law support
+    const lawNumbers = searchParams.get("lawNumbers"); // New multiple laws support
     const readStatus = searchParams.get("readStatus"); // "read", "unread", or "all"
 
     // Build the filter for questions
@@ -20,9 +21,20 @@ export async function GET(req: NextRequest) {
       isActive: true,
     };
 
-    // Filter by law number if provided
-    if (lawNumber && lawNumber !== "all") {
-      questionFilter.lawNumber = parseInt(lawNumber);
+    // Filter by law numbers if provided (support both single and multiple)
+    if (lawNumbers) {
+      // Multiple law numbers (comma-separated)
+      const lawNumberArray = lawNumbers.split(",").map((num) => parseInt(num.trim())).filter((num) => !isNaN(num));
+      if (lawNumberArray.length > 0) {
+        // Find questions that contain ANY of the specified law numbers
+        questionFilter.lawNumbers = { hasSome: lawNumberArray };
+      }
+    } else if (lawNumber && lawNumber !== "all") {
+      // Legacy single law number support
+      const parsedLawNumber = parseInt(lawNumber);
+      if (!isNaN(parsedLawNumber)) {
+        questionFilter.lawNumbers = { has: parsedLawNumber };
+      }
     }
 
     // Get all questions
@@ -35,7 +47,6 @@ export async function GET(req: NextRequest) {
         category: true,
       },
       orderBy: [
-        { lawNumber: "asc" },
         { createdAt: "asc" },
       ],
     });

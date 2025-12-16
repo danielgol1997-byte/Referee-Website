@@ -9,7 +9,7 @@ import Link from "next/link";
 export default async function MyTrainingPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    redirect("/auth/login");
+    redirect("/auth/login?callbackUrl=/my-training");
   }
 
   const userId = session.user.id;

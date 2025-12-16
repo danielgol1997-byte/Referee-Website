@@ -1,23 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { QuestionType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
 
-const LAW_OPTIONS = [
-  { value: "", label: "Any law" },
-  ...LAW_NUMBERS.map((num) => ({ value: num, label: `Law ${num}` })),
-];
-
 type AnswerOption = { label: string; isCorrect: boolean };
 
 export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
-  const [lawNumber, setLawNumber] = useState<number | undefined>();
+  const [lawNumbers, setLawNumbers] = useState<number[]>([]);
+  const [isLawDropdownOpen, setIsLawDropdownOpen] = useState(false);
+  const lawDropdownRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
   const [explanation, setExplanation] = useState("");
   const [answers, setAnswers] = useState<AnswerOption[]>([
@@ -30,12 +26,43 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (lawDropdownRef.current && !lawDropdownRef.current.contains(event.target as Node)) {
+        setIsLawDropdownOpen(false);
+      }
+    };
+
+    if (isLawDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isLawDropdownOpen]);
+
   const updateAnswer = (idx: number, patch: Partial<AnswerOption>) => {
     setAnswers((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
   };
 
   const setCorrect = (idx: number) => {
     setAnswers((prev) => prev.map((a, i) => ({ ...a, isCorrect: i === idx })));
+  };
+
+  const toggleLaw = (lawNumber: number) => {
+    setLawNumbers((prev) => {
+      if (prev.includes(lawNumber)) {
+        return prev.filter((num) => num !== lawNumber);
+      } else {
+        return [...prev, lawNumber].sort((a, b) => a - b);
+      }
+    });
+  };
+
+  const clearAllLaws = () => {
+    setLawNumbers([]);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -50,7 +77,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
         body: JSON.stringify({
           type: QuestionType.LOTG_TEXT,
           categorySlug: "laws-of-the-game",
-          lawNumber,
+          lawNumbers,
           text,
           explanation,
           difficulty: 1,
@@ -63,7 +90,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
       }
       setText("");
       setExplanation("");
-      setLawNumber(undefined);
+      setLawNumbers([]);
       setAnswers([
         { label: "", isCorrect: true },
         { label: "", isCorrect: false },
@@ -83,12 +110,76 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="space-y-1">
-        <label className="text-sm font-medium text-white">Law number</label>
-        <Select
-          value={lawNumber ?? ""}
-          onChange={(val) => setLawNumber(val === "" ? undefined : Number(val))}
-          options={LAW_OPTIONS}
-        />
+        <label className="text-sm font-medium text-white">Law numbers (select multiple)</label>
+        <div className="relative" ref={lawDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsLawDropdownOpen(!isLawDropdownOpen)}
+            className="w-full flex items-center justify-between rounded-lg px-4 py-2.5 text-sm text-left bg-dark-900 border border-dark-600 text-white hover:border-accent/50 focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition-all"
+          >
+            <span className={lawNumbers.length === 0 ? "text-text-muted" : ""}>
+              {lawNumbers.length === 0 
+                ? "No laws selected" 
+                : lawNumbers.length === 1
+                ? `Law ${lawNumbers[0]}`
+                : `${lawNumbers.length} laws selected: ${lawNumbers.join(", ")}`
+              }
+            </span>
+            <svg 
+              className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isLawDropdownOpen ? "rotate-180" : ""}`}
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {isLawDropdownOpen && (
+            <div className="absolute top-full mt-2 z-50 w-full rounded-lg border border-dark-600 bg-dark-800 shadow-elevated max-h-60 overflow-auto">
+              <div className="p-1">
+                {lawNumbers.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={clearAllLaws}
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left text-text-secondary hover:text-white hover:bg-dark-700 border-b border-dark-600 mb-1"
+                    >
+                      <span>Clear all</span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+                
+                {LAW_NUMBERS.map((num) => {
+                  const isSelected = lawNumbers.includes(num);
+                  return (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => toggleLaw(num)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                        isSelected 
+                          ? "bg-accent/10 text-accent hover:bg-accent/20" 
+                          : "text-text-secondary hover:text-white hover:bg-dark-700"
+                      )}
+                    >
+                      <span>Law {num}</span>
+                      {isSelected && (
+                        <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1">

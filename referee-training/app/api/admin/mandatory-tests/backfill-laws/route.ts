@@ -40,13 +40,15 @@ export async function POST() {
         where: {
           id: { in: test.questionIds },
         },
-        select: { lawNumber: true },
+        select: { lawNumbers: true },
       });
 
       // Extract unique law numbers
       const uniqueLaws = new Set<number>();
       questions.forEach((q) => {
-        if (q.lawNumber) uniqueLaws.add(q.lawNumber);
+        if (q.lawNumbers && Array.isArray(q.lawNumbers)) {
+          q.lawNumbers.forEach((lawNum) => uniqueLaws.add(lawNum));
+        }
       });
 
       const lawNumbers = Array.from(uniqueLaws).sort((a, b) => a - b);

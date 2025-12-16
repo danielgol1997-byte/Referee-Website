@@ -2,6 +2,31 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Select } from "@/components/ui/select";
+import Link from "next/link";
+
+// Map law numbers to IFAB URLs (same as carousel)
+const getLawUrl = (lawNumber: number): string => {
+  const lawUrls: Record<number, string> = {
+    1: "https://www.theifab.com/laws/latest/the-field-of-play/",
+    2: "https://www.theifab.com/laws/latest/the-ball/",
+    3: "https://www.theifab.com/laws/latest/the-players/",
+    4: "https://www.theifab.com/laws/latest/the-players-equipment/",
+    5: "https://www.theifab.com/laws/latest/the-referee/",
+    6: "https://www.theifab.com/laws/latest/the-other-match-officials/",
+    7: "https://www.theifab.com/laws/latest/the-duration-of-the-match/",
+    8: "https://www.theifab.com/laws/latest/the-start-and-restart-of-play/",
+    9: "https://www.theifab.com/laws/latest/the-ball-in-and-out-of-play/",
+    10: "https://www.theifab.com/laws/latest/determining-the-outcome-of-a-match/",
+    11: "https://www.theifab.com/laws/latest/offside/",
+    12: "https://www.theifab.com/laws/latest/fouls-and-misconduct/",
+    13: "https://www.theifab.com/laws/latest/free-kicks/",
+    14: "https://www.theifab.com/laws/latest/the-penalty-kick/",
+    15: "https://www.theifab.com/laws/latest/the-throw-in/",
+    16: "https://www.theifab.com/laws/latest/the-goal-kick/",
+    17: "https://www.theifab.com/laws/latest/the-corner-kick/",
+  };
+  return lawUrls[lawNumber] || "#";
+};
 
 type AnswerOption = {
   id: string;
@@ -14,7 +39,7 @@ type Question = {
   id: string;
   text: string;
   explanation: string;
-  lawNumber: number | null;
+  lawNumbers: number[];
   answerOptions: AnswerOption[];
   isRead: boolean;
   readAt: string | Date | null;
@@ -22,29 +47,102 @@ type Question = {
 
 export function StudyViewer() {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [allLawNumbers, setAllLawNumbers] = useState<number[]>([]); // Store all available law numbers
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [lawFilter, setLawFilter] = useState<string>("all");
+  const [lawFilter, setLawFilter] = useState<number[]>([]); // Array of selected law numbers
   const [readFilter, setReadFilter] = useState<string>("all");
+  const [isLawDropdownOpen, setIsLawDropdownOpen] = useState(false);
+  const lawDropdownRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [tempPosition, setTempPosition] = useState(0);
+  const tempPositionRef = useRef(0); // Use ref to avoid effect re-runs
   const carouselRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null); // Track fetch requests
+
+  // Fetch all law numbers once on mount (for filter dropdown)
+  useEffect(() => {
+    const fetchAllLawNumbers = async () => {
+      try {
+        const res = await fetch('/api/study/questions?readStatus=all');
+        if (res.ok) {
+          const data = await res.json();
+          // Extract all unique law numbers from all questions (questions can have multiple laws)
+          const allLaws = new Set<number>();
+          data.questions.forEach((q: Question) => {
+            if (q.lawNumbers && Array.isArray(q.lawNumbers)) {
+              q.lawNumbers.forEach((lawNum: number) => allLaws.add(lawNum));
+            }
+          });
+          const numbers = Array.from(allLaws).sort((a, b) => a - b);
+          setAllLawNumbers(numbers);
+        }
+      } catch (err) {
+        console.error("Error fetching law numbers:", err);
+      }
+    };
+    fetchAllLawNumbers();
+  }, []);
+
+  // Close law dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (lawDropdownRef.current && !lawDropdownRef.current.contains(event.target as Node)) {
+        setIsLawDropdownOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsLawDropdownOpen(false);
+      }
+    };
+
+    if (isLawDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isLawDropdownOpen]);
 
   // Fetch questions
   const fetchQuestions = useCallback(async () => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (lawFilter !== "all") params.append("lawNumber", lawFilter);
+      if (lawFilter.length > 0) {
+        // Send multiple law numbers as comma-separated string
+        params.append("lawNumbers", lawFilter.join(","));
+      }
       if (readFilter !== "all") params.append("readStatus", readFilter);
 
-      const res = await fetch(`/api/study/questions?${params}`);
+      const res = await fetch(`/api/study/questions?${params}`, {
+        signal: abortController.signal,
+      });
+      
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
       
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -55,22 +153,42 @@ export function StudyViewer() {
       }
       
       const data = await res.json();
+      
+      // Check again if request was aborted before updating state
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       const questionsData = Array.isArray(data.questions) ? data.questions : [];
       setQuestions(questionsData);
       setFilteredQuestions(questionsData);
       setCurrent(0);
       setShowAnswer(false);
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error("Error fetching questions:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load questions";
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      // Only update loading state if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [lawFilter, readFilter]);
 
   useEffect(() => {
     fetchQuestions();
+    
+    // Cleanup: abort request on unmount or when dependencies change
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchQuestions]);
 
   // Ensure current index is valid when filteredQuestions changes
@@ -88,13 +206,20 @@ export function StudyViewer() {
 
   const markAsRead = async (questionId: string) => {
     try {
-      await fetch("/api/study/progress", {
+      const res = await fetch("/api/study/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionId }),
       });
       
-      // Update local state
+      // Only update local state if the request succeeded
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        console.error("Failed to mark as read:", errorData?.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      
+      // Update local state only after successful API response
       setFilteredQuestions((prev) =>
         prev.map((q) =>
           q.id === questionId ? { ...q, isRead: true, readAt: new Date() } : q
@@ -102,6 +227,7 @@ export function StudyViewer() {
       );
     } catch (error) {
       console.error("Failed to mark as read:", error);
+      // Don't update state on network errors
     }
   };
 
@@ -152,6 +278,7 @@ export function StudyViewer() {
     setDragStart(e.clientX);
     setDragOffset(0);
     setTempPosition(current);
+    tempPositionRef.current = current; // Sync ref with state
   };
 
   useEffect(() => {
@@ -165,16 +292,18 @@ export function StudyViewer() {
       const newPosition = current + fractionalOffset;
       const clampedPosition = Math.max(0, Math.min(filteredQuestions.length - 1, newPosition));
       setTempPosition(clampedPosition);
+      tempPositionRef.current = clampedPosition; // Update ref
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
-      const snappedIndex = Math.round(tempPosition);
+      const snappedIndex = Math.round(tempPositionRef.current); // Read from ref
       const finalIndex = Math.max(0, Math.min(filteredQuestions.length - 1, snappedIndex));
       setCurrent(finalIndex);
       setShowAnswer(false);
       setDragOffset(0);
       setTempPosition(finalIndex);
+      tempPositionRef.current = finalIndex; // Sync ref
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -184,7 +313,7 @@ export function StudyViewer() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragStart, current, filteredQuestions.length, tempPosition]);
+  }, [isDragging, dragStart, current, filteredQuestions.length]); // Removed tempPosition from deps
 
   if (loading) {
     return (
@@ -202,15 +331,20 @@ export function StudyViewer() {
     );
   }
 
-  // Get unique law numbers for filter
-  const lawNumbers = Array.from(
-    new Set(questions.map((q) => q.lawNumber).filter((n) => n !== null))
-  ).sort((a, b) => (a ?? 0) - (b ?? 0));
+  const toggleLaw = (lawNumber: number) => {
+    setLawFilter((prev) => {
+      if (prev.includes(lawNumber)) {
+        return prev.filter((num) => num !== lawNumber);
+      } else {
+        return [...prev, lawNumber].sort((a, b) => a - b);
+      }
+    });
+    // Keep dropdown open to allow multiple selections
+  };
 
-  const lawOptions = [
-    { value: "all", label: "All Laws" },
-    ...lawNumbers.map((num) => ({ value: String(num), label: `Law ${num}` })),
-  ];
+  const clearAllLaws = () => {
+    setLawFilter([]);
+  };
 
   const readOptions = [
     { value: "all", label: "All" },
@@ -223,14 +357,78 @@ export function StudyViewer() {
       {/* Filters */}
       <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-b from-dark-700 to-dark-800 p-6">
         <div className="flex flex-wrap items-center gap-4">
-          {/* Law Filter */}
-          <div className="w-48">
-            <Select
-              value={lawFilter}
-              onChange={(val) => setLawFilter(String(val))}
-              options={lawOptions}
-              className="[&>button]:border-cyan-500/20 [&>button]:hover:border-cyan-500/50 [&>button]:focus:border-cyan-500/50 [&>button]:focus:ring-cyan-500/20"
-            />
+          {/* Law Filter - Multi-select */}
+          <div className="relative" ref={lawDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsLawDropdownOpen(!isLawDropdownOpen)}
+              className="w-48 flex items-center justify-between rounded-lg px-4 py-2.5 text-sm text-left bg-dark-900 border border-cyan-500/20 text-white hover:border-cyan-500/50 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-200"
+            >
+              <span className={lawFilter.length === 0 ? "text-text-muted" : ""}>
+                {lawFilter.length === 0 ? "Select Laws" : `${lawFilter.length} selected`}
+              </span>
+              <svg 
+                className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isLawDropdownOpen ? "rotate-180" : ""}`}
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {isLawDropdownOpen && (
+              <div className="absolute top-full mt-2 z-50 w-48 rounded-lg border border-dark-600 bg-dark-800 shadow-elevated animate-in fade-in-0 zoom-in-95 duration-200 max-h-60 overflow-auto">
+                <div className="p-1">
+                  {/* Reset button - show when more than one law is selected */}
+                  {lawFilter.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearAllLaws();
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left text-text-secondary hover:text-white hover:bg-dark-700 border-b border-dark-600 mb-1"
+                      >
+                        <span>Reset</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                      <div className="border-b border-dark-600 mb-1" />
+                    </>
+                  )}
+                  
+                  {/* All laws with checkmarks */}
+                  {allLawNumbers.map((num) => {
+                    const isSelected = lawFilter.includes(num);
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => {
+                          toggleLaw(num);
+                        }}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left
+                          ${isSelected 
+                            ? "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20" 
+                            : "text-text-secondary hover:text-white hover:bg-dark-700"
+                          }
+                        `}
+                      >
+                        <span>Law {num}</span>
+                        {isSelected && (
+                          <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Read/Unread Filter */}
@@ -263,7 +461,7 @@ export function StudyViewer() {
           <p className="text-text-secondary mb-4">No questions found</p>
           <button
             onClick={() => {
-              setLawFilter("all");
+              setLawFilter([]);
               setReadFilter("all");
             }}
             className="px-4 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white hover:border-cyan-500/50 transition-all cursor-pointer"
@@ -296,13 +494,24 @@ export function StudyViewer() {
           {currentQuestion && (
             <div className="rounded-xl border border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden">
               <div className="p-8 space-y-6">
-                {/* Law Number Badge */}
-                {currentQuestion.lawNumber && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30">
-                    <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm font-medium text-cyan-400">Law {currentQuestion.lawNumber}</span>
+                {/* Law Number Badges */}
+                {currentQuestion.lawNumbers && currentQuestion.lawNumbers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {currentQuestion.lawNumbers.map((lawNum) => (
+                      <Link
+                        key={lawNum}
+                        href={getLawUrl(lawNum)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:scale-105 transition-all duration-200 group"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <svg className="w-4 h-4 text-cyan-400 group-hover:text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm font-medium text-cyan-400 group-hover:text-cyan-300">Law {lawNum}</span>
+                      </Link>
+                    ))}
                   </div>
                 )}
 

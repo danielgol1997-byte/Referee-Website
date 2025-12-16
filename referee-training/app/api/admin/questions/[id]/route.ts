@@ -27,6 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const {
       type,
       lawNumber,
+      lawNumbers,
       text,
       explanation,
       difficulty,
@@ -35,6 +36,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }: {
       type?: QuestionType;
       lawNumber?: number | null;
+      lawNumbers?: number[];
       text?: string;
       explanation?: string;
       difficulty?: number;
@@ -44,7 +46,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const data: Record<string, unknown> = {};
     if (type) data.type = type;
-    if (lawNumber !== undefined) data.lawNumber = lawNumber;
+    
+    // Handle lawNumbers - accept either lawNumbers array or legacy lawNumber
+    if (lawNumbers !== undefined) {
+      data.lawNumbers = Array.isArray(lawNumbers) ? lawNumbers : [];
+    } else if (lawNumber !== undefined) {
+      // Legacy support for single lawNumber
+      data.lawNumbers = lawNumber !== null ? [lawNumber] : [];
+    }
+    
     if (text) data.text = text;
     if (explanation) data.explanation = explanation;
     if (difficulty !== undefined) data.difficulty = difficulty;

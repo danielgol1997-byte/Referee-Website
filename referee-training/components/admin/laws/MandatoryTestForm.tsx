@@ -47,7 +47,9 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
           const data = await res.json();
           const uniqueLaws = new Set<number>();
           data.questions?.forEach((q: any) => {
-            if (q.lawNumber) uniqueLaws.add(q.lawNumber);
+            if (q.lawNumbers && Array.isArray(q.lawNumbers)) {
+              q.lawNumbers.forEach((lawNum: number) => uniqueLaws.add(lawNum));
+            }
           });
           extractedLawNumbers = Array.from(uniqueLaws).sort((a, b) => a - b);
         }

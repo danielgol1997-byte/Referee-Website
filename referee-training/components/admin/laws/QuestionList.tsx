@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import React from "react";
 import { Question } from "@prisma/client";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,6 @@ const LAW_FILTER_OPTIONS = [
   { value: "", label: "All" },
   ...LAW_NUMBERS.map((num) => ({ value: num, label: `${num}` })),
 ];
-
-const LAW_SELECT_OPTIONS = LAW_NUMBERS.map((num) => ({ value: num, label: `Law ${num}` }));
 
 const DIFFICULTY_OPTIONS = [
   { value: 1, label: "Easy" },
@@ -43,7 +41,7 @@ type EditFormAnswer = {
 };
 
 type EditForm = {
-  lawNumber: number | null;
+  lawNumbers: number[];
   text: string;
   explanation: string;
   difficulty: number;
@@ -61,7 +59,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
-    lawNumber: null,
+    lawNumbers: [],
     text: "",
     explanation: "",
     difficulty: 2,
@@ -72,6 +70,8 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       { label: "", isCorrect: false },
     ],
   });
+  const [isEditLawDropdownOpen, setIsEditLawDropdownOpen] = useState(false);
+  const editLawDropdownRef = useRef<HTMLDivElement>(null);
 
   const PER_PAGE_OPTIONS = [
     { value: 10, label: "10" },
@@ -140,7 +140,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const startEdit = (question: QuestionWithRelations) => {
     setEditingId(question.id);
     setEditForm({
-      lawNumber: question.lawNumber,
+      lawNumbers: (question as any).lawNumbers || [],
       text: question.text,
       explanation: question.explanation,
       difficulty: question.difficulty || 2,
@@ -153,8 +153,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const cancelEdit = () => {
     setEditingId(null);
+    setIsEditLawDropdownOpen(false);
     setEditForm({
-      lawNumber: null,
+      lawNumbers: [],
       text: "",
       explanation: "",
       difficulty: 2,
@@ -167,6 +168,19 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     });
   };
 
+  const toggleEditLaw = (lawNumber: number) => {
+    setEditForm((prev) => ({
+      ...prev,
+      lawNumbers: prev.lawNumbers.includes(lawNumber)
+        ? prev.lawNumbers.filter((num) => num !== lawNumber)
+        : [...prev.lawNumbers, lawNumber].sort((a, b) => a - b),
+    }));
+  };
+
+  const clearEditLaws = () => {
+    setEditForm((prev) => ({ ...prev, lawNumbers: [] }));
+  };
+
   const saveEdit = async (id: string) => {
     setActionLoading(id);
     try {
@@ -174,7 +188,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lawNumber: editForm.lawNumber,
+          lawNumbers: editForm.lawNumbers,
           text: editForm.text,
           explanation: editForm.explanation,
           difficulty: editForm.difficulty,
@@ -189,6 +203,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       if (!res.ok) throw new Error("Failed to update question");
       await fetchQuestions();
       setEditingId(null);
+      setIsEditLawDropdownOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update question";
       setError(message);
@@ -209,6 +224,23 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     }
     setEditForm({ ...editForm, answers: newAnswers });
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editLawDropdownRef.current && !editLawDropdownRef.current.contains(event.target as Node)) {
+        setIsEditLawDropdownOpen(false);
+      }
+    };
+
+    if (isEditLawDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEditLawDropdownOpen]);
 
   useEffect(() => {
     fetchQuestions();
@@ -322,13 +354,74 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                           <div className="space-y-4">
                             <div className="grid gap-4 md:grid-cols-3">
                               <div className="space-y-1">
-                                <label className="text-sm font-medium text-white">Law Number</label>
-                                <Select
-                                  value={editForm.lawNumber ?? ""}
-                                  onChange={(val) => setEditForm({ ...editForm, lawNumber: val === "" ? null : Number(val) })}
-                                  options={[{ value: "", label: "None" }, ...LAW_SELECT_OPTIONS]}
-                                  className="w-full"
-                                />
+                                <label className="text-sm font-medium text-white">Law Numbers (select multiple)</label>
+                                <div className="relative" ref={editLawDropdownRef}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsEditLawDropdownOpen(!isEditLawDropdownOpen)}
+                                    className="w-full flex items-center justify-between rounded-lg px-4 py-2.5 text-sm text-left bg-dark-900 border border-dark-600 text-white hover:border-accent/50 focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition-all"
+                                  >
+                                    <span className={editForm.lawNumbers.length === 0 ? "text-text-muted" : ""}>
+                                      {editForm.lawNumbers.length === 0 
+                                        ? "No laws selected" 
+                                        : editForm.lawNumbers.length === 1
+                                        ? `Law ${editForm.lawNumbers[0]}`
+                                        : `${editForm.lawNumbers.length} laws: ${editForm.lawNumbers.join(", ")}`
+                                      }
+                                    </span>
+                                    <svg 
+                                      className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isEditLawDropdownOpen ? "rotate-180" : ""}`}
+                                      fill="none" 
+                                      viewBox="0 0 24 24" 
+                                      stroke="currentColor"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                  
+                                  {isEditLawDropdownOpen && (
+                                    <div className="absolute top-full mt-2 z-50 w-full rounded-lg border border-dark-600 bg-dark-800 shadow-elevated max-h-60 overflow-auto">
+                                      <div className="p-1">
+                                        {editForm.lawNumbers.length > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={clearEditLaws}
+                                            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left text-text-secondary hover:text-white hover:bg-dark-700 border-b border-dark-600 mb-1"
+                                          >
+                                            <span>Clear all</span>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                        
+                                        {LAW_NUMBERS.map((num) => {
+                                          const isSelected = editForm.lawNumbers.includes(num);
+                                          return (
+                                            <button
+                                              key={num}
+                                              type="button"
+                                              onClick={() => toggleEditLaw(num)}
+                                              className={cn(
+                                                "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                                                isSelected 
+                                                  ? "bg-accent/10 text-accent hover:bg-accent/20" 
+                                                  : "text-text-secondary hover:text-white hover:bg-dark-700"
+                                              )}
+                                            >
+                                              <span>Law {num}</span>
+                                              {isSelected && (
+                                                <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <label className="text-sm font-medium text-white">Difficulty</label>
@@ -418,7 +511,12 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                       "hover:bg-dark-800/30 transition-colors",
                       !isActive && "opacity-50"
                     )}>
-                      <td className="px-4 py-3 text-sm text-white whitespace-nowrap">{q.lawNumber ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-white whitespace-nowrap">
+                        {(q as any).lawNumbers?.length > 0 
+                          ? (q as any).lawNumbers.join(", ") 
+                          : "—"
+                        }
+                      </td>
                       <td className="px-4 py-3 text-sm text-white">
                         <div className="line-clamp-2">{q.text}</div>
                       </td>

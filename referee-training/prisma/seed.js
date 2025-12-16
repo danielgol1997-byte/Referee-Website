@@ -132,7 +132,7 @@ async function createQuestions() {
   if (lotgCategory) {
     const lotgQuestions = [
       {
-        lawNumber: 1,
+        lawNumbers: [1],
         text: "A substitute enters the field during kicks from the penalty mark and takes a kick. What is the correct decision?",
         explanation: "Only eligible players may take part. The kick is retaken and the substitute is cautioned.",
         answers: [
@@ -143,7 +143,7 @@ async function createQuestions() {
         ],
       },
       {
-        lawNumber: 3,
+        lawNumbers: [3],
         text: "A defender denies an obvious goal-scoring opportunity with a handball in the penalty area while attempting to play the ball. What is the correct sanction?",
         explanation: "Penalty kick and caution (attempt to play the ball).",
         answers: [
@@ -161,7 +161,6 @@ async function createQuestions() {
         where: {
           text: q.text,
           categoryId: lotgCategory.id,
-          lawNumber: q.lawNumber
         }
       });
       
@@ -170,7 +169,7 @@ async function createQuestions() {
           data: {
             type: QuestionType.LOTG_TEXT,
             categoryId: lotgCategory.id,
-            lawNumber: q.lawNumber ?? null,
+            lawNumbers: q.lawNumbers || [],
             text: q.text,
             explanation: q.explanation,
             answerOptions: {

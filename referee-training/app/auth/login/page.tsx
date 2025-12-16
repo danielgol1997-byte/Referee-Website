@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") ?? "/my-training";
+  // Default to home page "/" instead of "/my-training" to allow users to access any page
+  const callbackUrl = params.get("callbackUrl") ?? "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

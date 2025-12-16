@@ -22,6 +22,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const lawNumber = searchParams.get("lawNumber");
+  const lawNumbers = searchParams.get("lawNumbers");
   const categorySlug = searchParams.get("categorySlug");
   const type = searchParams.get("type") as QuestionType | null;
   const ids = searchParams.get("ids");
@@ -36,10 +37,18 @@ export async function GET(req: Request) {
     }
   }
 
-  if (lawNumber) {
+  // Handle lawNumbers filter (multiple laws)
+  if (lawNumbers) {
+    const lawNumberArray = lawNumbers.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+    if (lawNumberArray.length > 0) {
+      // Find questions that contain ANY of the specified law numbers
+      where.lawNumbers = { hasSome: lawNumberArray };
+    }
+  } else if (lawNumber) {
+    // Legacy support for single lawNumber parameter
     const parsed = Number(lawNumber);
     if (!Number.isNaN(parsed)) {
-      where.lawNumber = parsed;
+      where.lawNumbers = { has: parsed };
     }
   }
 
@@ -76,6 +85,7 @@ export async function POST(req: Request) {
       categorySlug,
       categoryId,
       lawNumber,
+      lawNumbers,
       text,
       explanation,
       difficulty = 1,
@@ -95,11 +105,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Category not found." }, { status: 400 });
     }
 
+    // Handle lawNumbers - accept either lawNumbers array or legacy lawNumber
+    let finalLawNumbers: number[] = [];
+    if (lawNumbers && Array.isArray(lawNumbers)) {
+      finalLawNumbers = lawNumbers.filter((n: any) => typeof n === 'number' && !isNaN(n));
+    } else if (lawNumber !== undefined && lawNumber !== null) {
+      // Legacy support for single lawNumber
+      finalLawNumbers = [lawNumber];
+    }
+
     const question = await prisma.question.create({
       data: {
         type,
         categoryId: category,
-        lawNumber: lawNumber ?? null,
+        lawNumbers: finalLawNumbers,
         text,
         explanation,
         difficulty,

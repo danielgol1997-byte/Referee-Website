@@ -124,7 +124,6 @@ export default async function LawsPage() {
       <div className="space-y-4">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">Study by Law</h2>
-          <p className="text-sm text-text-secondary mt-1">Review detailed explanations for each law</p>
         </div>
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

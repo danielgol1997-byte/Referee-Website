@@ -8,6 +8,8 @@ export default async function SuperAdminLayout({ children }: { children: ReactNo
   const session = await getServerSession(authOptions);
 
   if (session?.user?.role !== "SUPER_ADMIN") {
+    // Middleware should have already handled the redirect with callbackUrl
+    // This is just a safety net - redirect to login (middleware will add callbackUrl)
     redirect("/auth/login");
   }
 
