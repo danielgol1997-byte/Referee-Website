@@ -5,6 +5,8 @@ import { VideoCarousel3D } from "@/components/library/VideoCarousel3D";
 import { VideoCard3D } from "@/components/library/VideoCard3D";
 import { PillChip } from "@/components/ui/pill-chip";
 
+export const dynamic = "force-dynamic";
+
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 

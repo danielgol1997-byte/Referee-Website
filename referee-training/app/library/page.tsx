@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import type { Category, LibraryArticle } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export default async function LibraryPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q ?? "";
   let articles: (LibraryArticle & { category: Category | null })[] = [];

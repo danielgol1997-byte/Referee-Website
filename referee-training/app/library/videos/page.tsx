@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { VideoLibrarySearchView } from "@/components/library/VideoLibrarySearchView";
 
+export const dynamic = "force-dynamic";
+
 export default async function VideoLibraryPage() {
   // Fetch top-level categories with video counts
   const categories = await prisma.videoCategory.findMany({
