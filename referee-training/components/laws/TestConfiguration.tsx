@@ -211,7 +211,7 @@ export function TestConfiguration() {
         </label>
         <MultiSelect
           value={selectedLaws}
-          onChange={setSelectedLaws}
+          onChange={(values) => setSelectedLaws(values.map((v) => Number(v)).filter((n) => Number.isFinite(n)))}
           options={LAW_OPTIONS}
           placeholder="Select laws (or leave empty for all)"
         />
