@@ -19,7 +19,7 @@ const navItems = [
   { href: "/practice", label: "Referees practice" },
   { href: "/practice/var", label: "VAR practice" },
   { href: "/practice/ar", label: "A.R. practice" },
-  { href: "/library", label: "Video Library" },
+  { href: "/library/videos", label: "Video Library" },
   { href: "/stats", label: "Stats" },
 ];
 
@@ -31,6 +31,8 @@ export function Header() {
   // Set logo based on current page
   const activeLogo = pathname.startsWith('/laws')
     ? "/logo/whistle-laws.webp"
+    : pathname.startsWith('/library/videos')
+    ? "/logo/whistle-library-liquid.gif"
     : pathname.startsWith('/library')
     ? "/logo/whistle-library-liquid.gif"
     : pathname.startsWith('/stats')
@@ -92,6 +94,8 @@ export function Header() {
             // For exact match on /practice (but not /practice/var or /practice/ar)
             const isActive = item.href === "/practice" 
               ? pathname === "/practice" || (pathname.startsWith("/practice/") && !pathname.startsWith("/practice/var") && !pathname.startsWith("/practice/ar"))
+              : item.href === "/library/videos"
+              ? pathname.startsWith("/library/videos")
               : pathname === item.href || pathname.startsWith(`${item.href}/`);
             
             return (

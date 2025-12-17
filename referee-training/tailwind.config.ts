@@ -9,15 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // IFAB-inspired palette - Sophisticated slate gray and gold
+        // IFAB-inspired palette - Sophisticated slate gray and gold - LIGHTENED
         dark: {
-          900: "#252D38",
-          800: "#2F3A47",
-          700: "#3A4656",
-          600: "#485566",
-          500: "#576575",
-          400: "#6A7888",
-          300: "#7D8A9A",
+          900: "#2C3542",
+          800: "#364250",
+          700: "#414F60",
+          600: "#4F5D6F",
+          500: "#5E6C7E",
+          400: "#707E90",
+          300: "#8391A2",
         },
         // IFAB accent - Elegant light gold/champagne
         accent: {
@@ -39,12 +39,32 @@ const config: Config = {
           light: "#9CA7B5",
           dark: "#6F7A89",
         },
-        // Text colors - IFAB style
+        // Cyan accent for video library
+        cyan: {
+          DEFAULT: "#00E8F8",
+          50: "#E0FCFF",
+          100: "#B3F8FF",
+          200: "#80F4FF",
+          300: "#4DF0FF",
+          400: "#1AECFF",
+          500: "#00E8F8",
+          600: "#00B8C5",
+          700: "#008892",
+          800: "#005860",
+          900: "#00282D",
+        },
+        // Warm accent (beige/gold)
+        warm: {
+          DEFAULT: "#C4A77D",
+          light: "#D4BC96",
+          dark: "#A68B5B",
+        },
+        // Text colors - IFAB style - HIGH CONTRAST
         text: {
           primary: "#FFFFFF",
-          secondary: "#D1D5DB",
-          muted: "#9CA3AF",
-          inverse: "#252D38",
+          secondary: "#E2E8F0",
+          muted: "#CBD5E1",
+          inverse: "#2C3542",
           gold: "#E8E09A",
         },
         // Status colors
@@ -67,10 +87,10 @@ const config: Config = {
         },
       },
       backgroundImage: {
-        // Main gradients - IFAB slate variations
-        "hero-gradient": "linear-gradient(135deg, #252D38 0%, #3A4656 50%, #2F3A47 100%)",
-        "card-gradient": "linear-gradient(180deg, #3A4656 0%, #2F3A47 100%)",
-        "section-gradient": "linear-gradient(180deg, #2F3A47 0%, #252D38 100%)",
+        // Main gradients - IFAB slate variations - LIGHTENED
+        "hero-gradient": "linear-gradient(135deg, #2C3542 0%, #414F60 50%, #364250 100%)",
+        "card-gradient": "linear-gradient(180deg, #414F60 0%, #364250 100%)",
+        "section-gradient": "linear-gradient(180deg, #364250 0%, #2C3542 100%)",
         // Accent gradients - IFAB gold
         "accent-line": "linear-gradient(90deg, transparent 0%, #E8E09A 50%, transparent 100%)",
         "accent-glow": "linear-gradient(90deg, #E8E09A 0%, #DDD29C 100%)",
@@ -81,7 +101,7 @@ const config: Config = {
         "image-overlay": "linear-gradient(180deg, rgba(37, 45, 56, 0) 0%, rgba(37, 45, 56, 0.95) 100%)",
         "image-overlay-full": "linear-gradient(180deg, rgba(37, 45, 56, 0.75) 0%, rgba(37, 45, 56, 0.92) 100%)",
         // Pitch/stadium inspired - Subtle slate
-        "pitch-gradient": "linear-gradient(180deg, #2F3A47 0%, #323F4D 50%, #2F3A47 100%)",
+        "pitch-gradient": "linear-gradient(180deg, #364250 0%, #3A4858 50%, #364250 100%)",
       },
       boxShadow: {
         "sm": "0 2px 8px rgba(0, 0, 0, 0.4)",
@@ -119,6 +139,8 @@ const config: Config = {
         "slide-up": "slideUp 0.4s ease-out",
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
         "shimmer": "shimmer 2s linear infinite",
+        "in": "fadeIn 0.5s ease-out",
+        "slide-in-from-top-4": "slideInFromTop 0.5s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -129,6 +151,10 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        slideInFromTop: {
+          "0%": { opacity: "0", transform: "translateY(-16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         pulseGlow: {
           "0%, 100%": { boxShadow: "0 0 20px rgba(232, 224, 154, 0.2)" },
           "50%": { boxShadow: "0 0 30px rgba(232, 224, 154, 0.3)" },
@@ -137,6 +163,10 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+      },
+      perspective: {
+        '1000': '1000px',
+        '2000': '2000px',
       },
     },
   },

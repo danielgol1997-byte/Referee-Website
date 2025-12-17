@@ -1,5 +1,6 @@
 import { TabNavigation } from "@/components/admin/TabNavigation";
 import { LawsAdminPanel } from "@/components/admin/laws/LawsAdminPanel";
+import { VideoLibraryContent } from "@/components/admin/library/VideoLibraryContent";
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
@@ -49,12 +50,8 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
           </p>
         )}
         
-        {/* Coming Soon: Video Library */}
-        {activeTab === "library" && (
-          <p className="text-sm text-text-secondary">
-            Video Library management will let you create and order articles, snippets, and reference material.
-          </p>
-        )}
+        {/* Video Library Management */}
+        {activeTab === "library" && <VideoLibraryContent />}
       </div>
     </div>
   );

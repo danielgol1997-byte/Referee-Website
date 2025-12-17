@@ -1,0 +1,235 @@
+"use client";
+
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+
+interface Video {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  viewCount: number;
+  lawNumbers: number[];
+  sanctionType?: string;
+  isActive: boolean;
+  isFeatured: boolean;
+  videoCategory?: { name: string };
+  createdAt: string;
+}
+
+interface VideoListManagerProps {
+  videos: Video[];
+  onEdit: (video: Video) => void;
+  onDelete: (videoId: string) => void;
+  onRefresh: () => void;
+}
+
+export function VideoListManager({ videos, onEdit, onDelete, onRefresh }: VideoListManagerProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterFeatured, setFilterFeatured] = useState<'all' | 'featured' | 'normal'>('all');
+
+  const filteredVideos = videos.filter(video => {
+    if (searchQuery && !video.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (filterActive === 'active' && !video.isActive) return false;
+    if (filterActive === 'inactive' && video.isActive) return false;
+    if (filterFeatured === 'featured' && !video.isFeatured) return false;
+    if (filterFeatured === 'normal' && video.isFeatured) return false;
+    return true;
+  });
+
+  const handleDelete = async (videoId: string, videoTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${videoTitle}"?`)) return;
+    
+    try {
+      const response = await fetch(`/api/admin/library/videos/${videoId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) throw new Error('Delete failed');
+      
+      alert('Video deleted successfully!');
+      onDelete(videoId);
+      onRefresh();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete video');
+    }
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search & Filters */}
+      <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search videos..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <select
+              value={filterActive}
+              onChange={(e) => setFilterActive(e.target.value as any)}
+              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+            
+            <select
+              value={filterFeatured}
+              onChange={(e) => setFilterFeatured(e.target.value as any)}
+              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+            >
+              <option value="all">All Videos</option>
+              <option value="featured">Featured Only</option>
+              <option value="normal">Non-Featured</option>
+            </select>
+
+            <button
+              onClick={onRefresh}
+              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary hover:bg-dark-800 hover:border-cyan-500/50 transition-all"
+              title="Refresh list"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 text-sm text-text-muted">
+          Showing {filteredVideos.length} of {videos.length} videos
+        </div>
+      </div>
+
+      {/* Video List */}
+      <div className="space-y-3">
+        {filteredVideos.length === 0 ? (
+          <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-12 text-center">
+            <svg className="w-16 h-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <p className="text-text-secondary">No videos found</p>
+          </div>
+        ) : (
+          filteredVideos.map(video => (
+            <div
+              key={video.id}
+              className="rounded-xl bg-dark-800/50 border border-dark-600 p-4 hover:border-cyan-500/50 transition-all"
+            >
+              <div className="flex gap-4">
+                {/* Thumbnail */}
+                <div className="flex-shrink-0 w-40 h-24 rounded-lg bg-dark-900 overflow-hidden">
+                  {video.thumbnailUrl ? (
+                    <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg className="w-12 h-12 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-lg font-semibold text-text-primary truncate mb-1">
+                        {video.title}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+                        <span>📁 {video.videoCategory?.name || 'Uncategorized'}</span>
+                        <span>⏱️ {formatDuration(video.duration)}</span>
+                        <span>👁️ {video.viewCount} views</span>
+                      </div>
+                    </div>
+
+                    {/* Status Badges */}
+                    <div className="flex gap-2">
+                      {video.isFeatured && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-500/10 border border-yellow-500/30 text-yellow-500">
+                          ⭐ Featured
+                        </span>
+                      )}
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        video.isActive
+                          ? "bg-green-500/10 border border-green-500/30 text-green-500"
+                          : "bg-red-500/10 border border-red-500/30 text-red-500"
+                      )}>
+                        {video.isActive ? '✓ Active' : '✕ Inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {video.lawNumbers.length > 0 && video.lawNumbers.slice(0, 3).map(law => (
+                      <span key={law} className="text-xs px-2 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 font-medium">
+                        L{law}
+                      </span>
+                    ))}
+                    {video.sanctionType && video.sanctionType !== 'NO_CARD' && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-warm/10 border border-warm/30 text-warm font-medium">
+                        {video.sanctionType === 'YELLOW_CARD' && '🟨'}
+                        {video.sanctionType === 'RED_CARD' && '🟥'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onEdit(video)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <a
+                      href={`/library/videos/watch/${video.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-dark-700 border border-dark-600 text-text-primary hover:bg-dark-600 hover:border-cyan-500/50 transition-colors"
+                    >
+                      👁️ View
+                    </a>
+                    <button
+                      onClick={() => handleDelete(video.id, video.title)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

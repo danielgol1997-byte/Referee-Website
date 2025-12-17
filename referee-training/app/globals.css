@@ -7,13 +7,13 @@
    ============================================ */
 
 :root {
-  /* IFAB-inspired color palette - Sophisticated slate gray and gold */
-  --color-dark-900: #252D38;
-  --color-dark-800: #2F3A47;
-  --color-dark-700: #3A4656;
-  --color-dark-600: #485566;
-  --color-dark-500: #576575;
-  --color-dark-400: #6A7888;
+  /* IFAB-inspired color palette - Sophisticated slate gray and gold - LIGHTENED */
+  --color-dark-900: #2C3542;
+  --color-dark-800: #364250;
+  --color-dark-700: #414F60;
+  --color-dark-600: #4F5D6F;
+  --color-dark-500: #5E6C7E;
+  --color-dark-400: #707E90;
   
   /* IFAB accent - Elegant light gold/champagne */
   --color-accent: #E8E09A;
@@ -25,16 +25,16 @@
   --color-secondary: #8A95A5;
   --color-secondary-dark: #6F7A89;
   
-  /* Text - IFAB style */
+  /* Text - IFAB style - HIGH CONTRAST */
   --color-text-primary: #FFFFFF;
-  --color-text-secondary: #D1D5DB;
-  --color-text-muted: #9CA3AF;
+  --color-text-secondary: #E2E8F0;
+  --color-text-muted: #CBD5E1;
   --color-text-gold: #E8E09A;
   
   /* Borders - Subtle grays */
-  --color-border: #3A4656;
-  --color-border-subtle: #2F3A47;
-  --color-border-highlight: #485566;
+  --color-border: #414F60;
+  --color-border-subtle: #364250;
+  --color-border-highlight: #4F5D6F;
   
   /* Status colors */
   --color-success: #E8E09A;
@@ -49,7 +49,7 @@ html {
 
 body {
   font-family: "DIN 2014", Inter, var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: linear-gradient(180deg, #252D38 0%, #2F3A47 100%);
+  background: linear-gradient(180deg, #2C3542 0%, #364250 100%);
   color: var(--color-text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -107,20 +107,20 @@ body {
 
   /* Glass effect - IFAB slate with blur */
   .glass {
-    background: rgba(47, 58, 71, 0.85);
+    background: rgba(54, 66, 80, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
   
   .glass-darker {
-    background: rgba(37, 45, 56, 0.95);
+    background: rgba(44, 53, 66, 0.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
   /* Card styles - IFAB slate */
   .card-dark {
-    background: linear-gradient(180deg, #3A4656 0%, #2F3A47 100%);
+    background: linear-gradient(180deg, #414F60 0%, #364250 100%);
     border: 1px solid var(--color-border);
     border-radius: 16px;
   }
@@ -137,7 +137,7 @@ body {
   .pitch-pattern {
     background-image: 
       radial-gradient(ellipse 100% 50% at 50% 100%, rgba(232, 224, 154, 0.03) 0%, transparent 70%),
-      linear-gradient(180deg, #2F3A47 0%, #252D38 100%);
+      linear-gradient(180deg, #364250 0%, #2C3542 100%);
   }
 }
 
@@ -164,10 +164,10 @@ body {
   height: 100%;
   background: linear-gradient(
     to bottom,
-    rgba(37, 45, 56, 0.72) 0%,
-    rgba(37, 45, 56, 0.80) 30%,
-    rgba(37, 45, 56, 0.84) 60%,
-    rgba(37, 45, 56, 0.88) 100%
+    rgba(44, 53, 66, 0.72) 0%,
+    rgba(44, 53, 66, 0.80) 30%,
+    rgba(44, 53, 66, 0.84) 60%,
+    rgba(44, 53, 66, 0.88) 100%
   );
   z-index: 1;
   pointer-events: none;
@@ -258,6 +258,7 @@ body {
 
 ::-webkit-scrollbar-track {
   background: var(--color-dark-800);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -273,6 +274,57 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-dark-500) var(--color-dark-800);
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Horizontal scroll containers */
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #5E6C7E #364250;
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #364250;
+  border-radius: 3px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #5E6C7E;
+  border-radius: 3px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #707E90;
+}
+
+/* ============================================
+   Custom Select Dropdown Styling
+   ============================================ */
+
+select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23CBD5E1' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem;
+}
+
+select:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300E8F8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+select option {
+  background-color: #364250;
+  color: #FFFFFF;
+  padding: 0.5rem;
 }
 
 /* ============================================
@@ -319,5 +371,47 @@ a:hover {
   /* Accent Gradient Text */
   .text-premium-accent {
     @apply bg-gradient-to-b from-accent via-accent/90 to-accent/70 bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(0,0,0,0.3)];
+  }
+  
+  /* 3D Perspective Utilities */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .perspective-2000 {
+    perspective: 2000px;
+  }
+  
+  .transform-gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
+
+/* ============================================
+   Mobile Optimizations
+   ============================================ */
+
+/* Reduce animations on mobile for performance */
+@media (max-width: 768px) {
+  .transform-gpu {
+    transform: none;
+  }
+  
+  /* Simplify 3D effects on mobile */
+  .perspective-1000,
+  .perspective-2000 {
+    perspective: none;
+  }
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

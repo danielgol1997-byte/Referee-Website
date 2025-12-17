@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,6 +7,284 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                    String               @id @default(cuid())
+  email                 String               @unique
+  name                  String?
+  password              String?
+  role                  Role                 @default(REFEREE)
+  country               String?
+  level                 String?
+  image                 String?
+  emailVerified         DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  accounts              Account[]
+  mandatoryTestsCreated MandatoryTest[]
+  testSessions          TestSession[]
+  trainingAssignments   TrainingAssignment[]
+  testCompletions       UserTestCompletion[]
+  uploadedVideos        VideoClip[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Category {
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  slug                String               @unique
+  type                CategoryType
+  description         String?
+  order               Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  libraryArticles     LibraryArticle[]
+  mandatoryTests      MandatoryTest[]
+  questions           Question[]
+  testSessions        TestSession[]
+  trainingAssignments TrainingAssignment[]
+  videoClips          VideoClip[]
+}
+
+model VideoClip {
+  id                  String         @id @default(cuid())
+  title               String
+  fileUrl             String
+  thumbnailUrl        String?
+  duration            Int?
+  categoryId          String
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  commonMistakes      String[]       @default([])
+  correctDecision     String?
+  decisionExplanation String?
+  description         String?
+  isActive            Boolean        @default(true)
+  isFeatured          Boolean        @default(false)
+  keyPoints           String[]       @default([])
+  lawNumbers          Int[]          @default([])
+  order               Int            @default(0)
+  restartType         RestartType?
+  sanctionType        SanctionType?
+  uploadedById        String?
+  varNotes            String?
+  varRelevant         Boolean        @default(false)
+  videoCategoryId     String?
+  videoType           VideoType      @default(EDUCATIONAL)
+  viewCount           Int            @default(0)
+  questions           Question[]
+  category            Category       @relation(fields: [categoryId], references: [id])
+  uploadedBy          User?          @relation(fields: [uploadedById], references: [id])
+  videoCategory       VideoCategory? @relation(fields: [videoCategoryId], references: [id])
+  tags                VideoTag[]
+
+  @@index([videoCategoryId, order])
+  @@index([lawNumbers])
+  @@index([isActive, isFeatured])
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  type          QuestionType
+  categoryId    String
+  videoClipId   String?
+  text          String
+  explanation   String
+  difficulty    Int            @default(1)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  isActive      Boolean        @default(true)
+  lawNumbers    Int[]          @default([])
+  isVar         Boolean        @default(false)
+  answerOptions AnswerOption[]
+  category      Category       @relation(fields: [categoryId], references: [id])
+  videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id])
+  testAnswers   TestAnswer[]
+}
+
+model AnswerOption {
+  id          String       @id @default(cuid())
+  questionId  String
+  label       String
+  code        String
+  isCorrect   Boolean
+  order       Int          @default(0)
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  testAnswers TestAnswer[]
+}
+
+model TestSession {
+  id              String              @id @default(cuid())
+  userId          String
+  categoryId      String
+  type            QuestionType
+  questionIds     String[]
+  score           Int?
+  totalQuestions  Int                 @default(10)
+  completedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  mandatoryTestId String?
+  testAnswers     TestAnswer[]
+  category        Category            @relation(fields: [categoryId], references: [id])
+  mandatoryTest   MandatoryTest?      @relation(fields: [mandatoryTestId], references: [id])
+  user            User                @relation(fields: [userId], references: [id])
+  completion      UserTestCompletion?
+}
+
+model TestAnswer {
+  id               String        @id @default(cuid())
+  testSessionId    String
+  questionId       String
+  selectedOptionId String?
+  isCorrect        Boolean
+  createdAt        DateTime      @default(now())
+  question         Question      @relation(fields: [questionId], references: [id])
+  selectedOption   AnswerOption? @relation(fields: [selectedOptionId], references: [id])
+  testSession      TestSession   @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
+}
+
+model LibraryArticle {
+  id         String   @id @default(cuid())
+  categoryId String
+  title      String
+  slug       String   @unique
+  content    Json
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  category   Category @relation(fields: [categoryId], references: [id])
+}
+
+model TrainingAssignment {
+  id          String           @id @default(cuid())
+  userId      String
+  categoryId  String
+  targetScore Int              @default(70)
+  status      AssignmentStatus @default(NOT_STARTED)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  category    Category         @relation(fields: [categoryId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+}
+
+model MandatoryTest {
+  id              String               @id @default(cuid())
+  title           String
+  description     String?
+  categoryId      String
+  dueDate         DateTime?
+  lawNumbers      Int[]
+  totalQuestions  Int                  @default(10)
+  passingScore    Int?
+  isActive        Boolean              @default(true)
+  createdById     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  questionIds     String[]
+  isMandatory     Boolean              @default(true)
+  isUserGenerated Boolean              @default(false)
+  includeVar      Boolean              @default(false)
+  category        Category             @relation(fields: [categoryId], references: [id])
+  createdBy       User                 @relation(fields: [createdById], references: [id])
+  testSessions    TestSession[]
+  completions     UserTestCompletion[]
+}
+
+model UserTestCompletion {
+  id              String        @id @default(cuid())
+  userId          String
+  mandatoryTestId String
+  testSessionId   String        @unique
+  completedAt     DateTime?
+  score           Int?
+  passed          Boolean?
+  createdAt       DateTime      @default(now())
+  mandatoryTest   MandatoryTest @relation(fields: [mandatoryTestId], references: [id])
+  testSession     TestSession   @relation(fields: [testSessionId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@unique([userId, mandatoryTestId])
+}
+
+model StudyProgress {
+  id         String    @id @default(cuid())
+  userId     String
+  questionId String
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId, isRead])
+}
+
+model VideoCategory {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  description String?
+  icon        String?
+  parentId    String?
+  order       Int             @default(0)
+  color       String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  parent      VideoCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    VideoCategory[] @relation("CategoryHierarchy")
+  videos      VideoClip[]
+
+  @@index([parentId, order])
+  @@index([isActive])
+}
+
+model Tag {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  category    TagCategory @default(GENERAL)
+  color       String?
+  description String?
+  order       Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  videos      VideoTag[]
+
+  @@index([isActive, order])
+}
+
+model VideoTag {
+  id         String    @id @default(cuid())
+  videoId    String
+  tagId      String
+  assignedAt DateTime  @default(now())
+  tag        Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  video      VideoClip @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, tagId])
+  @@index([videoId])
+  @@index([tagId])
+}
+
 enum Role {
   REFEREE
   ADMIN
@@ -20,11 +292,11 @@ enum Role {
 }
 
 enum CategoryType {
-  LOTG       // Laws of the Game
-  CHALLENGE  // Referees practice
-  VAR        // VAR practice
-  AR         // A.R. practice
-  LIBRARY    // Library content
+  LOTG
+  CHALLENGE
+  VAR
+  AR
+  LIBRARY
 }
 
 enum QuestionType {
@@ -40,207 +312,35 @@ enum AssignmentStatus {
   COMPLETED
 }
 
-model User {
-  id                   String               @id @default(cuid())
-  email                String               @unique
-  name                 String?
-  password             String?              // hashed, nullable for social logins
-  role                 Role                 @default(REFEREE)
-  country              String?
-  level                String?              // referee category/level
-  image                String?
-  emailVerified        DateTime?
-  accounts             Account[]
-  testSessions         TestSession[]
-  testCompletions      UserTestCompletion[]
-  mandatoryTestsCreated MandatoryTest[]
-  trainingAssignments  TrainingAssignment[]
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+enum VideoType {
+  EDUCATIONAL
+  MATCH_CLIP
+  TRAINING
+  EXAMPLE
 }
 
-model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+enum RestartType {
+  DIRECT_FREE_KICK
+  INDIRECT_FREE_KICK
+  PENALTY_KICK
+  CORNER_KICK
+  GOAL_KICK
+  THROW_IN
+  KICK_OFF
+  DROPPED_BALL
 }
 
-model Category {
-  id               String            @id @default(cuid())
-  name             String            @unique
-  slug             String            @unique
-  type             CategoryType
-  description      String?
-  order            Int               @default(0)
-  videoClips       VideoClip[]
-  questions        Question[]
-  libraryArticles  LibraryArticle[]
-  testSessions     TestSession[]
-  mandatoryTests   MandatoryTest[]
-  trainingAssignments TrainingAssignment[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+enum SanctionType {
+  NO_CARD
+  YELLOW_CARD
+  RED_CARD
+  DOUBLE_YELLOW
+  PENALTY
 }
 
-model VideoClip {
-  id            String     @id @default(cuid())
-  title         String
-  fileUrl       String     // e.g. /videos/sample-offside-1.mp4
-  thumbnailUrl  String?
-  duration      Int?       // seconds
-  categoryId    String
-  category      Category   @relation(fields: [categoryId], references: [id])
-  tags          String[]
-  questions     Question[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-}
-
-model Question {
-  id             String         @id @default(cuid())
-  type           QuestionType
-  lawNumbers     Int[]          @default([])
-  categoryId     String
-  category       Category       @relation(fields: [categoryId], references: [id])
-  videoClipId    String?
-  videoClip      VideoClip?     @relation(fields: [videoClipId], references: [id])
-  text           String
-  explanation    String
-  difficulty     Int            @default(1) // 1-3
-  isVar          Boolean        @default(false)
-  isActive       Boolean        @default(true)
-  answerOptions  AnswerOption[]
-  testAnswers    TestAnswer[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-}
-
-model AnswerOption {
-  id           String       @id @default(cuid())
-  questionId   String
-  question     Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  label        String
-  code         String       // e.g. NO_FOUL, CARELESS_FOUL
-  isCorrect    Boolean
-  order        Int          @default(0)
-  testAnswers  TestAnswer[]
-}
-
-model TestSession {
-  id               String         @id @default(cuid())
-  userId           String
-  user             User           @relation(fields: [userId], references: [id])
-  categoryId       String
-  category         Category       @relation(fields: [categoryId], references: [id])
-  type             QuestionType
-  mandatoryTestId  String?
-  mandatoryTest    MandatoryTest? @relation(fields: [mandatoryTestId], references: [id])
-  questionIds      String[]
-  score            Int?
-  totalQuestions   Int            @default(10)
-  completedAt      DateTime?
-  testAnswers      TestAnswer[]
-  completion       UserTestCompletion?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-}
-
-model TestAnswer {
-  id               String       @id @default(cuid())
-  testSessionId    String
-  testSession      TestSession  @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
-  questionId       String
-  question         Question     @relation(fields: [questionId], references: [id])
-  selectedOptionId String?
-  selectedOption   AnswerOption? @relation(fields: [selectedOptionId], references: [id])
-  isCorrect        Boolean
-  createdAt        DateTime     @default(now())
-}
-
-model LibraryArticle {
-  id          String     @id @default(cuid())
-  categoryId  String
-  category    Category   @relation(fields: [categoryId], references: [id])
-  title       String
-  slug        String     @unique
-  content     Json
-  order       Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-}
-
-model TrainingAssignment {
-  id          String             @id @default(cuid())
-  userId      String
-  user        User               @relation(fields: [userId], references: [id])
-  categoryId  String
-  category    Category           @relation(fields: [categoryId], references: [id])
-  targetScore Int                @default(70)
-  status      AssignmentStatus   @default(NOT_STARTED)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-}
-
-model MandatoryTest {
-  id              String                @id @default(cuid())
-  title           String
-  description     String?
-  categoryId      String
-  category        Category              @relation(fields: [categoryId], references: [id])
-  dueDate         DateTime?
-  lawNumbers      Int[]
-  totalQuestions  Int                   @default(10)
-  passingScore    Int?
-  isActive        Boolean               @default(true)  // Visibility: true=visible, false=hidden
-  isMandatory     Boolean               @default(true)  // Type: true=mandatory, false=pool
-  isUserGenerated Boolean               @default(false) // User-created vs admin-created
-  questionIds     String[]              // For manually selected specific questions
-  includeVar      Boolean               @default(false) // Include VAR questions
-  createdById     String
-  createdBy       User                  @relation(fields: [createdById], references: [id])
-  testSessions    TestSession[]
-  completions     UserTestCompletion[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-}
-
-model UserTestCompletion {
-  id              String            @id @default(cuid())
-  userId          String
-  user            User              @relation(fields: [userId], references: [id])
-  mandatoryTestId String
-  mandatoryTest   MandatoryTest     @relation(fields: [mandatoryTestId], references: [id])
-  testSessionId   String            @unique
-  testSession     TestSession       @relation(fields: [testSessionId], references: [id])
-  completedAt     DateTime?
-  score           Int?
-  passed          Boolean?
-  createdAt       DateTime          @default(now())
-
-  @@unique([userId, mandatoryTestId])
-}
-
-model StudyProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  questionId  String
-  isRead      Boolean  @default(false)
-  readAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([userId, questionId])
-  @@index([userId, isRead])
+enum TagCategory {
+  GENERAL
+  CONCEPT
+  COMPETITION
+  SCENARIO
 }

@@ -3,14 +3,14 @@
 
 export const designTokens = {
   palette: {
-    // Primary dark blues
+    // Primary dark blues - LIGHTENED
     dark: {
-      900: "#0A0F1C",  // Deepest background
-      800: "#0E1628",  // Card backgrounds
-      700: "#131D35",  // Elevated surfaces
-      600: "#1A2744",  // Borders, dividers
-      500: "#243352",  // Subtle backgrounds
-      400: "#2E4066",  // Hover states
+      900: "#2C3542",  // Deepest background
+      800: "#364250",  // Card backgrounds
+      700: "#414F60",  // Elevated surfaces
+      600: "#4F5D6F",  // Borders, dividers
+      500: "#5E6C7E",  // Subtle backgrounds
+      400: "#707E90",  // Hover states
     },
     // Accent cyan/teal
     cyan: {
@@ -33,12 +33,12 @@ export const designTokens = {
       muted: "#6B7A8F",
       inverse: "#0A0F1C",
     },
-    // Surfaces
+    // Surfaces - LIGHTENED
     surface: {
-      dark: "#0A0F1C",
-      card: "#0E1628",
-      elevated: "#131D35",
-      overlay: "rgba(10, 15, 28, 0.85)",
+      dark: "#2C3542",
+      card: "#364250",
+      elevated: "#414F60",
+      overlay: "rgba(44, 53, 66, 0.85)",
     },
     // Status colors
     status: {
@@ -51,28 +51,28 @@ export const designTokens = {
       info: "#00A5E8",
       infoBg: "rgba(0, 165, 232, 0.15)",
     },
-    // Border colors
+    // Border colors - LIGHTENED
     border: {
-      subtle: "#1A2744",
-      default: "#243352",
-      strong: "#2E4066",
+      subtle: "#364250",
+      default: "#414F60",
+      strong: "#4F5D6F",
       accent: "#00E8F8",
     },
   },
   gradients: {
-    // Main background gradients
-    heroBackground: "linear-gradient(135deg, #0A0F1C 0%, #131D35 50%, #0E1628 100%)",
-    cardBackground: "linear-gradient(180deg, #131D35 0%, #0E1628 100%)",
+    // Main background gradients - LIGHTENED
+    heroBackground: "linear-gradient(135deg, #2C3542 0%, #414F60 50%, #364250 100%)",
+    cardBackground: "linear-gradient(180deg, #414F60 0%, #364250 100%)",
     // Accent gradients
     accentLine: "linear-gradient(90deg, #C4A77D 0%, #00E8F8 50%, #0098D8 100%)",
     cyanGlow: "linear-gradient(90deg, #00E8F8 0%, #00D8F0 100%)",
     // Button gradients
     buttonPrimary: "linear-gradient(135deg, #00E8F8 0%, #00D8F0 100%)",
-    buttonSecondary: "linear-gradient(135deg, #1A2744 0%, #243352 100%)",
+    buttonSecondary: "linear-gradient(135deg, #4F5D6F 0%, #5E6C7E 100%)",
     // Overlay for images
-    imageOverlay: "linear-gradient(180deg, rgba(10, 15, 28, 0) 0%, rgba(10, 15, 28, 0.95) 100%)",
+    imageOverlay: "linear-gradient(180deg, rgba(44, 53, 66, 0) 0%, rgba(44, 53, 66, 0.95) 100%)",
     // Stadium/pitch inspired gradient
-    pitchGradient: "linear-gradient(180deg, #0E1628 0%, #1A3A2E 50%, #0E1628 100%)",
+    pitchGradient: "linear-gradient(180deg, #364250 0%, #2F5A4E 50%, #364250 100%)",
   },
   shadows: {
     sm: "0 2px 8px rgba(0, 0, 0, 0.3)",

@@ -147,8 +147,8 @@ function PostLoginPage() {
     },
     { 
       title: "Video Library", 
-      href: "/library", 
-      description: "Conceptual guides for handball, offside, DOGSO/SPA.",
+      href: "/library/videos", 
+      description: "Watch and learn from real match scenarios and decisions.",
       gif: "/logo/whistle-library-liquid.gif",
       backgroundImage: "/card-backgrounds/video-library-bg.png"
     },
