@@ -11,6 +11,25 @@ interface VideoUploadFormProps {
   editingVideo?: any;
 }
 
+type VideoFormData = {
+  title: string;
+  description: string;
+  videoType: string;
+  videoCategoryId: string;
+  lawNumbers: number[];
+  tagIds: string[];
+  sanctionType: string;
+  restartType: string;
+  correctDecision: string;
+  decisionExplanation: string;
+  keyPoints: string[];
+  commonMistakes: string[];
+  varRelevant: boolean;
+  varNotes: string;
+  isActive: boolean;
+  isFeatured: boolean;
+};
+
 const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law ${i + 1}` }));
 const RESTART_TYPES = [
   { value: 'DIRECT_FREE_KICK', label: 'Direct Free Kick' },
@@ -44,19 +63,19 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   const [thumbnailPreview, setThumbnailPreview] = useState<string>(editingVideo?.thumbnailUrl || '');
   
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<VideoFormData>({
     title: editingVideo?.title || '',
     description: editingVideo?.description || '',
     videoType: editingVideo?.videoType || 'MATCH_CLIP',
     videoCategoryId: editingVideo?.videoCategoryId || '',
-    lawNumbers: editingVideo?.lawNumbers || [],
-    tagIds: editingVideo?.tags?.map((t: any) => t.tagId) || [],
+    lawNumbers: (editingVideo?.lawNumbers as number[] | undefined) || [],
+    tagIds: (editingVideo?.tags?.map((t: any) => t.tagId) as string[] | undefined) || [],
     sanctionType: editingVideo?.sanctionType || '',
     restartType: editingVideo?.restartType || '',
     correctDecision: editingVideo?.correctDecision || '',
     decisionExplanation: editingVideo?.decisionExplanation || '',
-    keyPoints: editingVideo?.keyPoints || [''],
-    commonMistakes: editingVideo?.commonMistakes || [''],
+    keyPoints: (editingVideo?.keyPoints as string[] | undefined) || [''],
+    commonMistakes: (editingVideo?.commonMistakes as string[] | undefined) || [''],
     varRelevant: editingVideo?.varRelevant || false,
     varNotes: editingVideo?.varNotes || '',
     isActive: editingVideo?.isActive ?? true,
