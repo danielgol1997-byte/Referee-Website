@@ -22,8 +22,8 @@ interface Category {
   id: string;
   name: string;
   slug: string;
-  icon?: string;
-  color?: string;
+  icon?: string | null;
+  color?: string | null;
   _count: { videos: number };
 }
 
