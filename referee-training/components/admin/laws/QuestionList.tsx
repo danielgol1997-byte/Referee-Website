@@ -55,17 +55,10 @@ const VAR_FILTER_OPTIONS = [
   { value: "only", label: "Only VAR" },
 ];
 
-const EXPLANATION_FILTER_OPTIONS = [
-  { value: "all", label: "All Explanations" },
-  { value: "blank", label: "Blank/Show Answer" },
-  { value: "placeholder", label: "Placeholder Answers" },
-];
-
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [lawFilter, setLawFilter] = useState<number | string>("");
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
-  const [explanationFilter, setExplanationFilter] = useState<string>("all");
   const [questions, setQuestions] = useState<QuestionWithRelations[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,9 +100,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       
       if (varFilter === "include") params.set("includeVar", "true");
       if (varFilter === "only") params.set("onlyVar", "true");
-      
-      if (explanationFilter === "blank") params.set("blankExplanation", "true");
-      if (explanationFilter === "placeholder") params.set("placeholderAnswers", "true");
       
       params.set("categorySlug", "laws-of-the-game");
       const res = await fetch(`/api/admin/questions?${params.toString()}`);
@@ -288,7 +278,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, lawFilter, varFilter, explanationFilter]);
+  }, [refreshKey, lawFilter, varFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
@@ -318,7 +308,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, lawFilter, varFilter, explanationFilter, perPage, lawSortOrder]);
+  }, [search, lawFilter, varFilter, perPage, lawSortOrder]);
 
   const isEditFormValid = () => {
     return (
@@ -350,12 +340,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                 onChange={(val) => setVarFilter(val)}
                 options={VAR_FILTER_OPTIONS}
                 className="w-40"
-              />
-              <Select
-                value={explanationFilter}
-                onChange={(val) => setExplanationFilter(val)}
-                options={EXPLANATION_FILTER_OPTIONS}
-                className="w-48"
               />
             </div>
             <Input

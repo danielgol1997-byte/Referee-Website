@@ -28,8 +28,6 @@ export async function GET(req: Request) {
   const ids = searchParams.get("ids");
   const includeVar = searchParams.get("includeVar") === "true";
   const onlyVar = searchParams.get("onlyVar") === "true";
-  const blankExplanation = searchParams.get("blankExplanation") === "true";
-  const placeholderAnswers = searchParams.get("placeholderAnswers") === "true";
 
   const where: Prisma.QuestionWhereInput = {};
 
@@ -81,30 +79,11 @@ export async function GET(req: Request) {
     }
   }
 
-  let questions = await prisma.question.findMany({
+  const questions = await prisma.question.findMany({
     where,
     include: { answerOptions: true, category: true },
     orderBy: { updatedAt: "desc" },
   });
-
-  // Filter for blank/show answer explanations (post-fetch filtering)
-  if (blankExplanation) {
-    questions = questions.filter((q) => {
-      const explanation = q.explanation?.trim() || "";
-      const hasBlankExplanation = explanation === "";
-      const hasShowAnswerOnly = explanation.toLowerCase() === "show answer";
-      return hasBlankExplanation || hasShowAnswerOnly;
-    });
-  }
-
-  // Filter for placeholder answers (post-fetch filtering)
-  if (placeholderAnswers) {
-    questions = questions.filter((q) => {
-      return q.answerOptions.some((opt) =>
-        opt.label.toLowerCase().includes("see explanation for correct ruling")
-      );
-    });
-  }
 
   return NextResponse.json({ questions });
 }
