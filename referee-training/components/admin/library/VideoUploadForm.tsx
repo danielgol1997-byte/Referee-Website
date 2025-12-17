@@ -90,7 +90,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   };
 
   const removeKeyPoint = (index: number) => {
-    const newKeyPoints = formData.keyPoints.filter((_, i) => i !== index);
+    const newKeyPoints = formData.keyPoints.filter((_kp: string, i: number) => i !== index);
     setFormData({ ...formData, keyPoints: newKeyPoints });
   };
 
@@ -105,7 +105,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   };
 
   const removeCommonMistake = (index: number) => {
-    const newMistakes = formData.commonMistakes.filter((_, i) => i !== index);
+    const newMistakes = formData.commonMistakes.filter((_m: string, i: number) => i !== index);
     setFormData({ ...formData, commonMistakes: newMistakes });
   };
 
