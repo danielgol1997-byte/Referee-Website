@@ -337,7 +337,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
               />
               <Select
                 value={varFilter}
-                onChange={(val) => setVarFilter(val)}
+                onChange={(val) => setVarFilter(String(val))}
                 options={VAR_FILTER_OPTIONS}
                 className="w-40"
               />
