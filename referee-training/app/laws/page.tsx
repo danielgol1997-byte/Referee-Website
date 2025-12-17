@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LawSnippetsCarousel } from "@/components/LawSnippetsCarousel";
+import type { Prisma } from "@prisma/client";
 
 export default async function LawsPage() {
-  let articles = [];
+  let articles: Prisma.LibraryArticleGetPayload<{ include: { category: true } }>[] = [];
   try {
     articles = await prisma.libraryArticle.findMany({
       where: { category: { type: "LOTG" } },
