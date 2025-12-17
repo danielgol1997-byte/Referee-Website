@@ -8,7 +8,7 @@ import { compare } from "bcryptjs";
 import { prisma } from "./prisma";
 import { Role } from "@prisma/client";
 
-function isNonEmpty(value: string | undefined) {
+function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
@@ -61,30 +61,42 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-    ...(isNonEmpty(process.env.GOOGLE_CLIENT_ID) && isNonEmpty(process.env.GOOGLE_CLIENT_SECRET)
+    ...(() => {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            clientId,
+            clientSecret,
           }),
         ]
-      : []),
-    ...(isNonEmpty(process.env.APPLE_CLIENT_ID) && isNonEmpty(process.env.APPLE_CLIENT_SECRET)
+      : [];
+    })(),
+    ...(() => {
+      const clientId = process.env.APPLE_CLIENT_ID;
+      const clientSecret = process.env.APPLE_CLIENT_SECRET;
+      return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           AppleProvider({
-            clientId: process.env.APPLE_CLIENT_ID,
-            clientSecret: process.env.APPLE_CLIENT_SECRET,
+            clientId,
+            clientSecret,
           }),
         ]
-      : []),
-    ...(isNonEmpty(process.env.FACEBOOK_CLIENT_ID) && isNonEmpty(process.env.FACEBOOK_CLIENT_SECRET)
+      : [];
+    })(),
+    ...(() => {
+      const clientId = process.env.FACEBOOK_CLIENT_ID;
+      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+      return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           FacebookProvider({
-            clientId: process.env.FACEBOOK_CLIENT_ID,
-            clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+            clientId,
+            clientSecret,
           }),
         ]
-      : []),
+      : [];
+    })(),
   ],
   pages: {
     signIn: "/auth/login",
