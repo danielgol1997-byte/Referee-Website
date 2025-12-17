@@ -8,6 +8,10 @@ import { compare } from "bcryptjs";
 import { prisma } from "./prisma";
 import { Role } from "@prisma/client";
 
+function isNonEmpty(value: string | undefined) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === "development",
   session: {
@@ -57,18 +61,30 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
-    AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID ?? "",
-      clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
-    }),
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID ?? "",
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET ?? "",
-    }),
+    ...(isNonEmpty(process.env.GOOGLE_CLIENT_ID) && isNonEmpty(process.env.GOOGLE_CLIENT_SECRET)
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(isNonEmpty(process.env.APPLE_CLIENT_ID) && isNonEmpty(process.env.APPLE_CLIENT_SECRET)
+      ? [
+          AppleProvider({
+            clientId: process.env.APPLE_CLIENT_ID,
+            clientSecret: process.env.APPLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(isNonEmpty(process.env.FACEBOOK_CLIENT_ID) && isNonEmpty(process.env.FACEBOOK_CLIENT_SECRET)
+      ? [
+          FacebookProvider({
+            clientId: process.env.FACEBOOK_CLIENT_ID,
+            clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+          }),
+        ]
+      : []),
   ],
   pages: {
     signIn: "/auth/login",
