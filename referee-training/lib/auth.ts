@@ -14,6 +14,9 @@ function isNonEmpty(value: unknown): value is string {
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === "development",
+  // Required in production. Without a stable secret, JWT/session cookies can become invalid
+  // across serverless instances, which looks like "logged in on / but logged out on other pages".
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
   },
