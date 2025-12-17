@@ -252,7 +252,7 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
             <p className="text-xs text-text-secondary mb-2">Leave empty to include all laws. Questions will be randomly selected from selected laws (or all laws if none selected)</p>
             <MultiSelect
               value={lawNumbers}
-              onChange={setLawNumbers}
+              onChange={(values) => setLawNumbers(values.map((v) => Number(v)).filter((n) => Number.isFinite(n)))}
               options={LAW_OPTIONS}
               placeholder="Select laws (or leave empty for all)"
             />
