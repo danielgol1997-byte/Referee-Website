@@ -55,6 +55,7 @@ async function createCategories() {
     { name: "PAI", slug: "pai", type: CategoryType.CHALLENGE, order: 8 },
     { name: "VAR practice", slug: "var-practice", type: CategoryType.VAR, order: 9 },
     { name: "A.R. practice", slug: "ar-practice", type: CategoryType.AR, order: 10 },
+    { name: "Video Library", slug: "video-library", type: CategoryType.LIBRARY, order: 11 },
   ];
 
   for (const cat of categories) {
@@ -63,6 +64,263 @@ async function createCategories() {
       update: {},
       create: cat,
     });
+  }
+}
+
+async function createVideoLibraryCategoriesAndTags() {
+  // Mirrors prisma/seed-video-categories.js but keeps everything under the main seed.
+  const categories = [
+    {
+      name: "Challenges",
+      slug: "challenges",
+      icon: "🏃",
+      description: "Critical game situations requiring instant calls",
+      color: "#FF4D6D",
+      order: 1,
+      children: [
+        { name: "Fouls", slug: "fouls", icon: "⚠️", order: 1 },
+        { name: "Handball", slug: "handball", icon: "🖐️", order: 2 },
+        { name: "Holding", slug: "holding", icon: "🤝", order: 3 },
+        { name: "Offside", slug: "offside", icon: "🚩", order: 4 },
+      ],
+    },
+    {
+      name: "Management",
+      slug: "management",
+      icon: "🎯",
+      description: "Game control and referee skills",
+      color: "#00A5E8",
+      order: 2,
+      children: [
+        { name: "Advantage", slug: "advantage", icon: "⚡", order: 1 },
+        { name: "Communication", slug: "communication", icon: "💬", order: 2 },
+        { name: "Positioning", slug: "positioning", icon: "📍", order: 3 },
+        { name: "Teamwork", slug: "teamwork", icon: "👥", order: 4 },
+      ],
+    },
+    {
+      name: "Disciplinary",
+      slug: "disciplinary",
+      icon: "🟨",
+      description: "Card decisions and misconduct",
+      color: "#F5B400",
+      order: 3,
+      children: [
+        { name: "Yellow Cards", slug: "yellow-cards", icon: "🟨", order: 1 },
+        { name: "Red Cards - DOGSO", slug: "red-cards-dogso", icon: "🔴", order: 2 },
+        { name: "Red Cards - SFP", slug: "red-cards-sfp", icon: "🔴", order: 3 },
+        { name: "Second Yellow Cards", slug: "second-yellow", icon: "🟨🟨", order: 4 },
+      ],
+    },
+    {
+      name: "Procedures",
+      slug: "procedures",
+      icon: "📏",
+      description: "Restart management and protocols",
+      color: "#1BC47D",
+      order: 4,
+      children: [
+        { name: "Free Kicks", slug: "free-kicks", icon: "⚽", order: 1 },
+        { name: "Penalty Kicks", slug: "penalty-kicks", icon: "🎯", order: 2 },
+        { name: "Restarts", slug: "restarts", icon: "🔄", order: 3 },
+        { name: "Substitutions", slug: "substitutions", icon: "🔄", order: 4 },
+      ],
+    },
+    {
+      name: "VAR",
+      slug: "var",
+      icon: "🎬",
+      description: "Video Assistant Referee decisions",
+      color: "#9B59B6",
+      order: 5,
+      children: [
+        { name: "Goals/No Goals", slug: "goals-no-goals", icon: "⚽", order: 1 },
+        { name: "Penalty Decisions", slug: "penalty-decisions", icon: "🎯", order: 2 },
+        { name: "Red Card Incidents", slug: "red-card-incidents", icon: "🔴", order: 3 },
+        { name: "Mistaken Identity", slug: "mistaken-identity", icon: "👤", order: 4 },
+      ],
+    },
+  ];
+
+  for (const categoryData of categories) {
+    const { children, ...parentData } = categoryData;
+
+    const parent = await prisma.videoCategory.upsert({
+      where: { slug: parentData.slug },
+      update: parentData,
+      create: parentData,
+    });
+
+    if (children) {
+      for (const childData of children) {
+        await prisma.videoCategory.upsert({
+          where: { slug: childData.slug },
+          update: { ...childData, parentId: parent.id },
+          create: { ...childData, parentId: parent.id },
+        });
+      }
+    }
+  }
+
+  const tags = [
+    { name: "Handball", slug: "handball", category: "CONCEPT", color: "#FF6B6B" },
+    { name: "Offside", slug: "offside", category: "CONCEPT", color: "#4ECDC4" },
+    { name: "DOGSO", slug: "dogso", category: "CONCEPT", color: "#FF4D6D" },
+    { name: "SPA", slug: "spa", category: "CONCEPT", color: "#FFB347" },
+    { name: "Simulation", slug: "simulation", category: "CONCEPT", color: "#95E1D3" },
+    { name: "Serious Foul Play", slug: "serious-foul-play", category: "CONCEPT", color: "#C44569" },
+
+    { name: "Penalty Area", slug: "penalty-area", category: "SCENARIO", color: "#A8E6CF" },
+    { name: "Counter Attack", slug: "counter-attack", category: "SCENARIO", color: "#FFDAC1" },
+    { name: "Set Piece", slug: "set-piece", category: "SCENARIO", color: "#B5EAD7" },
+    { name: "Corner Kick", slug: "corner-kick", category: "SCENARIO", color: "#C7CEEA" },
+
+    { name: "Clear Decision", slug: "clear-decision", category: "GENERAL", color: "#1BC47D" },
+    { name: "Difficult Decision", slug: "difficult-decision", category: "GENERAL", color: "#F5B400" },
+    { name: "Controversial", slug: "controversial", category: "GENERAL", color: "#FF4D6D" },
+  ];
+
+  for (const tagData of tags) {
+    await prisma.tag.upsert({
+      where: { slug: tagData.slug },
+      update: tagData,
+      create: tagData,
+    });
+  }
+}
+
+async function createDemoVideoLibraryVideos() {
+  // URL-based seeding only (no file upload / no /public/videos dependency)
+  const superAdmin = await prisma.user.findFirst({ where: { role: Role.SUPER_ADMIN } });
+  if (!superAdmin) return;
+
+  const libraryCategory = await prisma.category.findUnique({ where: { slug: "video-library" } });
+  if (!libraryCategory) return;
+
+  const [handballCategory, offsideCategory, dogsoCategory] = await Promise.all([
+    prisma.videoCategory.findUnique({ where: { slug: "handball" } }),
+    prisma.videoCategory.findUnique({ where: { slug: "offside" } }),
+    prisma.videoCategory.findUnique({ where: { slug: "red-cards-dogso" } }),
+  ]);
+
+  const [handballTag, offsideTag, dogsoTag, penaltyAreaTag] = await Promise.all([
+    prisma.tag.findUnique({ where: { slug: "handball" } }),
+    prisma.tag.findUnique({ where: { slug: "offside" } }),
+    prisma.tag.findUnique({ where: { slug: "dogso" } }),
+    prisma.tag.findUnique({ where: { slug: "penalty-area" } }),
+  ]);
+
+  const sampleVideos = [
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+  ];
+
+  function pick(arr, i) {
+    return arr[i % arr.length];
+  }
+
+  const planned = [];
+  if (handballCategory?.id) {
+    for (let i = 1; i <= 10; i++) {
+      planned.push({
+        title: `Handball Scenario #${i}`,
+        fileUrl: pick(sampleVideos, i),
+        videoCategoryId: handballCategory.id,
+        lawNumbers: [12],
+        sanctionType: i % 3 === 0 ? "YELLOW_CARD" : "NO_CARD",
+        restartType: "PENALTY_KICK",
+        varRelevant: true,
+      });
+    }
+  }
+  if (offsideCategory?.id) {
+    for (let i = 1; i <= 10; i++) {
+      planned.push({
+        title: `Offside Scenario #${i}`,
+        fileUrl: pick(sampleVideos, i + 10),
+        videoCategoryId: offsideCategory.id,
+        lawNumbers: [11],
+        sanctionType: "NO_CARD",
+        restartType: "INDIRECT_FREE_KICK",
+        varRelevant: true,
+      });
+    }
+  }
+  if (dogsoCategory?.id) {
+    for (let i = 1; i <= 10; i++) {
+      planned.push({
+        title: `DOGSO Scenario #${i}`,
+        fileUrl: pick(sampleVideos, i + 20),
+        videoCategoryId: dogsoCategory.id,
+        lawNumbers: [12],
+        sanctionType: "RED_CARD",
+        restartType: "DIRECT_FREE_KICK",
+        varRelevant: true,
+      });
+    }
+  }
+
+  for (let i = 0; i < planned.length; i++) {
+    const v = planned[i];
+
+    const existing = await prisma.videoClip.findFirst({
+      where: {
+        title: v.title,
+        categoryId: libraryCategory.id,
+      },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    const created = await prisma.videoClip.create({
+      data: {
+        title: v.title,
+        description: "Seeded demo clip (URL-based) for staging.",
+        fileUrl: v.fileUrl,
+        thumbnailUrl: null,
+        duration: null,
+        videoType: "MATCH_CLIP",
+        categoryId: libraryCategory.id,
+        videoCategoryId: v.videoCategoryId,
+        correctDecision: null,
+        decisionExplanation: null,
+        keyPoints: [],
+        commonMistakes: [],
+        lawNumbers: v.lawNumbers ?? [],
+        sanctionType: v.sanctionType,
+        restartType: v.restartType,
+        varRelevant: v.varRelevant ?? false,
+        varNotes: null,
+        isActive: true,
+        isFeatured: i < 6,
+        order: i + 1,
+        uploadedById: superAdmin.id,
+        viewCount: 0,
+      },
+      select: { id: true, title: true },
+    });
+
+    const tagIds = [];
+    if (v.title.startsWith("Handball") && handballTag) tagIds.push(handballTag.id);
+    if (v.title.startsWith("Offside") && offsideTag) tagIds.push(offsideTag.id);
+    if (v.title.startsWith("DOGSO") && dogsoTag) tagIds.push(dogsoTag.id);
+    if (v.title.includes("Handball") && penaltyAreaTag) tagIds.push(penaltyAreaTag.id);
+
+    for (const tagId of tagIds) {
+      await prisma.videoTag.upsert({
+        where: { videoId_tagId: { videoId: created.id, tagId } },
+        update: {},
+        create: { videoId: created.id, tagId },
+      });
+    }
   }
 }
 
@@ -190,63 +448,8 @@ async function createQuestions() {
     }
   }
 
-  const videoCategories = [
-    { slug: "offside", title: "Offside challenge" },
-    { slug: "handball", title: "Handball challenge" },
-    { slug: "dogso-spa", title: "DOGSO/SPA challenge" },
-  ];
-
-  for (const item of videoCategories) {
-    const category = await prisma.category.findUnique({ where: { slug: item.slug } });
-    if (!category) continue;
-
-    // Check if clip already exists
-    let clip = await prisma.videoClip.findFirst({
-      where: { 
-        title: `${item.title} clip 1`,
-        categoryId: category.id
-      }
-    });
-    
-    if (!clip) {
-      clip = await prisma.videoClip.create({
-        data: {
-          title: `${item.title} clip 1`,
-          fileUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
-          thumbnailUrl: "",
-          categoryId: category.id,
-          tags: ["placeholder"],
-        },
-      });
-    }
-
-    const existingQuestion = await prisma.question.findFirst({
-      where: {
-        text: `Decide the correct outcome for ${item.title}.`,
-        categoryId: category.id
-      }
-    });
-    
-    if (!existingQuestion) {
-      await prisma.question.create({
-        data: {
-          type: QuestionType.VIDEO_CHALLENGE,
-          categoryId: category.id,
-          videoClipId: clip.id,
-          text: `Decide the correct outcome for ${item.title}.`,
-          explanation: "Consider foul severity, restart, and disciplinary sanction.",
-          answerOptions: {
-            create: [
-              { label: "No foul", code: "NO_FOUL", isCorrect: false },
-              { label: "Careless foul", code: "CARELESS", isCorrect: true },
-              { label: "Reckless – Yellow", code: "RECKLESS", isCorrect: false },
-              { label: "Serious foul play – Red", code: "SFP", isCorrect: false },
-            ],
-          },
-        },
-      });
-    }
-  }
+  // NOTE: Video challenge seeding was intentionally removed here.
+  // The "Video Library" feature uses URL-based videos and is seeded separately in createDemoVideoLibraryVideos().
 
   const varCategory = await prisma.category.findUnique({ where: { slug: "var-practice" } });
   if (varCategory) {
@@ -263,7 +466,6 @@ async function createQuestions() {
           title: "VAR elbow example",
           fileUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
           categoryId: varCategory.id,
-          tags: ["VAR", "SFP"],
         },
       });
     }
@@ -310,7 +512,6 @@ async function createQuestions() {
           title: "Assistant referee offside",
           fileUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
           categoryId: arCategory.id,
-          tags: ["AR", "Offside"],
         },
       });
     }
@@ -378,8 +579,10 @@ async function createMandatoryTests() {
 async function main() {
   await createUsers();
   await createCategories();
+  await createVideoLibraryCategoriesAndTags();
   await createLibraryArticles();
   await createQuestions();
+  await createDemoVideoLibraryVideos();
   await createMandatoryTests();
   await createAssignments();
 }
