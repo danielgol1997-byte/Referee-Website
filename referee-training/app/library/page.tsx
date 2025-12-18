@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import type { Category, LibraryArticle } from "@prisma/client";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function LibraryPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q ?? "";

@@ -12,18 +12,23 @@ export async function GET() {
   const userId = session.user.id;
 
   const categories = await prisma.category.findMany({
-    include: {
+    orderBy: { order: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      type: true,
       testSessions: {
         where: { userId },
         orderBy: { createdAt: "desc" },
         take: 1,
+        select: { score: true },
       },
       trainingAssignments: {
         where: { userId },
-        orderBy: { createdAt: "desc" },
+        select: { status: true },
       },
     },
-    orderBy: { order: "asc" },
   });
 
   const overview = categories.map((category) => {
@@ -41,8 +46,15 @@ export async function GET() {
 
   const assignments = await prisma.trainingAssignment.findMany({
     where: { userId },
-    include: { category: true },
     orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      targetScore: true,
+      createdAt: true,
+      updatedAt: true,
+      category: { select: { id: true, name: true, slug: true, type: true } },
+    },
   });
 
   return NextResponse.json({

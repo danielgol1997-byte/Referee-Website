@@ -1,4 +1,3 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -7,21 +6,21 @@ import FacebookProvider from "next-auth/providers/facebook";
 import { compare } from "bcryptjs";
 import { prisma } from "./prisma";
 import { Role } from "@prisma/client";
+import { env } from "./env";
 
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
 export const authOptions: NextAuthOptions = {
-  debug: true, // Enable debug in production to diagnose middleware issues
-  // Required in production. Without a stable secret, JWT/session cookies can become invalid
-  // across serverless instances, which looks like "logged in on / but logged out on other pages".
-  secret: process.env.NEXTAUTH_SECRET,
+  debug: env.NEXTAUTH_DEBUG === "true" || env.NODE_ENV === "development",
+  // Critical: must be stable in production/serverless, or auth will appear "randomly logged out".
+  secret: env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  useSecureCookies: process.env.NODE_ENV === "production",
+  useSecureCookies: env.NODE_ENV === "production",
   jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 days - must match session maxAge
   },
@@ -33,10 +32,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log('[AUTH] Authorize called with email:', credentials?.email);
-        
         if (!credentials?.email || !credentials.password) {
-          console.log('[AUTH] Missing credentials');
           return null;
         }
 
@@ -44,22 +40,15 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
         });
 
-        console.log('[AUTH] User found:', !!user, 'Has password:', !!user?.password);
-
         if (!user?.password) {
-          console.log('[AUTH] No user or no password');
           return null;
         }
 
         const isValid = await compare(credentials.password, user.password);
-        console.log('[AUTH] Password valid:', isValid);
-        
         if (!isValid) {
-          console.log('[AUTH] Invalid password');
           return null;
         }
 
-        console.log('[AUTH] Login successful for:', user.email);
         return {
           id: user.id,
           email: user.email,
@@ -70,8 +59,8 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     ...(() => {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const clientId = env.GOOGLE_CLIENT_ID;
+      const clientSecret = env.GOOGLE_CLIENT_SECRET;
       return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           GoogleProvider({
@@ -82,8 +71,8 @@ export const authOptions: NextAuthOptions = {
       : [];
     })(),
     ...(() => {
-      const clientId = process.env.APPLE_CLIENT_ID;
-      const clientSecret = process.env.APPLE_CLIENT_SECRET;
+      const clientId = env.APPLE_CLIENT_ID;
+      const clientSecret = env.APPLE_CLIENT_SECRET;
       return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           AppleProvider({
@@ -94,8 +83,8 @@ export const authOptions: NextAuthOptions = {
       : [];
     })(),
     ...(() => {
-      const clientId = process.env.FACEBOOK_CLIENT_ID;
-      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+      const clientId = env.FACEBOOK_CLIENT_ID;
+      const clientSecret = env.FACEBOOK_CLIENT_SECRET;
       return isNonEmpty(clientId) && isNonEmpty(clientSecret)
       ? [
           FacebookProvider({
@@ -119,7 +108,7 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       // On sign in, user object is passed. Store role in token.
       if (user) {
         const userWithRole = user as { role?: Role; country?: string | null };

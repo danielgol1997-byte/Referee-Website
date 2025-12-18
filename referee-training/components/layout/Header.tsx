@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,11 +24,21 @@ const navItems = [
 ];
 
 export function Header() {
+  const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const [displaySession, setDisplaySession] = useState(session);
+  const [, startTransition] = useTransition();
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
-  // Set logo based on current page
+  const effectivePath = pendingPath ?? pathname;
+
+  // Clear pending path once navigation completes OR when interrupted (e.g., login redirect)
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+
+  // Set logo based on the CURRENT page (not optimistic navigation) to avoid flicker/glitches
   const activeLogo = pathname.startsWith('/laws')
     ? "/logo/whistle-laws.webp"
     : pathname.startsWith('/library/videos')
@@ -44,6 +54,31 @@ export function Header() {
     : pathname.startsWith('/practice')
     ? "/logo/whistle-practice-new.gif"
     : "/logo/whistle-chrome-liquid.gif";
+
+  const shouldHandleClientNav = (e: React.MouseEvent) => {
+    // Preserve normal browser behaviors: open in new tab/window, copy link, etc.
+    if (e.defaultPrevented) return false;
+    if (e.button !== 0) return false; // only left click
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
+    return true;
+  };
+
+  const getIsActive = useMemo(() => {
+    return (href: string) => {
+      if (href === "/practice") {
+        return (
+          effectivePath === "/practice" ||
+          (effectivePath.startsWith("/practice/") &&
+            !effectivePath.startsWith("/practice/var") &&
+            !effectivePath.startsWith("/practice/ar"))
+        );
+      }
+      if (href === "/library/videos") {
+        return effectivePath.startsWith("/library/videos");
+      }
+      return effectivePath === href || effectivePath.startsWith(`${href}/`);
+    };
+  }, [effectivePath]);
 
   // Keep session stable during loading/navigation to prevent flash
   useEffect(() => {
@@ -90,29 +125,36 @@ export function Header() {
         {/* Navigation - Centered between logo and user */}
         <nav className="hidden items-center justify-center gap-10 lg:flex flex-1">
           {navItems.map((item) => {
-            // Check if current path matches this nav item
-            // For exact match on /practice (but not /practice/var or /practice/ar)
-            const isActive = item.href === "/practice" 
-              ? pathname === "/practice" || (pathname.startsWith("/practice/") && !pathname.startsWith("/practice/var") && !pathname.startsWith("/practice/ar"))
-              : item.href === "/library/videos"
-              ? pathname.startsWith("/library/videos")
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = getIsActive(item.href);
             
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
+                onMouseEnter={() => {
+                  // Prefetch eagerly so the click feels instant.
+                  router.prefetch(item.href);
+                }}
+                onClick={(e) => {
+                  if (!shouldHandleClientNav(e)) return;
+                  e.preventDefault();
+                  setPendingPath(item.href);
+                  startTransition(() => {
+                    router.push(item.href);
+                  });
+                }}
                 className={cn(
-                  "group relative py-2 text-sm font-medium transition-all duration-300",
+                  "group relative pb-1 text-sm font-medium transition-all duration-300",
                   "text-text-secondary hover:text-accent",
                   isActive && "text-accent"
                 )}
               >
                 {item.label}
-                {/* Active underline with gradient */}
+                {/* Active underline with gradient - positioned directly below text */}
                 <span 
                   className={cn(
-                    "absolute -bottom-[17px] left-0 right-0 h-[2px] rounded-full transition-all duration-300",
+                    "absolute bottom-0 left-0 right-0 h-[2px] rounded-full transition-all duration-300",
                     isActive 
                       ? "bg-accent opacity-100" 
                       : "bg-accent/30 opacity-0 scale-x-0 group-hover:opacity-40 group-hover:scale-x-100"

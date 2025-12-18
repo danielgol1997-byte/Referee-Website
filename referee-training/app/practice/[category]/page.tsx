@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { TestStarter } from "@/components/test/test-starter";
 import { Card } from "@/components/ui/card";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function PracticeCategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const resolvedParams = await params;

@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,18 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const waitForSession = async (timeoutMs = 2500) => {
+    const start = Date.now();
+    // Poll until the session cookie is fully established/visible to middleware.
+    // This prevents the "click a tab -> redirected back to login" flash right after sign-in.
+    while (Date.now() - start < timeoutMs) {
+      const s = await getSession();
+      if (s?.user) return true;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -38,12 +50,17 @@ function LoginPageInner() {
       callbackUrl,
     });
 
-    setLoading(false);
     if (res?.error) {
+      setLoading(false);
       setError("Invalid credentials. Please try again.");
       return;
     }
-    router.push(callbackUrl);
+
+    // Make navigation deterministic: ensure the session exists before leaving this page.
+    await waitForSession();
+    setLoading(false);
+    router.replace(callbackUrl);
+    router.refresh();
   };
 
   return (

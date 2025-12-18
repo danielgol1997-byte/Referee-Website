@@ -11,9 +11,15 @@ export async function GET() {
 
   const history = await prisma.testSession.findMany({
     where: { userId: session.user.id },
-    include: { category: true },
     orderBy: { createdAt: "desc" },
     take: 10,
+    select: {
+      id: true,
+      createdAt: true,
+      score: true,
+      type: true,
+      category: { select: { name: true } },
+    },
   });
 
   return NextResponse.json({ history });

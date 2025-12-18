@@ -5,7 +5,7 @@ import { VideoPlayer } from "@/components/ui/video-player";
 import { DecisionReveal } from "@/components/library/DecisionReveal";
 import { VideoCard3D } from "@/components/library/VideoCard3D";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function VideoWatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

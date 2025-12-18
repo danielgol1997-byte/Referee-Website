@@ -16,26 +16,39 @@ export default async function MyTrainingPage() {
 
   const userId = session.user.id;
 
-  const categories = await prisma.category.findMany({
-    include: {
-      testSessions: {
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 1,
+  const [categories, history] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { order: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        testSessions: {
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { score: true },
+        },
+        trainingAssignments: {
+          where: { userId },
+          select: { status: true },
+        },
       },
-      trainingAssignments: {
-        where: { userId },
+    }),
+    prisma.testSession.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        createdAt: true,
+        score: true,
+        type: true,
+        category: { select: { name: true } },
       },
-    },
-    orderBy: { order: "asc" },
-  });
-
-  const history = await prisma.testSession.findMany({
-    where: { userId },
-    include: { category: true },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    }),
+  ]);
 
   const totalTests = history.length;
   const average =
