@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "clear-questions": "node prisma/clear-questions-and-tests.js"
+    "clear-questions": "node prisma/clear-questions-and-tests.js",
+    "deploy": "bash scripts/deploy.sh production",
+    "deploy:preview": "bash scripts/deploy.sh preview"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
