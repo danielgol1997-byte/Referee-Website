@@ -99,16 +99,16 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group relative py-2 text-sm font-medium transition-all duration-300",
+                  "group relative pb-1 text-sm font-medium transition-all duration-300",
                   "text-text-secondary hover:text-accent",
                   isActive && "text-accent"
                 )}
               >
                 {item.label}
-                {/* Active underline with gradient */}
+                {/* Active underline with gradient - positioned directly below text */}
                 <span 
                   className={cn(
-                    "absolute -bottom-[17px] left-0 right-0 h-[2px] rounded-full transition-all duration-300",
+                    "absolute bottom-0 left-0 right-0 h-[2px] rounded-full transition-all duration-300",
                     isActive 
                       ? "bg-accent opacity-100" 
                       : "bg-accent/30 opacity-0 scale-x-0 group-hover:opacity-40 group-hover:scale-x-100"
