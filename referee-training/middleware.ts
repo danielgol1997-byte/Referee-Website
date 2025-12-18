@@ -4,8 +4,16 @@ import type { NextRequestWithAuth } from "next-auth/middleware";
 
 export default withAuth(
   function middleware(req: NextRequestWithAuth) {
-    const role = req.nextauth.token?.role;
+    const token = req.nextauth.token;
+    const role = token?.role;
     const pathname = req.nextUrl.pathname;
+
+    console.log('[MIDDLEWARE]', {
+      pathname,
+      hasToken: !!token,
+      role,
+      tokenKeys: token ? Object.keys(token) : [],
+    });
 
     // Preserve the current URL as callbackUrl when redirecting to login
     const currentUrl = req.nextUrl.pathname + req.nextUrl.search;
@@ -27,10 +35,17 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
+        console.log('[MIDDLEWARE] authorized callback:', {
+          path: req.nextUrl.pathname,
+          hasToken: !!token,
+          tokenSub: token?.sub,
+          tokenRole: token?.role,
+        });
+        
         // If not authorized, NextAuth will redirect to signIn with callbackUrl automatically
         // But we also handle role-based redirects in the middleware function above
         if (!token) {
-          // NextAuth will automatically preserve the current URL as callbackUrl
+          console.log('[MIDDLEWARE] No token - redirecting to login');
           return false;
         }
         return true;

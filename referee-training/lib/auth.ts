@@ -13,7 +13,7 @@ function isNonEmpty(value: unknown): value is string {
 }
 
 export const authOptions: NextAuthOptions = {
-  debug: process.env.NODE_ENV === "development",
+  debug: true, // Enable debug in production to diagnose middleware issues
   // Required in production. Without a stable secret, JWT/session cookies can become invalid
   // across serverless instances, which looks like "logged in on / but logged out on other pages".
   secret: process.env.NEXTAUTH_SECRET,
@@ -22,6 +22,9 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   useSecureCookies: process.env.NODE_ENV === "production",
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days - must match session maxAge
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
