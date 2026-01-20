@@ -93,19 +93,19 @@ export function DecisionReveal({
   lawNumbers = [],
   tags = [],
 }: DecisionRevealProps) {
-  // ESC key to close
+  // ESC or "i" key to close
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Escape" || e.key === "i" || e.key === "I") && isOpen) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("keydown", handleEsc);
+      document.addEventListener("keydown", handleKeyDown);
     }
 
-    return () => document.removeEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;

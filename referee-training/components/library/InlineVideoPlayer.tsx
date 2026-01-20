@@ -78,6 +78,19 @@ export function InlineVideoPlayer({
   const hasCorrectDecisionTags = video.tags?.some(tag => tag.isCorrectDecision) || false;
   const hasAnswer = Boolean(onDecisionReveal && hasCorrectDecisionTags);
 
+  const handleClose = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    onClose();
+  }, [onClose]);
+
   // Auto-play when expanded
   useEffect(() => {
     if (isExpanded && videoRef.current) {
@@ -100,6 +113,18 @@ export function InlineVideoPlayer({
         // If answer is open, DecisionReveal will handle closing itself
         if (!isAnswerOpen) {
           handleClose();
+        }
+      } else if (e.key === " " && isExpanded) {
+        // Spacebar toggles play/pause
+        e.preventDefault();
+        if (videoRef.current) {
+          if (videoRef.current.paused) {
+            videoRef.current.play();
+            setIsPlaying(true);
+          } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
         }
       } else if (e.key === "ArrowRight" && hasNext && isExpanded) {
         onNext?.();
@@ -124,20 +149,7 @@ export function InlineVideoPlayer({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal]);
-
-  const handleClose = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-    setIsPlaying(false);
-    onClose();
-  }, [onClose]);
+  }, [isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal, handleClose]);
 
   const handleVideoPlay = () => setIsPlaying(true);
   const handleVideoPause = () => setIsPlaying(false);

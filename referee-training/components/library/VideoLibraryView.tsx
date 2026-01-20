@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RAPCategoryTabs, RAPCategory } from "./RAPCategoryTabs";
 import { VideoCard3D } from "./VideoCard3D";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
@@ -70,6 +70,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [closingVideoId, setClosingVideoId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
+  const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
 
   // Sync RAP category with tabs
   const effectiveRAPCategory = filters.rapCategory || activeCategory;
@@ -176,13 +177,23 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     ? videos.find(v => v.id === expandedVideoId) 
     : null;
 
-  const handleVideoClick = (videoId: string) => {
+  const handleVideoClick = useCallback((videoId: string) => {
     setExpandedVideoId(videoId);
     setShowDecision(false);
-  };
+    setFocusedVideoIndex(-1); // Clear focus when opening a video
+  }, []);
 
   const handleClose = () => {
     setClosingVideoId(expandedVideoId);
+    
+    // Set focus to the video that was just closed, so keyboard nav continues from there
+    if (expandedVideoId) {
+      const closedVideoIndex = filteredVideos.findIndex(v => v.id === expandedVideoId);
+      if (closedVideoIndex !== -1) {
+        setFocusedVideoIndex(closedVideoIndex);
+      }
+    }
+    
     setExpandedVideoId(null);
     setShowDecision(false);
     // Clear closing video after animation completes
@@ -213,6 +224,51 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       setShowDecision(false);
     }
   };
+
+  // Keyboard navigation for video grid
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keyboard navigation when no video is expanded
+      if (expandedVideoId || filteredVideos.length === 0) return;
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.min(prev + 1, filteredVideos.length - 1);
+        });
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.max(prev - 1, 0);
+        });
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          // Move down one row (assuming 4 columns on XL screens, 3 on LG, 2 on MD, 1 on mobile)
+          // Using 4 as default for keyboard navigation
+          return Math.min(prev + 4, filteredVideos.length - 1);
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.max(prev - 4, 0);
+        });
+      } else if (e.key === "Enter" && focusedVideoIndex >= 0) {
+        e.preventDefault();
+        const focusedVideo = filteredVideos[focusedVideoIndex];
+        if (focusedVideo) {
+          handleVideoClick(focusedVideo.id);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [expandedVideoId, filteredVideos, focusedVideoIndex, handleVideoClick]);
 
   const handleClearFilters = () => {
     setFilters({
@@ -254,8 +310,9 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredVideos.map((video) => {
+              {filteredVideos.map((video, index) => {
                 const isClosing = closingVideoId === video.id;
+                const isFocused = focusedVideoIndex === index;
                 
                 return (
                   <div 
@@ -267,10 +324,9 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
                       layoutId={`video-${video.id}`}
                       onClick={() => handleVideoClick(video.id)}
                       className="w-full rounded-2xl cursor-pointer focus:outline-none"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
                       style={{ position: "relative", zIndex: isClosing ? 300 : 1 }}
                       tabIndex={-1}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     >
                       <VideoCard3D
                         id={video.id}
@@ -282,6 +338,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
                         sanctionType={video.sanctionType}
                         restartType={video.restartType}
                         size="medium"
+                        forceHover={isFocused}
                       />
                     </motion.div>
                   </div>

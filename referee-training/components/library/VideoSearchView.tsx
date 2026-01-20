@@ -58,6 +58,7 @@ export function VideoSearchView() {
   const [loading, setLoading] = useState(false);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
+  const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -87,6 +88,50 @@ export function VideoSearchView() {
   const expandedVideo = expandedVideoId 
     ? videos.find(v => v.id === expandedVideoId) 
     : null;
+
+  // Keyboard navigation for video grid
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keyboard navigation when no video is expanded
+      if (expandedVideoId || videos.length === 0) return;
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.min(prev + 1, videos.length - 1);
+        });
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.max(prev - 1, 0);
+        });
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.min(prev + 3, videos.length - 1);
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedVideoIndex((prev) => {
+          if (prev === -1) return 0;
+          return Math.max(prev - 3, 0);
+        });
+      } else if (e.key === "Enter" && focusedVideoIndex >= 0) {
+        e.preventDefault();
+        const focusedVideo = videos[focusedVideoIndex];
+        if (focusedVideo) {
+          setExpandedVideoId(focusedVideo.id);
+          setShowDecision(false);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [expandedVideoId, videos, focusedVideoIndex]);
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return "0:00";
@@ -191,15 +236,23 @@ export function VideoSearchView() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map((video) => (
+            {videos.map((video, index) => {
+              const isFocused = focusedVideoIndex === index;
+              
+              return (
               <button
                 key={video.id}
-                onClick={() => setExpandedVideoId(video.id)}
+                onClick={() => {
+                  setExpandedVideoId(video.id);
+                  setShowDecision(false);
+                  setFocusedVideoIndex(-1);
+                }}
                 className={cn(
                   "group relative rounded-lg overflow-hidden",
                   "bg-slate-800 border border-slate-700 hover:border-cyan-500/50",
                   "transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20",
-                  "text-left"
+                  "text-left",
+                  isFocused && "border-cyan-500/50 scale-105 shadow-2xl shadow-cyan-500/20"
                 )}
               >
                 {/* Thumbnail */}
@@ -210,7 +263,10 @@ export function VideoSearchView() {
                       alt={video.title}
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                      className={cn(
+                        "object-cover transition-transform duration-300 group-hover:scale-110",
+                        isFocused && "scale-110"
+                      )}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -259,7 +315,8 @@ export function VideoSearchView() {
                   </div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -270,6 +327,13 @@ export function VideoSearchView() {
           video={expandedVideo}
           isExpanded={!!expandedVideoId}
           onClose={() => {
+            // Set focus to the video that was just closed, so keyboard nav continues from there
+            if (expandedVideoId) {
+              const closedVideoIndex = videos.findIndex(v => v.id === expandedVideoId);
+              if (closedVideoIndex !== -1) {
+                setFocusedVideoIndex(closedVideoIndex);
+              }
+            }
             setExpandedVideoId(null);
             setShowDecision(false);
           }}
