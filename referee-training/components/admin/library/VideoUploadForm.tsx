@@ -413,6 +413,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
               <video
                 ref={videoRef}
                 src={videoPreview}
+                crossOrigin="anonymous"
                 controls
                 className="w-full"
               />
