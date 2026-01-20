@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { VideoLibraryView } from "@/components/library/VideoLibraryView";
+import { Prisma } from "@prisma/client";
 
 export const revalidate = 300;
 
@@ -117,7 +118,26 @@ export default async function VideoLibraryPage() {
       />
     );
   } catch (error) {
-    console.error('Error loading video library:', error);
-    throw new Error(`Failed to load video library: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const isPrismaKnown = error instanceof Prisma.PrismaClientKnownRequestError;
+    const isPrismaUnknown = error instanceof Prisma.PrismaClientUnknownRequestError;
+    const isPrismaValidation = error instanceof Prisma.PrismaClientValidationError;
+    const baseMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = {
+      message: baseMessage,
+      name: error instanceof Error ? error.name : 'UnknownError',
+      code: isPrismaKnown ? error.code : undefined,
+      meta: isPrismaKnown ? error.meta : undefined,
+      type: isPrismaKnown
+        ? 'PrismaKnownRequestError'
+        : isPrismaUnknown
+          ? 'PrismaUnknownRequestError'
+          : isPrismaValidation
+            ? 'PrismaValidationError'
+            : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+    };
+
+    console.error('Error loading video library:', errorDetails);
+    throw new Error(`Failed to load video library: ${baseMessage}`);
   }
 }
