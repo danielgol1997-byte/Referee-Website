@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { getClientUploadConfig, getThumbnailUrl } from "@/lib/cloudinary";
+import { getClientUploadConfig, getThumbnailUrl } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
