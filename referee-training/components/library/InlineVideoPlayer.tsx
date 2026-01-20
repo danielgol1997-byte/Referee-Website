@@ -73,6 +73,11 @@ export function InlineVideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Determine if we should show the "Show Answer" button
+  // Show if ANY tags are marked with isCorrectDecision: true
+  const hasCorrectDecisionTags = video.tags?.some(tag => tag.isCorrectDecision) || false;
+  const hasAnswer = Boolean(onDecisionReveal && hasCorrectDecisionTags);
+
   // Auto-play when expanded
   useEffect(() => {
     if (isExpanded && videoRef.current) {
@@ -100,6 +105,12 @@ export function InlineVideoPlayer({
         onNext?.();
       } else if (e.key === "ArrowLeft" && hasPrev && isExpanded) {
         onPrev?.();
+      } else if ((e.key === "i" || e.key === "I") && isExpanded && hasAnswer && !isAnswerOpen) {
+        // Press 'i' to show answer
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        onDecisionReveal?.();
       }
     };
 
@@ -113,7 +124,7 @@ export function InlineVideoPlayer({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [isExpanded, hasNext, hasPrev, onNext, onPrev]);
+  }, [isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal]);
 
   const handleClose = useCallback((e?: React.MouseEvent) => {
     if (e) {
@@ -131,12 +142,6 @@ export function InlineVideoPlayer({
   const handleVideoPlay = () => setIsPlaying(true);
   const handleVideoPause = () => setIsPlaying(false);
   const handleVideoEnded = () => setIsPlaying(false);
-
-  // Determine if we should show the "Show Answer" button
-  // Show if ANY tags are marked with isCorrectDecision: true
-  const hasCorrectDecisionTags = video.tags?.some(tag => tag.isCorrectDecision) || false;
-  
-  const hasAnswer = Boolean(onDecisionReveal && hasCorrectDecisionTags);
 
   return (
     <AnimatePresence>
@@ -296,13 +301,9 @@ export function InlineVideoPlayer({
                         "px-4 py-2 bg-accent hover:bg-accent/90",
                         "text-dark-900 font-bold text-sm uppercase tracking-wider",
                         "rounded shadow-lg",
-                        "transition-all duration-200 hover:scale-105 active:scale-95",
-                        "flex items-center gap-2"
+                        "transition-all duration-200 hover:scale-105 active:scale-95"
                       )}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
                       {video.isEducational ? "Show Explanation" : "Show Answer"}
                     </button>
                   )}
