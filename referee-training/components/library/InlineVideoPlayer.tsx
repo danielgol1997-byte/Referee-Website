@@ -148,8 +148,8 @@ export function InlineVideoPlayer({
     }
     setIsPlaying(false);
     setCurrentTime(0);
-    setLoopMarkerA(null);
-    setLoopMarkerB(null);
+    setLoopMarkerA(0);
+    setLoopMarkerB(0);
     setIsLoopEnabled(false);
     onClose();
   }, [onClose]);
