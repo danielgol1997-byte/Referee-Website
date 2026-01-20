@@ -23,6 +23,7 @@
     "class-variance-authority": "^0.7.0",
     "cloudinary": "^2.8.0",
     "clsx": "^2.1.0",
+    "framer-motion": "^12.27.1",
     "next": "16.0.8",
     "next-auth": "^4.24.5",
     "next-cloudinary": "^6.17.5",
