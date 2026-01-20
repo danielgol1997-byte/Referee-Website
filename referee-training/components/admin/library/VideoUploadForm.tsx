@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { getClientUploadConfig, getThumbnailUrl } from "@/lib/cloudinary";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
@@ -148,41 +149,84 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       if (videoFile) {
         console.log('Uploading video file:', videoFile.name, 'Size:', videoFile.size);
         
-        const uploadFormData = new FormData();
-        uploadFormData.append('video', videoFile);
+        const cloudConfig = getClientUploadConfig();
+        const canDirectUpload = !!cloudConfig?.cloudName && !!cloudConfig?.uploadPreset;
 
-        const uploadResponse = await fetch('/api/admin/library/upload', {
-          method: 'POST',
-          body: uploadFormData,
-        });
+        if (canDirectUpload) {
+          const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudConfig.cloudName}/video/upload`;
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', videoFile);
+          uploadFormData.append('upload_preset', cloudConfig.uploadPreset);
 
-        console.log('Upload response status:', uploadResponse.status);
+          const uploadResponse = await fetch(cloudinaryUrl, {
+            method: 'POST',
+            body: uploadFormData,
+          });
 
-        if (!uploadResponse.ok) {
-          let errorMessage = `Upload failed with status ${uploadResponse.status}`;
-          try {
-            const errorData = await uploadResponse.json();
-            errorMessage = errorData.error || errorMessage;
-            console.error('Server error response:', errorData);
-          } catch (parseError) {
-            console.error('Could not parse error response:', parseError);
-            const textError = await uploadResponse.text();
-            console.error('Error response text:', textError);
-            errorMessage = textError || errorMessage;
+          console.log('Upload response status:', uploadResponse.status);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData?.error?.message || errorData?.error || errorMessage;
+              console.error('Server error response:', errorData);
+            } catch (parseError) {
+              console.error('Could not parse error response:', parseError);
+              console.error('Error response text:', errorText);
+              errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
           }
-          throw new Error(errorMessage);
-        }
 
-        const uploadResult = await uploadResponse.json();
-        console.log('Upload successful:', uploadResult);
-        
-        if (!uploadResult.video || !uploadResult.video.url) {
-          throw new Error('Upload response missing video URL');
+          const uploadResult = await uploadResponse.json();
+          console.log('Upload successful:', uploadResult);
+
+          if (!uploadResult?.secure_url || !uploadResult?.public_id) {
+            throw new Error('Upload response missing Cloudinary URL');
+          }
+
+          fileUrl = uploadResult.secure_url;
+          thumbnailUrl = getThumbnailUrl(uploadResult.public_id);
+          duration = uploadResult.duration || 0;
+        } else {
+          const uploadFormData = new FormData();
+          uploadFormData.append('video', videoFile);
+
+          const uploadResponse = await fetch('/api/admin/library/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          console.log('Upload response status:', uploadResponse.status);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData?.error || errorMessage;
+              console.error('Server error response:', errorData);
+            } catch (parseError) {
+              console.error('Could not parse error response:', parseError);
+              console.error('Error response text:', errorText);
+              errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          console.log('Upload successful:', uploadResult);
+          
+          if (!uploadResult.video || !uploadResult.video.url) {
+            throw new Error('Upload response missing video URL');
+          }
+          
+          fileUrl = uploadResult.video.url;
+          thumbnailUrl = uploadResult.video.thumbnailUrl;
+          duration = uploadResult.video.duration;
         }
-        
-        fileUrl = uploadResult.video.url;
-        thumbnailUrl = uploadResult.video.thumbnailUrl;
-        duration = uploadResult.video.duration;
       }
 
       // Upload custom thumbnail if captured
