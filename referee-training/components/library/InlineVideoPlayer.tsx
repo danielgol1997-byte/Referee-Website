@@ -112,7 +112,7 @@ export function InlineVideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   // Determine if we should show the "Show Answer" button
   // Show if ANY tags are marked with isCorrectDecision: true
