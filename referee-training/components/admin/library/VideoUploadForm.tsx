@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { getClientUploadConfig, getThumbnailUrl } from "@/lib/cloudinary-client";
+import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
@@ -253,21 +253,39 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
 
       // Upload custom thumbnail if captured
       if (thumbnailFile) {
-        console.log('📸 Uploading custom thumbnail...');
-        const thumbnailFormData = new FormData();
-        thumbnailFormData.append('thumbnail', thumbnailFile);
+        try {
+          console.log('📸 Uploading custom thumbnail...');
+          const cloudConfig = getClientUploadConfig();
+          
+          if (cloudConfig?.cloudName && cloudConfig?.uploadPreset) {
+            // Direct client-side upload
+            const thumbnailResult = await uploadImageClient(
+              thumbnailFile,
+              cloudConfig.uploadPreset,
+              cloudConfig.cloudName
+            );
+            thumbnailUrl = thumbnailResult.secure_url;
+            console.log('✅ Custom thumbnail uploaded:', thumbnailUrl);
+          } else {
+            // Fallback to server upload
+            const thumbnailFormData = new FormData();
+            thumbnailFormData.append('thumbnail', thumbnailFile);
 
-        const thumbnailResponse = await fetch('/api/admin/library/upload/thumbnail', {
-          method: 'POST',
-          body: thumbnailFormData,
-        });
+            const thumbnailResponse = await fetch('/api/admin/library/upload/thumbnail', {
+              method: 'POST',
+              body: thumbnailFormData,
+            });
 
-        if (thumbnailResponse.ok) {
-          const thumbnailResult = await thumbnailResponse.json();
-          thumbnailUrl = thumbnailResult.thumbnailUrl;
-          console.log('✅ Custom thumbnail uploaded:', thumbnailUrl);
-        } else {
-          console.warn('⚠️ Custom thumbnail upload failed, using auto-generated');
+            if (thumbnailResponse.ok) {
+              const thumbnailResult = await thumbnailResponse.json();
+              thumbnailUrl = thumbnailResult.thumbnailUrl;
+              console.log('✅ Custom thumbnail uploaded (via server):', thumbnailUrl);
+            } else {
+              console.warn('⚠️ Custom thumbnail upload failed, using auto-generated');
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Custom thumbnail upload failed:', error, 'using auto-generated');
         }
       }
 

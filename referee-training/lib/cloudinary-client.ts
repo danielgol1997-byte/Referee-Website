@@ -41,3 +41,48 @@ export function getThumbnailUrl(
   return `https://res.cloudinary.com/${cloudName}/video/upload/${transforms}/${publicId}.jpg`;
 }
 
+/**
+ * Upload video directly to Cloudinary from client
+ */
+export async function uploadVideoClient(file: File, uploadPreset: string, cloudName: string): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+  formData.append('resource_type', 'video');
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Cloudinary video upload failed: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload image (thumbnail) directly to Cloudinary from client
+ */
+export async function uploadImageClient(file: File, uploadPreset: string, cloudName: string): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+  formData.append('resource_type', 'image');
+  formData.append('folder', 'referee-training/thumbnails');
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Cloudinary image upload failed: ${errorText}`);
+  }
+
+  return response.json();
+}
+
