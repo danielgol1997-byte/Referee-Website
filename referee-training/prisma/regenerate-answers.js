@@ -450,3 +450,6 @@ async function regenerateAnswers() {
 regenerateAnswers()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
+
+
+

@@ -1,215 +1,360 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface DecisionRevealProps {
-  correctDecision: string;
-  decisionExplanation?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  playOn?: boolean;
+  noOffence?: boolean;
+  correctDecision?: string | null;
+  restartType?: string | null;
+  sanctionType?: string | null;
+  offsideReason?: string | null;
+  decisionExplanation?: string | null;
   keyPoints?: string[];
   commonMistakes?: string[];
-  lawNumbers?: number[];
-  sanctionType?: string;
-  restartType?: string;
   varRelevant?: boolean;
-  varNotes?: string;
-  onReveal?: () => void;
+  varNotes?: string | null;
+  isEducational?: boolean;
+  lawNumbers?: number[];
+  tags?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    isCorrectDecision?: boolean;
+    decisionOrder?: number;
+  }>;
 }
 
+// Format enum values to readable text
+const formatRestartType = (type: string): string => {
+  const map: Record<string, string> = {
+    PENALTY_KICK: "Penalty Kick",
+    DIRECT_FREE_KICK: "Direct Free Kick",
+    INDIRECT_FREE_KICK: "Indirect Free Kick",
+    CORNER_KICK: "Corner Kick",
+    GOAL_KICK: "Goal Kick",
+    THROW_IN: "Throw-in",
+    DROPPED_BALL: "Dropped Ball",
+    KICK_OFF: "Kick-off",
+  };
+  return map[type] || type;
+};
+
+const formatSanctionType = (type: string): string => {
+  const map: Record<string, string> = {
+    NO_CARD: "No Card",
+    YELLOW_CARD: "Yellow Card (Caution)",
+    SECOND_YELLOW: "Second Yellow Card (Sending-off)",
+    RED_CARD_DOGSO: "Red Card - DOGSO",
+    RED_CARD_SFP: "Red Card - Serious Foul Play",
+    RED_CARD_VC: "Red Card - Violent Conduct",
+    RED_CARD_OTHER: "Red Card",
+  };
+  return map[type] || type;
+};
+
+const formatOffsideReason = (reason: string): string => {
+  const map: Record<string, string> = {
+    INTERFERING_WITH_PLAY: "Interfering with play",
+    INTERFERING_WITH_OPPONENT: "Interfering with an opponent",
+    GAINING_ADVANTAGE: "Gaining an advantage",
+    NOT_OFFSIDE: "Not offside",
+  };
+  return map[reason] || reason;
+};
+
+/**
+ * DecisionReveal - UEFA-style decision overlay
+ * 
+ * Professional, clean modal that displays:
+ * - Match clips: Decision, Restart, Sanction, Explanation
+ * - Educational clips: Explanation only
+ * 
+ * NO EMOJIS. NO PLAYFUL LANGUAGE. UEFA PROFESSIONAL STYLE ONLY.
+ */
 export function DecisionReveal({
+  isOpen,
+  onClose,
+  playOn = false,
+  noOffence = false,
   correctDecision,
+  restartType,
+  sanctionType,
+  offsideReason,
   decisionExplanation,
   keyPoints = [],
   commonMistakes = [],
-  lawNumbers = [],
-  sanctionType,
-  restartType,
   varRelevant = false,
   varNotes,
-  onReveal
+  isEducational = false,
+  lawNumbers = [],
+  tags = [],
 }: DecisionRevealProps) {
-  const [isRevealed, setIsRevealed] = useState(false);
+  // ESC key to close
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
 
-  const handleReveal = () => {
-    setIsRevealed(true);
-    onReveal?.();
-  };
+    if (isOpen) {
+      document.addEventListener("keydown", handleEsc);
+    }
 
-  const formatSanction = (type?: string) => {
-    if (!type || type === 'NO_CARD') return 'No Card';
-    return type.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-  };
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
 
-  const formatRestart = (type?: string) => {
-    if (!type) return null;
-    return type.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-  };
+  if (!isOpen) return null;
 
-  if (!isRevealed) {
-    return (
-      <div className="w-full">
-        <div className={cn(
-          "relative overflow-hidden rounded-2xl",
-          "bg-gradient-to-br from-dark-800/90 to-dark-700/90",
-          "border border-dark-600",
-          "p-8 text-center"
-        )}>
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }} />
+  // Get correct decision tags by category
+  const correctDecisionTags = tags
+    .filter(tag => tag.isCorrectDecision === true)
+    .sort((a, b) => (a.decisionOrder || 0) - (b.decisionOrder || 0));
+
+  const restartTags = correctDecisionTags.filter(tag => tag.category === 'RESTARTS');
+  const sanctionTags = correctDecisionTags.filter(tag => tag.category === 'SANCTION');
+  const criteriaTags = correctDecisionTags.filter(tag => tag.category === 'CRITERIA');
+
+  // Determine title based on ALL tags (not just correct decision tags)
+  const hasHandball = tags.some(tag => tag.name.toLowerCase().includes('handball'));
+  const hasOffside = tags.some(tag => tag.name.toLowerCase().includes('offside'));
+  
+  let offenceTitle = "Offence";
+  if (hasHandball) {
+    offenceTitle = "Handball Offence";
+  } else if (hasOffside) {
+    offenceTitle = "Offside Offence";
+  }
+
+  const hasDecisionData = playOn || noOffence || restartTags.length > 0 || sanctionTags.length > 0 || criteriaTags.length > 0 || correctDecision || restartType || sanctionType || offsideReason;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/90 z-[250] transition-opacity duration-300"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-[260] flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          className={cn(
+            "relative w-full max-w-3xl bg-gradient-to-br from-[#0F1419] to-[#1E293B]",
+            "rounded-lg shadow-2xl border-4",
+            playOn || noOffence ? "border-green-500" : "border-red-500",
+            "transform transition-all duration-300",
+            isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-10 h-10 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white hover:text-cyan-400 transition-colors"
+            aria-label="Close"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Title: Play on / No offence / Offence */}
+          {!isEducational && (playOn || noOffence || hasDecisionData) && (
+            <div className={cn(
+              "px-8 pt-8 pb-4 border-b-4",
+              playOn || noOffence ? "border-green-500" : "border-red-500"
+            )}>
+              <h2 className={cn(
+                "text-4xl font-bold uppercase tracking-wider text-center",
+                playOn || noOffence ? "text-green-400" : "text-red-400"
+              )}>
+                {playOn ? "Play On" : noOffence ? "No Offence" : offenceTitle}
+              </h2>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="px-8 py-6 space-y-6">
+            {/* 3-Section Layout for Match Clips */}
+            {!isEducational && hasDecisionData && (
+              <div className="grid grid-cols-3 gap-4">
+                {/* Restart Section */}
+                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+                    Restart
+                  </div>
+                  <div className="space-y-2 min-h-[60px] flex flex-col items-center justify-center">
+                    {restartTags.length > 0 ? (
+                      restartTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center"
+                        >
+                          {tag.name}
+                        </span>
+                      ))
+                    ) : restartType ? (
+                      <span className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center">
+                        {formatRestartType(restartType)}
+                      </span>
+                    ) : (
+                      <div className="text-slate-600 text-xs text-center">—</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sanction Section */}
+                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+                    Sanction
+                  </div>
+                  <div className="space-y-2 min-h-[60px] flex flex-col items-center justify-center">
+                    {sanctionTags.length > 0 ? (
+                      sanctionTags.map((tag) => {
+                        const isYellowCard = tag.name.toLowerCase().includes('yellow');
+                        const isRedCard = tag.name.toLowerCase().includes('red');
+                        
+                        return (
+                          <span
+                            key={tag.id}
+                            className={cn(
+                              "px-3 py-1.5 text-sm font-semibold rounded text-center border-2",
+                              isYellowCard && "bg-yellow-500/30 border-yellow-500 text-yellow-300",
+                              isRedCard && "bg-red-500/30 border-red-500 text-red-300",
+                              !isYellowCard && !isRedCard && "bg-cyan-500/20 border-cyan-500/50 text-cyan-400"
+                            )}
+                          >
+                            {tag.name}
+                          </span>
+                        );
+                      })
+                    ) : sanctionType ? (
+                      <span className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center">
+                        {formatSanctionType(sanctionType)}
+                      </span>
+                    ) : (
+                      <div className="text-slate-600 text-xs text-center">—</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Criteria Section */}
+                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+                    Criteria
+                  </div>
+                  <div className="space-y-2 min-h-[60px] flex flex-col items-center justify-center">
+                    {criteriaTags.length > 0 ? (
+                      criteriaTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center"
+                        >
+                          {tag.name}
+                        </span>
+                      ))
+                    ) : (
+                      <div className="text-slate-600 text-xs text-center">—</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Legacy: Offside Reason */}
+            {offsideReason && !isEducational && (
+              <div className="bg-slate-800/50 rounded-lg p-5 mt-4">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 text-center">
+                  Offside Reason
+                </div>
+                <div className="text-lg font-medium text-white text-center">
+                  {formatOffsideReason(offsideReason)}
+                </div>
+              </div>
+            )}
+
+            {/* Explanation */}
+            {decisionExplanation && (
+              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+                <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
+                  {isEducational ? "Explanation" : "Why"}
+                </div>
+                <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                  {decisionExplanation}
+                </div>
+              </div>
+            )}
+
+            {/* Key Points */}
+            {keyPoints.length > 0 && (
+              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+                <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
+                  Key Points
+                </div>
+                <ul className="space-y-2">
+                  {keyPoints.map((point, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="text-cyan-400 text-lg leading-none mt-0.5">•</span>
+                      <span className="text-slate-300 leading-relaxed">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Common Mistakes */}
+            {commonMistakes.length > 0 && (
+              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+                <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
+                  Common Mistakes
+                </div>
+                <ul className="space-y-2">
+                  {commonMistakes.map((mistake, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="text-orange-400 text-lg leading-none mt-0.5">•</span>
+                      <span className="text-slate-300 leading-relaxed">{mistake}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* VAR Notes */}
+            {varRelevant && varNotes && (
+              <div className="bg-blue-900/20 rounded-lg p-6 border border-blue-500/30">
+                <div className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
+                  VAR Protocol
+                </div>
+                <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                  {varNotes}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="relative z-10">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 flex items-center justify-center">
-              <svg className="w-8 h-8 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-              </svg>
-            </div>
-            
-            <h3 className="text-2xl font-bold text-text-primary mb-3">
-              What is your decision?
-            </h3>
-            
-            <p className="text-text-secondary mb-6 max-w-md mx-auto">
-              Watch the clip carefully and make your decision. Click below to see the correct call and explanation.
-            </p>
-
+          {/* Footer */}
+          <div className="px-8 py-6 border-t border-cyan-500/20 flex justify-end">
             <button
-              onClick={handleReveal}
-              className={cn(
-                "group relative px-8 py-4 rounded-xl font-semibold text-lg",
-                "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900",
-                "hover:from-cyan-400 hover:to-cyan-500",
-                "transition-all duration-300",
-                "shadow-lg hover:shadow-2xl hover:shadow-cyan-500/30",
-                "transform hover:scale-105 active:scale-95"
-              )}
+              onClick={onClose}
+              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold text-sm uppercase tracking-wide rounded transition-colors"
             >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5 transition-transform group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Show Correct Decision
-              </span>
+              Close
             </button>
           </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="w-full space-y-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
-      {/* Correct Decision Header */}
-      <div className={cn(
-        "relative overflow-hidden rounded-2xl",
-        "bg-gradient-to-br from-green-500/10 to-emerald-500/10",
-        "border border-green-500/30",
-        "p-6"
-      )}>
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-            <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-2">Correct Decision</h3>
-            <p className="text-2xl font-bold text-text-primary mb-3">{correctDecision}</p>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {restartType && (
-                <div className="flex items-center gap-1 text-text-secondary">
-                  <span className="text-cyan-500">🔄</span>
-                  <span>Restart: <span className="text-cyan-400 font-medium">{formatRestart(restartType)}</span></span>
-                </div>
-              )}
-              {lawNumbers.length > 0 && (
-                <div className="flex items-center gap-1 text-text-secondary">
-                  <span className="text-warm">📖</span>
-                  <span>Law{lawNumbers.length > 1 ? 's' : ''}: <span className="text-warm font-medium">{lawNumbers.join(', ')}</span></span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Explanation */}
-      {decisionExplanation && (
-        <div className="rounded-2xl bg-dark-800/90 border border-dark-600 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">📋</span>
-            <h4 className="text-lg font-semibold text-text-primary">Explanation</h4>
-          </div>
-          <p className="text-text-secondary leading-relaxed">{decisionExplanation}</p>
-        </div>
-      )}
-
-      {/* Key Decision Points */}
-      {keyPoints.length > 0 && (
-        <div className="rounded-2xl bg-dark-800/90 border border-dark-600 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">💡</span>
-            <h4 className="text-lg font-semibold text-text-primary">Key Decision Points</h4>
-          </div>
-          <ul className="space-y-2">
-            {keyPoints.map((point, index) => (
-              <li key={index} className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-text-secondary">{point}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Common Mistakes */}
-      {commonMistakes.length > 0 && (
-        <div className="rounded-2xl bg-dark-800/90 border border-dark-600 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">⚠️</span>
-            <h4 className="text-lg font-semibold text-text-primary">Common Mistakes</h4>
-          </div>
-          <ul className="space-y-2">
-            {commonMistakes.map((mistake, index) => (
-              <li key={index} className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span className="text-text-secondary">{mistake}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* VAR Protocol */}
-      {varRelevant && (
-        <div className="rounded-2xl bg-purple-500/10 border border-purple-500/30 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">🎬</span>
-            <h4 className="text-lg font-semibold text-purple-400">VAR Protocol</h4>
-          </div>
-          <p className="text-text-secondary leading-relaxed">
-            {varNotes || "This is a VAR reviewable incident. VAR would check for clear and obvious error in the referee's decision."}
-          </p>
-        </div>
-      )}
-
-      {/* Hide Button */}
-      <div className="text-center pt-2">
-        <button
-          onClick={() => setIsRevealed(false)}
-          className="text-sm text-text-muted hover:text-cyan-500 transition-colors duration-300"
-        >
-          Hide Decision
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

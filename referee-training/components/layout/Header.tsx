@@ -93,7 +93,7 @@ export function Header() {
   }, [session, status]);
 
   return (
-    <header className="sticky top-0 z-40 backdrop-blur-xl bg-dark-900/75 border-b border-white/5 shadow-lg shadow-black/20 supports-[backdrop-filter]:bg-dark-900/60">
+    <header className="fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl bg-dark-900/75 border-b border-white/5 shadow-lg shadow-black/20 supports-[backdrop-filter]:bg-dark-900/60">
       {/* Glass sheen effect */}
       <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
       

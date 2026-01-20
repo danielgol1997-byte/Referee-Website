@@ -88,6 +88,7 @@ export function CategoryCard({ href, title, gif, index, backgroundImage }: Categ
                 src={backgroundImage} 
                 alt="" 
                 fill 
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" 
               />
             </div>

@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
 import { TagManager } from "./TagManager";
+import { RAPCategoryMapper } from "./RAPCategoryMapper";
 
-type SubTab = 'videos' | 'upload' | 'tags';
+type SubTab = 'videos' | 'upload' | 'tags' | 'rap-mapping';
 
 export function VideoLibraryContent() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('videos');
@@ -81,36 +82,49 @@ export function VideoLibraryContent() {
             setActiveSubTab('videos');
             setEditingVideo(null);
           }}
-          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
             activeSubTab === 'videos'
               ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
               : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
           }`}
         >
-          📹 Videos ({videos.length})
+          Videos ({videos.length})
         </button>
         <button
           onClick={() => setActiveSubTab('upload')}
-          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
             activeSubTab === 'upload'
               ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
               : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
           }`}
         >
-          {editingVideo ? '✏️ Edit Video' : '⬆️ Upload Video'}
+          {editingVideo ? 'Edit Video' : 'Upload Video'}
         </button>
         <button
           onClick={() => {
             setActiveSubTab('tags');
             setEditingVideo(null);
           }}
-          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
             activeSubTab === 'tags'
               ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
               : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
           }`}
         >
-          🏷️ Tags ({tags.length})
+          Tags ({tags.length})
+        </button>
+        <button
+          onClick={() => {
+            setActiveSubTab('rap-mapping');
+            setEditingVideo(null);
+          }}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
+            activeSubTab === 'rap-mapping'
+              ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
+              : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
+          }`}
+        >
+          RAP Mapping
         </button>
       </div>
 
@@ -136,6 +150,12 @@ export function VideoLibraryContent() {
       {activeSubTab === 'tags' && (
         <TagManager
           tags={tags}
+          onRefresh={fetchData}
+        />
+      )}
+
+      {activeSubTab === 'rap-mapping' && (
+        <RAPCategoryMapper
           onRefresh={fetchData}
         />
       )}

@@ -1,153 +1,279 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
 
-export async function GET() {
+/**
+ * GET /api/admin/library/videos
+ * List all videos with filtering
+ * Requires SUPER_ADMIN role
+ */
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search') || '';
+    const categoryId = searchParams.get('categoryId');
+    const videoCategoryId = searchParams.get('videoCategoryId');
+    const isActive = searchParams.get('isActive');
+    const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (videoCategoryId) {
+      where.videoCategoryId = videoCategoryId;
+    }
+
+    if (isActive !== null) {
+      where.isActive = isActive === 'true';
+    }
+
+    if (tags.length > 0) {
+      where.tags = {
+        some: {
+          tagId: { in: tags },
+        },
+      };
     }
 
     const videos = await prisma.videoClip.findMany({
+      where,
       include: {
+        category: true,
         videoCategory: true,
         tags: {
           include: {
-            tag: true
-          }
-        }
+            tag: true,
+          },
+        },
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: [
+        { isFeatured: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
 
     return NextResponse.json({ videos });
   } catch (error) {
-    console.error('Get videos error:', error);
-    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 });
+    console.error('Error fetching videos:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch videos' },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/admin/library/videos
+ * Create a new video
+ * Requires SUPER_ADMIN role
+ */
+export async function POST(request: Request) {
   try {
+    console.log('📹 Video creation request received');
+    
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      console.error('❌ Unauthorized video creation attempt');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const formData = await request.formData();
+    console.log('✅ User authorized:', session.user.email, 'ID:', session.user.id);
+
+    const body = await request.json();
+    const {
+      title,
+      description,
+      fileUrl,
+      thumbnailUrl,
+      duration,
+      categoryId,
+      videoCategoryId,
+      videoType,
+      isEducational,
+      correctDecision,
+      decisionExplanation,
+      keyPoints,
+      commonMistakes,
+      lawNumbers,
+      playOn,
+      noOffence,
+      restartType,
+      sanctionType,
+      offsideReason,
+      varRelevant,
+      varNotes,
+      tagIds, // Legacy support
+      tagData, // New structured tag data with order and type
+      isFeatured,
+      isActive,
+    } = body;
     
-    // Extract files
-    const videoFile = formData.get('video') as File | null;
-    const thumbnailFile = formData.get('thumbnail') as File | null;
-    
-    if (!videoFile) {
-      return NextResponse.json({ error: 'Video file is required' }, { status: 400 });
-    }
-
-    // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
-    if (!existsSync(thumbnailDir)) {
-      await mkdir(thumbnailDir, { recursive: true });
-    }
-
-    // Save video file
-    const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-    const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const videoPath = join(uploadDir, videoFileName);
-    await writeFile(videoPath, videoBuffer);
-    const videoUrl = `/videos/uploads/${videoFileName}`;
-
-    // Save thumbnail if provided
-    let thumbnailUrl: string | undefined;
-    if (thumbnailFile) {
-      const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
-      await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
-    }
-
-    // Get library category
-    let libraryCategory = await prisma.category.findFirst({
-      where: { type: 'LIBRARY' }
+    console.log('📝 Request body:', {
+      title,
+      fileUrl,
+      thumbnailUrl,
+      categoryId,
+      videoCategoryId,
+      tagIds,
+      tagData,
+      lawNumbers,
     });
 
-    if (!libraryCategory) {
-      libraryCategory = await prisma.category.create({
-        data: {
-          name: 'Video Library',
-          slug: 'video-library',
-          type: 'LIBRARY',
-        }
-      });
+    // Validation
+    if (!title || !fileUrl) {
+      return NextResponse.json(
+        { error: 'Missing required fields: title, fileUrl' },
+        { status: 400 }
+      );
     }
 
-    // Parse form data
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string | null;
-    const videoType = formData.get('videoType') as string;
-    const videoCategoryId = formData.get('videoCategoryId') as string;
-    const lawNumbers = JSON.parse(formData.get('lawNumbers') as string || '[]');
-    const tagIds = JSON.parse(formData.get('tagIds') as string || '[]');
-    const sanctionType = (formData.get('sanctionType') as string) || null;
-    const restartType = (formData.get('restartType') as string) || null;
-    const correctDecision = (formData.get('correctDecision') as string) || null;
-    const decisionExplanation = (formData.get('decisionExplanation') as string) || null;
-    const keyPoints = JSON.parse(formData.get('keyPoints') as string || '[]').filter((p: string) => p.trim());
-    const commonMistakes = JSON.parse(formData.get('commonMistakes') as string || '[]').filter((m: string) => m.trim());
-    const varRelevant = formData.get('varRelevant') === 'true';
-    const varNotes = (formData.get('varNotes') as string) || null;
-    const isActive = formData.get('isActive') === 'true';
-    const isFeatured = formData.get('isFeatured') === 'true';
+    // Find or create Video Library category
+    let finalCategoryId = categoryId;
+    
+    if (!finalCategoryId) {
+      console.log('🔍 No categoryId provided, finding/creating Video Library category...');
+      
+      let libraryCategory = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { slug: 'video-library' },
+            { type: 'LIBRARY' }
+          ]
+        }
+      });
+
+      if (!libraryCategory) {
+        console.log('📝 Creating Video Library category...');
+        libraryCategory = await prisma.category.create({
+          data: {
+            name: 'Video Library',
+            slug: 'video-library',
+            type: 'LIBRARY',
+            order: 11,
+          }
+        });
+        console.log('✅ Created Video Library category:', libraryCategory.id);
+      } else {
+        console.log('✅ Found existing Video Library category:', libraryCategory.id);
+      }
+
+      finalCategoryId = libraryCategory.id;
+    }
+
+    console.log('📝 Creating video with:', {
+      title,
+      fileUrl,
+      thumbnailUrl,
+      categoryId: finalCategoryId,
+      videoCategoryId,
+      tagDataCount: tagData?.length || tagIds?.length || 0,
+      lawNumbers,
+      uploadedById: session.user.id,
+    });
+
+    // Verify user exists before creating video
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    if (!userExists) {
+      console.warn('⚠️ User not found in database, creating video without uploadedById:', session.user.id);
+    }
 
     // Create video
     const video = await prisma.videoClip.create({
       data: {
         title,
         description,
-        fileUrl: videoUrl,
+        fileUrl,
         thumbnailUrl,
-        videoType: videoType as any,
-        categoryId: libraryCategory.id,
-        videoCategoryId: videoCategoryId || null,
-        lawNumbers,
-        sanctionType: sanctionType as any,
-        restartType: restartType as any,
+        duration,
+        categoryId: finalCategoryId,
+        videoCategoryId,
+        videoType: videoType || 'EDUCATIONAL',
+        isEducational: isEducational || false,
         correctDecision,
         decisionExplanation,
-        keyPoints,
-        commonMistakes,
-        varRelevant,
+        keyPoints: keyPoints || [],
+        commonMistakes: commonMistakes || [],
+        lawNumbers: lawNumbers || [],
+        playOn: playOn || false,
+        noOffence: noOffence || false,
+        restartType,
+        sanctionType,
+        offsideReason,
+        varRelevant: varRelevant || false,
         varNotes,
-        isActive,
-        isFeatured,
-        uploadedById: session.user.id,
-      }
+        uploadedById: userExists ? session.user.id : null, // Only set if user exists
+        isFeatured: isFeatured || false,
+        isActive: isActive !== undefined ? isActive : true,
+        // Create tag relations with correct decision info
+        tags: tagData && tagData.length > 0 ? {
+          create: tagData.map((tag: any) => ({
+            tagId: tag.tagId,
+            isCorrectDecision: tag.isCorrectDecision || false,
+            decisionOrder: tag.decisionOrder || 0,
+          })),
+        } : tagIds && tagIds.length > 0 ? {
+          // Legacy support for old format
+          create: tagIds.map((tagId: string) => ({
+            tagId,
+            isCorrectDecision: false,
+            decisionOrder: 0,
+          })),
+        } : undefined,
+      },
+      include: {
+        category: true,
+        videoCategory: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
     });
 
-    // Create tag associations
-    for (const tagId of tagIds) {
-      await prisma.videoTag.create({
-        data: {
-          videoId: video.id,
-          tagId,
-        }
-      });
-    }
-
-    return NextResponse.json({ video, success: true });
-  } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Failed to upload video' }, { status: 500 });
+    return NextResponse.json({ video }, { status: 201 });
+  } catch (error: any) {
+    console.error('❌ Error creating video:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    return NextResponse.json(
+      { 
+        error: 'Failed to create video',
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
+      { status: 500 }
+    );
   }
 }

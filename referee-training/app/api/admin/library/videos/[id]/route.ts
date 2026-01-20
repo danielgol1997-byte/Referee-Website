@@ -1,83 +1,111 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
 
-export async function PUT(
-  request: NextRequest,
+/**
+ * GET /api/admin/library/videos/[id]
+ * Get a single video by ID
+ * Requires SUPER_ADMIN role
+ */
+export async function GET(
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
-    const formData = await request.formData();
-
-    // Get existing video
-    const existingVideo = await prisma.videoClip.findUnique({
-      where: { id }
+    const video = await prisma.videoClip.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        videoCategory: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
-    if (!existingVideo) {
+    if (!video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
-    // Handle file uploads if provided
-    let videoUrl = existingVideo.fileUrl;
-    let thumbnailUrl = existingVideo.thumbnailUrl;
+    return NextResponse.json({ video });
+  } catch (error) {
+    console.error('Error fetching video:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch video' },
+      { status: 500 }
+    );
+  }
+}
 
-    const videoFile = formData.get('video') as File | null;
-    const thumbnailFile = formData.get('thumbnail') as File | null;
+/**
+ * PUT /api/admin/library/videos/[id]
+ * Update a video
+ * Requires SUPER_ADMIN role
+ */
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
 
-    if (videoFile) {
-      const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
-      if (!existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
-      }
-
-      const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-      const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const videoPath = join(uploadDir, videoFileName);
-      await writeFile(videoPath, videoBuffer);
-      videoUrl = `/videos/uploads/${videoFileName}`;
+    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (thumbnailFile) {
-      const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
-      if (!existsSync(thumbnailDir)) {
-        await mkdir(thumbnailDir, { recursive: true });
-      }
+    const { id } = await params;
+    const body = await request.json();
+    const {
+      title,
+      description,
+      fileUrl,
+      thumbnailUrl,
+      duration,
+      categoryId,
+      videoCategoryId,
+      videoType,
+      isEducational,
+      correctDecision,
+      decisionExplanation,
+      keyPoints,
+      commonMistakes,
+      lawNumbers,
+      playOn,
+      noOffence,
+      restartType,
+      sanctionType,
+      offsideReason,
+      varRelevant,
+      varNotes,
+      tagIds, // Legacy support
+      tagData, // New structured tag data with order and type
+      isFeatured,
+      isActive,
+    } = body;
 
-      const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
-      await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+    // Delete existing tag relations if tags are being updated
+    if (tagData || tagIds) {
+      await prisma.videoTag.deleteMany({
+        where: { videoId: id },
+      });
     }
-
-    // Parse form data
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string | null;
-    const videoType = formData.get('videoType') as string;
-    const videoCategoryId = formData.get('videoCategoryId') as string;
-    const lawNumbers = JSON.parse(formData.get('lawNumbers') as string || '[]');
-    const tagIds = JSON.parse(formData.get('tagIds') as string || '[]');
-    const sanctionType = (formData.get('sanctionType') as string) || null;
-    const restartType = (formData.get('restartType') as string) || null;
-    const correctDecision = (formData.get('correctDecision') as string) || null;
-    const decisionExplanation = (formData.get('decisionExplanation') as string) || null;
-    const keyPoints = JSON.parse(formData.get('keyPoints') as string || '[]').filter((p: string) => p.trim());
-    const commonMistakes = JSON.parse(formData.get('commonMistakes') as string || '[]').filter((m: string) => m.trim());
-    const varRelevant = formData.get('varRelevant') === 'true';
-    const varNotes = (formData.get('varNotes') as string) || null;
-    const isActive = formData.get('isActive') === 'true';
-    const isFeatured = formData.get('isFeatured') === 'true';
 
     // Update video
     const video = await prisma.videoClip.update({
@@ -85,82 +113,92 @@ export async function PUT(
       data: {
         title,
         description,
-        fileUrl: videoUrl,
+        fileUrl,
         thumbnailUrl,
-        videoType: videoType as any,
-        videoCategoryId: videoCategoryId || null,
-        lawNumbers,
-        sanctionType: sanctionType as any,
-        restartType: restartType as any,
+        duration,
+        categoryId,
+        videoCategoryId,
+        videoType,
+        isEducational,
         correctDecision,
         decisionExplanation,
         keyPoints,
         commonMistakes,
+        lawNumbers,
+        playOn,
+        noOffence,
+        restartType,
+        sanctionType,
+        offsideReason,
         varRelevant,
         varNotes,
-        isActive,
         isFeatured,
-      }
+        isActive,
+        // Recreate tag relations with correct decision info
+        tags: tagData && tagData.length > 0 ? {
+          create: tagData.map((tag: any) => ({
+            tagId: tag.tagId,
+            isCorrectDecision: tag.isCorrectDecision || false,
+            decisionOrder: tag.decisionOrder || 0,
+          })),
+        } : tagIds && tagIds.length > 0 ? {
+          // Legacy support for old format
+          create: tagIds.map((tagId: string) => ({
+            tagId,
+            isCorrectDecision: false,
+            decisionOrder: 0,
+          })),
+        } : undefined,
+      },
+      include: {
+        category: true,
+        videoCategory: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
     });
 
-    // Update tags - delete existing and create new
-    await prisma.videoTag.deleteMany({
-      where: { videoId: id }
-    });
-
-    for (const tagId of tagIds) {
-      await prisma.videoTag.create({
-        data: {
-          videoId: id,
-          tagId,
-        }
-      });
-    }
-
-    return NextResponse.json({ video, success: true });
+    return NextResponse.json({ video });
   } catch (error) {
-    console.error('Update error:', error);
-    return NextResponse.json({ error: 'Failed to update video' }, { status: 500 });
+    console.error('Error updating video:', error);
+    return NextResponse.json(
+      { error: 'Failed to update video' },
+      { status: 500 }
+    );
   }
 }
 
+/**
+ * DELETE /api/admin/library/videos/[id]
+ * Delete a video
+ * Requires SUPER_ADMIN role
+ */
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
-
-    // Get video to delete files
-    const video = await prisma.videoClip.findUnique({
-      where: { id }
-    });
-
-    if (!video) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
-    }
-
-    // Delete video tags first
-    await prisma.videoTag.deleteMany({
-      where: { videoId: id }
-    });
-
-    // Delete video record
+    // Delete video (tags will be cascade deleted)
     await prisma.videoClip.delete({
-      where: { id }
+      where: { id },
     });
-
-    // Optionally delete files from filesystem
-    // Note: Skipping file deletion for safety - you can add this if needed
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete error:', error);
-    return NextResponse.json({ error: 'Failed to delete video' }, { status: 500 });
+    console.error('Error deleting video:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete video' },
+      { status: 500 }
+    );
   }
 }

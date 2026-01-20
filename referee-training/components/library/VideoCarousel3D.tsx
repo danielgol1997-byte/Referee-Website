@@ -19,12 +19,14 @@ interface VideoCarousel3DProps {
   videos: Video[];
   autoplay?: boolean;
   autoplayInterval?: number;
+  onVideoClick?: (videoId: string) => void;
 }
 
 export function VideoCarousel3D({ 
   videos, 
   autoplay = false,
-  autoplayInterval = 5000 
+  autoplayInterval = 5000,
+  onVideoClick
 }: VideoCarousel3DProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -62,7 +64,7 @@ export function VideoCarousel3D({
 
   if (videos.length === 0) {
     return (
-      <div className="w-full h-96 flex items-center justify-center bg-dark-800/50 rounded-3xl border border-dark-600">
+      <div className="w-full h-96 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full bg-dark-700 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,12 +79,12 @@ export function VideoCarousel3D({
 
   return (
     <div 
-      className="relative w-full py-12"
+      className="relative w-full"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Carousel Container */}
-      <div className="relative h-[400px] flex items-center justify-center perspective-2000">
+      <div className="relative h-[400px] flex items-center justify-center bg-transparent" style={{ perspective: '2000px' }}>
         {/* Cards */}
         <div className="relative w-full max-w-2xl mx-auto">
           {videos.map((video, index) => {
@@ -101,26 +103,35 @@ export function VideoCarousel3D({
             if (!isVisible) return null;
 
             return (
-              <div
+              <button
                 key={video.id}
+                onClick={() => {
+                  if (isCenter && onVideoClick) {
+                    onVideoClick(video.id);
+                  } else if (!isCenter) {
+                    // Click on non-center card brings it to center
+                    goToSlide(index);
+                  }
+                }}
                 className={cn(
-                  "absolute top-1/2 left-1/2 w-full max-w-md transition-all duration-500 ease-out origin-center",
-                  !isVisible && "opacity-0 pointer-events-none"
+                  "absolute top-1/2 left-1/2 w-full max-w-md transition-all duration-700 ease-out origin-center",
+                  !isVisible && "opacity-0 pointer-events-none",
+                  isCenter ? "cursor-pointer" : "cursor-pointer"
                 )}
                 style={{
                   transform: `
                     translate(-50%, -50%)
-                    translateX(${offset * 60}%)
-                    scale(${isCenter ? 1 : 0.85})
-                    translateZ(${isCenter ? 100 : -100}px)
-                    rotateY(${offset * -25}deg)
+                    translateX(${offset * 65}%)
+                    scale(${isCenter ? 1 : 0.8})
+                    translateZ(${isCenter ? 120 : -150}px)
+                    rotateY(${offset * -35}deg)
                   `,
                   zIndex: isCenter ? 30 : 20 - Math.abs(offset),
-                  opacity: isCenter ? 1 : Math.max(0, 1 - Math.abs(offset) * 0.4),
+                  opacity: isCenter ? 1 : Math.max(0.3, 1 - Math.abs(offset) * 0.5),
                 }}
               >
                 <VideoCard3D {...video} size="large" />
-              </div>
+              </button>
             );
           })}
         </div>
@@ -135,10 +146,10 @@ export function VideoCarousel3D({
               "absolute left-4 top-1/2 -translate-y-1/2 z-40",
               "w-12 h-12 rounded-full bg-dark-800/90 backdrop-blur-sm border border-dark-600",
               "flex items-center justify-center",
-              "text-text-primary hover:text-cyan-500 hover:border-cyan-500/50",
+              "text-text-primary hover:text-accent hover:border-accent/50",
               "transition-all duration-300",
               "hover:scale-110 active:scale-95",
-              "shadow-lg hover:shadow-cyan-500/20"
+              "shadow-lg hover:shadow-accent/20"
             )}
             aria-label="Previous video"
           >
@@ -152,10 +163,10 @@ export function VideoCarousel3D({
               "absolute right-4 top-1/2 -translate-y-1/2 z-40",
               "w-12 h-12 rounded-full bg-dark-800/90 backdrop-blur-sm border border-dark-600",
               "flex items-center justify-center",
-              "text-text-primary hover:text-cyan-500 hover:border-cyan-500/50",
+              "text-text-primary hover:text-accent hover:border-accent/50",
               "transition-all duration-300",
               "hover:scale-110 active:scale-95",
-              "shadow-lg hover:shadow-cyan-500/20"
+              "shadow-lg hover:shadow-accent/20"
             )}
             aria-label="Next video"
           >
@@ -176,7 +187,7 @@ export function VideoCarousel3D({
               className={cn(
                 "transition-all duration-300",
                 currentIndex === index 
-                  ? "w-8 h-2 bg-cyan-500 rounded-full" 
+                  ? "w-8 h-2 bg-accent rounded-full shadow-lg shadow-accent/50" 
                   : "w-2 h-2 bg-dark-600 hover:bg-dark-500 rounded-full"
               )}
               aria-label={`Go to video ${index + 1}`}

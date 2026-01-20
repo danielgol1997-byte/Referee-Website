@@ -1,0 +1,756 @@
+DECISION REASONS BY FILE
+================================================================================
+
+A1.png:
+['| PLAYON INDIRECT FREE KICK DIRECT FREE KICK PENALTY KICK\n\nSERIOUS FOUL PLAY\n\nCARELESS RECKLESS) CORDEREINE VIOLENT CONDUCT']
+
+A10.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK | sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A11.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A12.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A13.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A14.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A15.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A16.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A17.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A18.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A19.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A2.png:
+['| PLAYON INDIRECT FREE KICK DIRECT FREE KICK PENALTY KICK\n\nSERIOUS FOUL PLAY\n\nCARELESS RECKLESS) CORDEREINE VIOLENT CONDUCT']
+
+A20.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A21.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A22.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A23.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A24.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A25.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A26.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A27.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A28.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A29.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A3.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A30.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A31.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A32.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A33.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A34.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A35.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A36.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A37.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A38.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A39.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A4.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A40.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A41.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A42.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A43.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A44.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A45.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A46.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A47.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A48.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A49.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A5.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A50.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A51.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS RECKLESS) ROTENTCONDUGH']
+
+A52.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A53.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A54.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A55.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A56.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A57.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A58.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A59.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A6.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A60.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A61.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A62.png:
+['| PLAYON INDIRECT FREE KICK DIRECT FREE KICK PENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A63.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A64.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A65.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A66.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A67.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A68.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A69.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nNO OFFENCE CARELESS RECKLESS) BORDERLINE']
+
+A7.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE RECKLESS) BORDERLINE VIOLENT CONDUCT']
+
+A8.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+A9.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+B1.png:
+['No promising attack stopped / no reckless challenge or SFP', 'NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge or SFP', 'NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge']
+
+B10.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B11.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B12.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B13.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B14.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B15.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B16.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B17.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B18.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B19.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B2.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B20.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B21.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B22.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B23.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B24.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B25.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B26.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B27.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B28.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B29.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B3.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B30.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B31.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B32.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B33.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B34.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B35.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B36.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B37.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B38.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no DOGSO while attempting to play the ball']
+
+B39.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B4.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B40.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK | RED CARD o Denying a goal', 'an obvious goal-scoring opportunity']
+
+B41.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\nRED CARD\n\no DOGSO whilst not attempting to play the ball']
+
+B5.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B6.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B7.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B8.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+B9.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Stopping a promising attack']
+
+C1.png:
+['o Hand /arm supports the body, but not extended']
+
+C10.png:
+["Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", "© Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", '© Ball coming from a short distance', "Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", '© Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body', "coming directly from player's own head or body"]
+
+C11.png:
+["Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", "© Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", '© Ball coming from a short distance', "Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", '© Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball o Ball deflecting from own body', "coming directly from player's own head or body"]
+
+C12.png:
+['Hand /arm in natural position o Player unable to avoid hand contact with the ball', '© Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C13.png:
+['Hand /arm in natural position o Player unable to avoid hand contact with the ball', '© Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C14.png:
+['Hand /arm in natural position o Player unable to avoid hand contact with the ball', '© Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C15.png:
+["Hand /arm in natural position o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", "© Hand /arm in natural position o Player unable to avoid hand contact with the ball o Ball deflecting from own body or coming directly from player's own head or body", '© Hand /arm in natural position o Player unable to avoid hand contact with the ball o Ball deflecting from own body', "coming directly from player's own head or body"]
+
+C16.png:
+['o Distance not short / ball not unexpected o Hand /arm in unnatural position / beyond shoulder level', 'o Distance not short', 'ball not unexpected o Hand /arm in unnatural position / beyond shoulder level']
+
+C17.png:
+['o Distance not short / ball not unexpected o Hand /arm in unnatural position / beyond shoulder level', 'o Distance not short', 'ball not unexpected o Hand /arm in unnatural position / beyond shoulder level']
+
+C18.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger']
+
+C19.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger']
+
+C2.png:
+['Ball coming from a short distance / Unexpected ball © Hand /arm in natural position', 'o Ball movement towards hand / arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position', 'o Ball movement towards hand', 'arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position']
+
+C20.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger']
+
+C21.png:
+['arm makes body unnaturaly bigger']
+
+C22.png:
+['arm makes body unnaturaly bigger']
+
+C23.png:
+['arm makes body unnaturaly bigger']
+
+C24.png:
+['o Hand/arm moves towards the ball o Distance not short / ball not unexpected', 'o Hand/arm moves towards the ball o Distance not short', 'ball not unexpected']
+
+C25.png:
+['o Hand /arm moves towards the ball o Hand /arm in unnatural position / beyond shoulder level o Player does not try to avoid hand contact with the ball', 'o Hand /arm moves towards the ball o Hand /arm in unnatural position', 'beyond shoulder level o Player does not try to avoid hand contact with the ball']
+
+C26.png:
+['o Hand /arm moves towards the ball o Player does not try to avoid hand contact with the ball']
+
+C27.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C28.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C29.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C3.png:
+['Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand / arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand', 'arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C30.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C31.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C32.png:
+['o Hand /arm in unnatural position / beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION', 'o Hand /arm in unnatural position', 'beyond shoulder level o Hand / arm makes body unnaturaly bigger DISCIPLINARY SANCTION']
+
+C33.png:
+['arm makes body unnaturaly bigger NO DISCIPLINARY SANCTION']
+
+C34.png:
+['arm makes body unnaturaly bigger NO DISCIPLINARY SANCTION']
+
+C35.png:
+['arm makes body unnaturaly bigger NO DISCIPLINARY SANCTION']
+
+C36.png:
+['arm makes body unnaturaly bigger NO DISCIPLINARY SANCTION']
+
+C37.png:
+['Attacker gains possession / control of the ball after touching it with hand / arm and scores / or creates GSO', '© Attacker gains possession', 'control of the ball after touching it with hand / arm and scores / or creates GSO', '© Attacker gains possession / control of the ball after touching it with hand / arm and scores /', 'creates GSO']
+
+C38.png:
+['Attacker gains possession / control of the ball after touching it with hand / arm and scores / or creates GSO', '© Attacker gains possession', 'control of the ball after touching it with hand / arm and scores / or creates GSO', '© Attacker gains possession / control of the ball after touching it with hand / arm and scores /', 'creates GSO']
+
+C4.png:
+['Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand / arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand', 'arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C5.png:
+['Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand / arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', 'o Ball movement towards hand', 'arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C6.png:
+["Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Ball deflecting from own body or coming directly from player's own head or body", 'o Ball movement towards hand', "arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Ball deflecting from own body or coming directly from player's own head or body", 'o Ball movement towards hand / arm © Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Ball deflecting from own body', "coming directly from player's own head or body"]
+
+C7.png:
+['Hand /arm in natural position o Player tries to avoid hand contact with the ball', 'o Ball movement towards hand / arm © Hand /arm in natural position o Player tries to avoid hand contact with the ball', 'o Ball movement towards hand', 'arm © Hand /arm in natural position o Player tries to avoid hand contact with the ball']
+
+C8.png:
+['Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', '© Ball coming from a short distance / Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball', '© Ball coming from a short distance', 'Unexpected ball © Hand /arm in natural position o Player unable to avoid hand contact with the ball']
+
+C9.png:
+['Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball', '© Ball coming from a short distance / Unexpected ball o Player unable to avoid hand contact with the ball', '© Ball coming from a short distance', 'Unexpected ball o Player unable to avoid hand contact with the ball']
+
+D1.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\nNO DISCIPLINARY SANCTION']
+
+D10.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D11.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D12.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D13.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D14.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D15.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D16.png:
+['NO OFFENCE INDIRECT FREE KICK DIRECTPREEKICK| = PENALTYKICK |\n\no Showing lack of respect for the game']
+
+D2.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D3.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D4.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D5.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D6.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D7.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D8.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+D9.png:
+['NO OFFENCE INDIRECT FREE KICK | DIRECT FREE KICK |SPENALTYKICK\n\no Showing lack of respect for the game']
+
+E1.png:
+['| PLAYON INDIRECT FREE KICK DIRECT FREE KICK PENALTY KICK\n\nSERIOUS FOUL PLAY\n\nCARELESS RECKLESS) CORDEREINE VIOLENT CONDUCT']
+
+E10.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E11.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E12.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E13.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E14.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS RECKLESS) ROTENTCONDUGH']
+
+E2.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E3.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E4.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E5.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E6.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E7.png:
+['PLAY ON INDIRECT FREE KICK DIRECTFREEKICK§| = PENALTY KICK |\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS BORDERLINE VIOLENT CONDUCT']
+
+E8.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+E9.png:
+['PLAY ON INDIRECT FREE KICK | DIRECT FREE KICK |sPENALTY KICK\n\nSERIOUS FOUL PLAY\n\nNO OFFENCE CARELESS) BORDERLINE VIOLENT CONDUCT']
+
+F1.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F10.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F11.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F12.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION o Promising attacked stopped while attempting to play the ball']
+
+F13.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F14.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F15.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F16.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F17.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F18.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F19.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F2.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F20.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F21.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F22.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F23.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F24.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F25.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK PENALTY KICK DROP BALL\n\nNO DISCIPLINARY SANCTION']
+
+F26.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION o Promising attack stopped while attempting to play the ball']
+
+F27.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F28.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F29.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION o Promising attacked stopped while attempting to play the ball']
+
+F3.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F30.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F31.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL o Reckless challenge']
+
+F32.png:
+['No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F33.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F34.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL\n\no Stopping a promising attack while not attempting to play the ball']
+
+F35.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F36.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F37.png:
+['No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F38.png:
+['No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NOOFFENCE INDIRECTFREEKICK | DIRECTFREEKICK |) PENALTYKICK DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F39.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F4.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F40.png:
+['No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped / no reckless challenge', 'NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION © No promising attack stopped', 'no reckless challenge']
+
+F41.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL NO DISCIPLINARY SANCTION o Promising attacked stopped while attempting to play the ball']
+
+F5.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F6.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F7.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F8.png:
+['| NOOFFENCE | INDIRECTFREE KICK DIRECTFREEKICK — PENALTYKICK DROP BALL']
+
+F9.png:
+['NO OFFENCE — INDIRECTFREEKICK — DIRECTFREEKICK | PENALTY Kick | DROP BALL\n\nNO DISCIPLINARY SANCTION']
+
+G1.png:
+['No obvious action intended to deceive the referee / no reckless / SFP', '| NOOFFENCE — | INDIRECT FREE KICK DIRECT FREE KICK PENALTY KICK NO DISCIPLINARY SANCTION © No obvious action intended to deceive the referee', 'no reckless / SFP']
+
+G10.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+G11.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+G2.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK o Deceiving', 'attempting to deceive the referee when no contact']
+
+G3.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK o Deceiving', 'attempting to deceive the referee when no contact']
+
+G4.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK o Deceiving', 'attempting to deceive the referee when no contact']
+
+G5.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK o Deceiving', 'attempting to deceive the referee when no contact']
+
+G6.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+G7.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+G8.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+G9.png:
+['NO OFFENCE | INDIRECT FREE KICK | DIRECT FREE KICK PENALTY KICK\n\no Using slight contact to deceive the referee']
+
+L1.png:
+['© Not interfering with play', 'not touching the ball o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and / or no impact on opponent', '© Not interfering with play / not touching the ball o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and /', 'no impact on opponent']
+
+L10.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage / playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost']
+
+L11.png:
+['o Interfering with an opponent by:\n\no Challenging opponent for the ball']
+
+L12.png:
+['© Not interfering with play', 'no clear impact on ability of opponent to play the ball']
+
+L13.png:
+['Making obvious action / clear impact on ability of opponent to play the ball', 'o Interfering with an opponent by: © Making obvious action', 'clear impact on ability of opponent to play the ball']
+
+L14.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: o Ball deliberately saved by opponent']
+
+L15.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: o Ball deliberately saved by opponent']
+
+L16.png:
+['o Not interfering with an opponent: o Notclearly obstructing opponent’s line of vision o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and', 'or no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball', 'o Not interfering with an opponent: o Notclearly obstructing opponent’s line of vision o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and /', 'no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball']
+
+L17.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage / playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost']
+
+L18.png:
+['© Not interfering with play', '© Not interfering with play / not touching the ball o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and /', 'no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball']
+
+L19.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: o Ball deliberately saved by opponent']
+
+L2.png:
+['Making obvious action / clear impact on ability of opponent to play the ball', 'o Interfering with an opponent by: © Making obvious action', 'clear impact on ability of opponent to play the ball']
+
+L20.png:
+['© Not interfering with play', '© Not interfering with play / not touching the ball o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and /', 'no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball']
+
+L21.png:
+['o Interfering with an opponent by:\n\no Challenging opponent for the ball']
+
+L3.png:
+['Clearly attempting to play the ball which is close to him / impact on opponent © Making obvious action / clear impact on ability of opponent to play the ball', 'o Interfering with an opponent by: o Challenging opponent for the ball © Clearly attempting to play the ball which is close to him', 'impact on opponent © Making obvious action / clear impact on ability of opponent to play the ball']
+
+L4.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o Interfering with an opponent by: o Challenging opponent for the ball o© Gaining an advantage', 'playing the ball or interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost', 'o Interfering with an opponent by: o Challenging opponent for the ball o© Gaining an advantage / playing the ball', 'interfering with opponent when: © Ball rebounds / deflects of opponent or crossbar or goalpost']
+
+L5.png:
+['Interfering with play by touching / playing the ball passed or touched by teammate o Insuch clear cases delaying flag is not necessary', '© Interfering with play by touching / playing the ball passed or touched by teammate o Insuch clear cases delaying flag is not necessary', '© Interfering with play by touching', 'playing the ball passed or touched by teammate o Insuch clear cases delaying flag is not necessary', '© Interfering with play by touching / playing the ball passed', 'touched by teammate o Insuch clear cases delaying flag is not necessary']
+
+L6.png:
+["o Interfering with an opponent by:\no Clearly obstructing opponent's line of vision"]
+
+L7.png:
+['© Not interfering with play', 'no clear impact on ability of opponent to play the ball']
+
+L8.png:
+['o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and', 'or no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball', 'o Not interfering with an opponent: o Not challenging opponent for the ball o Not clearly attempting to play the ball which is close to him and /', 'no impact on opponent o Not making obvious action and / or no clear impact on ability of opponent to play the ball']
+
+L9.png:
+['Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage', 'playing the ball or interfering with opponent when: o Ball deliberately saved by opponent', 'o© Gaining an advantage / playing the ball', 'interfering with opponent when: o Ball deliberately saved by opponent']
+

@@ -40,10 +40,12 @@ export default async function RootLayout({
         className={`${inter.variable} ${geistMono.variable} antialiased bg-dark-900 text-text-primary`}
       >
         <AuthSessionProvider session={session}>
-          <SlidingBackground />
-          <Header />
-          <main className="relative z-10 min-h-screen">{children}</main>
-          <Footer />
+          <div className="relative min-h-screen flex flex-col">
+            <SlidingBackground />
+            <Header />
+            <main className="relative z-10 flex-1 pt-[88px]">{children}</main>
+            <Footer />
+          </div>
         </AuthSessionProvider>
       </body>
     </html>

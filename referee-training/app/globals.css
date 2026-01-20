@@ -45,6 +45,15 @@
 /* Base styles */
 html {
   color-scheme: dark;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 body {
@@ -54,6 +63,7 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* ============================================
@@ -248,32 +258,30 @@ body {
 }
 
 /* ============================================
-   Scrollbar Styling
+   Scrollbar Styling - HIDDEN
    ============================================ */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0px;
+  height: 0px;
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-dark-800);
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-dark-500);
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-dark-400);
+  background: transparent;
 }
 
-/* Firefox */
+/* Firefox - Hide scrollbar */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-dark-500) var(--color-dark-800);
+  scrollbar-width: none;
 }
 
 /* Smooth scroll */
@@ -281,44 +289,26 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Horizontal scroll containers */
+/* Horizontal scroll containers - Hidden */
 .overflow-x-auto {
-  scrollbar-width: thin;
-  scrollbar-color: #5E6C7E #364250;
+  scrollbar-width: none;
 }
 
 .overflow-x-auto::-webkit-scrollbar {
-  height: 6px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-track {
-  background: #364250;
-  border-radius: 3px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb {
-  background: #5E6C7E;
-  border-radius: 3px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-  background: #707E90;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* ============================================
    Custom Select Dropdown Styling
    ============================================ */
 
+/* Native select appearance - no custom arrows */
 select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23CBD5E1' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
-  background-repeat: no-repeat;
-  background-size: 1.25em 1.25em;
-  padding-right: 2.5rem;
-}
-
-select:focus {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300E8F8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 select option {

@@ -115,37 +115,11 @@ async function main() {
     }
   }
 
-  // Create some initial tags
-  const tags = [
-    // Concepts
-    { name: 'Handball', slug: 'handball', category: 'CONCEPT', color: '#FF6B6B' },
-    { name: 'Offside', slug: 'offside', category: 'CONCEPT', color: '#4ECDC4' },
-    { name: 'DOGSO', slug: 'dogso', category: 'CONCEPT', color: '#FF4D6D' },
-    { name: 'SPA', slug: 'spa', category: 'CONCEPT', color: '#FFB347' },
-    { name: 'Simulation', slug: 'simulation', category: 'CONCEPT', color: '#95E1D3' },
-    { name: 'Serious Foul Play', slug: 'serious-foul-play', category: 'CONCEPT', color: '#C44569' },
-    
-    // Scenarios
-    { name: 'Penalty Area', slug: 'penalty-area', category: 'SCENARIO', color: '#A8E6CF' },
-    { name: 'Counter Attack', slug: 'counter-attack', category: 'SCENARIO', color: '#FFDAC1' },
-    { name: 'Set Piece', slug: 'set-piece', category: 'SCENARIO', color: '#B5EAD7' },
-    { name: 'Corner Kick', slug: 'corner-kick', category: 'SCENARIO', color: '#C7CEEA' },
-    
-    // General
-    { name: 'Clear Decision', slug: 'clear-decision', category: 'GENERAL', color: '#1BC47D' },
-    { name: 'Difficult Decision', slug: 'difficult-decision', category: 'GENERAL', color: '#F5B400' },
-    { name: 'Controversial', slug: 'controversial', category: 'GENERAL', color: '#FF4D6D' },
-  ];
-
-  console.log('\n🏷️  Creating tags...');
-  for (const tagData of tags) {
-    const tag = await prisma.tag.upsert({
-      where: { slug: tagData.slug },
-      update: tagData,
-      create: tagData,
-    });
-    console.log(`✅ Created tag: ${tag.name}`);
-  }
+  // TAGS ARE NOW 100% USER-MANAGED VIA ADMIN UI
+  // DO NOT seed tags here - if you delete a tag, it should stay deleted
+  // Tags are managed entirely through the Super Admin interface
+  // To restore the 14 rainbow categories, run: node scripts/restore-tag-system.js
+  console.log('\n🏷️  Skipping tag seeding (tags are 100% user-managed via admin UI)');
 
   console.log('\n✨ Video library seeding complete!');
 }

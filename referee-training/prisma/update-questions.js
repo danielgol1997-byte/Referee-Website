@@ -190,3 +190,6 @@ async function updateQuestions() {
 updateQuestions()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
+
+
+

@@ -64,35 +64,39 @@ model Category {
 }
 
 model VideoClip {
-  id                  String         @id @default(cuid())
+  id                  String          @id @default(cuid())
   title               String
   fileUrl             String
   thumbnailUrl        String?
   duration            Int?
   categoryId          String
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  commonMistakes      String[]       @default([])
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  commonMistakes      String[]        @default([])
   correctDecision     String?
   decisionExplanation String?
   description         String?
-  isActive            Boolean        @default(true)
-  isFeatured          Boolean        @default(false)
-  keyPoints           String[]       @default([])
-  lawNumbers          Int[]          @default([])
-  order               Int            @default(0)
+  isActive            Boolean         @default(true)
+  isEducational       Boolean         @default(false) // True = explanation only, no decision
+  isFeatured          Boolean         @default(false)
+  keyPoints           String[]        @default([])
+  lawNumbers          Int[]           @default([])
+  offsideReason       OffsideReason?  // For offside-specific clips
+  order               Int             @default(0)
+  playOn              Boolean         @default(false) // Display "Play On" as title in answer
+  noOffence           Boolean         @default(false) // Display "No Offence" as title in answer
   restartType         RestartType?
   sanctionType        SanctionType?
   uploadedById        String?
   varNotes            String?
-  varRelevant         Boolean        @default(false)
+  varRelevant         Boolean         @default(false)
   videoCategoryId     String?
-  videoType           VideoType      @default(EDUCATIONAL)
-  viewCount           Int            @default(0)
+  videoType           VideoType       @default(EDUCATIONAL)
+  viewCount           Int             @default(0)
   questions           Question[]
-  category            Category       @relation(fields: [categoryId], references: [id])
-  uploadedBy          User?          @relation(fields: [uploadedById], references: [id])
-  videoCategory       VideoCategory? @relation(fields: [videoCategoryId], references: [id])
+  category            Category        @relation(fields: [categoryId], references: [id])
+  uploadedBy          User?           @relation(fields: [uploadedById], references: [id])
+  videoCategory       VideoCategory?  @relation(fields: [videoCategoryId], references: [id])
   tags                VideoTag[]
 
   @@index([videoCategoryId, order])
@@ -238,48 +242,70 @@ model StudyProgress {
 }
 
 model VideoCategory {
-  id          String          @id @default(cuid())
-  name        String
-  slug        String          @unique
-  description String?
-  icon        String?
-  parentId    String?
-  order       Int             @default(0)
-  color       String?
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  parent      VideoCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    VideoCategory[] @relation("CategoryHierarchy")
-  videos      VideoClip[]
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  description    String?
+  icon           String?
+  parentId       String?
+  order          Int               @default(0)
+  color          String?
+  rapCategoryCode String?          // UEFA RAP category code (A-G, L for Laws)
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  parent         VideoCategory?    @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children       VideoCategory[]   @relation("CategoryHierarchy")
+  videos         VideoClip[]
 
   @@index([parentId, order])
   @@index([isActive])
+  @@index([rapCategoryCode])
 }
 
 model Tag {
-  id          String      @id @default(cuid())
-  name        String      @unique
-  slug        String      @unique
-  category    TagCategory @default(GENERAL)
-  color       String?
+  id             String      @id @default(cuid())
+  name           String      @unique
+  slug           String      @unique
+  category       TagCategory @default(CATEGORY)
+  parentCategory String?     // For CRITERIA tags: which decision type (Challenges, Handball, etc.)
+  rapCategory    String?     // For CATEGORY tags: which RAP category (A=Decision Making, B=Management, C=Offside, D=Teamwork, L=Laws)
+  color          String?
+  description    String?
+  order          Int         @default(0)
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  videos         VideoTag[]
+
+  @@index([isActive, order])
+  @@index([category, parentCategory])
+  @@index([rapCategory])
+}
+
+model DecisionType {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "Challenges", "Handball", "Offside"
+  slug        String   @unique
+  color       String   // Color used for grouping in UI
   description String?
-  order       Int         @default(0)
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  videos      VideoTag[]
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive, order])
 }
 
 model VideoTag {
-  id         String    @id @default(cuid())
-  videoId    String
-  tagId      String
-  assignedAt DateTime  @default(now())
-  tag        Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  video      VideoClip @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  videoId           String
+  tagId             String
+  assignedAt        DateTime  @default(now())
+  isCorrectDecision Boolean   @default(false) // True if this tag is part of the correct answer
+  decisionOrder     Int       @default(0)     // Order for correct decision tags (0 for invisible tags)
+  tag               Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  video             VideoClip @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@unique([videoId, tagId])
   @@index([videoId])
@@ -314,10 +340,10 @@ enum AssignmentStatus {
 }
 
 enum VideoType {
-  EDUCATIONAL
-  MATCH_CLIP
-  TRAINING
-  EXAMPLE
+  MATCH_CLIP          // Decision-based match footage
+  EDUCATIONAL         // Explanation-only, no decision required
+  TRAINING            // Skills training
+  EXAMPLE             // Example clips
 }
 
 enum RestartType {
@@ -332,16 +358,26 @@ enum RestartType {
 }
 
 enum SanctionType {
-  NO_CARD
-  YELLOW_CARD
-  RED_CARD
-  DOUBLE_YELLOW
-  PENALTY
+  NO_CARD             // No card / Play on
+  YELLOW_CARD         // Yellow card (caution)
+  SECOND_YELLOW       // Second yellow card (sending-off)
+  RED_CARD_DOGSO      // Red card - Denying an Obvious Goal-Scoring Opportunity
+  RED_CARD_SFP        // Red card - Serious Foul Play
+  RED_CARD_VC         // Red card - Violent Conduct
+  RED_CARD_OTHER      // Red card - Other sending-off offense
 }
 
 enum TagCategory {
-  GENERAL
-  CONCEPT
-  COMPETITION
-  SCENARIO
+  CATEGORY      // Offence categories (Challenges, DOGSO, SPA, etc.)
+  RESTARTS      // Restart types (Direct FK, Indirect FK, etc.)
+  CRITERIA      // Criteria for offences (Careless, Reckless, etc.)
+  SANCTION      // Disciplinary sanctions (Yellow, Red, etc.)
+  SCENARIO      // Game scenarios (Penalty, Free kick, etc.)
+}
+
+enum OffsideReason {
+  INTERFERING_WITH_PLAY        // Active interference with play
+  INTERFERING_WITH_OPPONENT    // Active interference with opponent
+  GAINING_ADVANTAGE            // Gaining advantage from position
+  NOT_OFFSIDE                  // Not in offside position / Not offside
 }

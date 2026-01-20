@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface Tag {
@@ -8,10 +8,22 @@ interface Tag {
   name: string;
   slug: string;
   category: string;
+  parentCategory?: string | null;
   color?: string;
   description?: string;
   isActive: boolean;
+  order: number;
   _count?: { videos: number };
+}
+
+interface DecisionType {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+  description?: string;
+  order: number;
+  isActive: boolean;
 }
 
 interface TagManagerProps {
@@ -19,46 +31,275 @@ interface TagManagerProps {
   onRefresh: () => void;
 }
 
+// Category colors for criteria tags
+const CATEGORY_COLORS: Record<string, string> = {
+  'Challenges': '#FF6B6B',
+  'DOGSO': '#FF4D6D',
+  'SPA': '#FFB347',
+  'Handball': '#4ECDC4',
+  'Offside': '#1BC47D',
+};
+
+// Map criteria tags to their parent categories
+const CRITERIA_TO_CATEGORY: Record<string, string> = {
+  'Careless': 'Challenges',
+  'Reckless': 'Challenges',
+  'Serious Foul Play': 'Challenges',
+  'Violent Conduct': 'Challenges',
+  'Excessive Force': 'Challenges',
+  'Endangering Safety Of Opponent': 'Challenges',
+  'Hand/Arm Moves Towards The Ball': 'Handball',
+  'Hand/Arm Supports Body But Not Extended': 'Handball',
+  'Hand/Arm Not Extended': 'Handball',
+  'Ball Movement Towards Hand/Arm': 'Handball',
+  'Ball Coming From Short Distance': 'Handball',
+  'Unexpected Ball': 'Handball',
+  'Distance Not Short / Ball Not Unexpected': 'Handball',
+  'Player Tries To Avoid Hand Contact': 'Handball',
+  'Player Does Not Try To Avoid Hand Contact': 'Handball',
+  'Player Unable To Avoid Hand Contact': 'Handball',
+  'Attacker Gains Possession After Touching With Hand/Arm': 'Handball',
+  'Interfering With Play': 'Offside',
+  'Interfering With An Opponent': 'Offside',
+  'Gaining An Advantage': 'Offside',
+  'Not Interfering With Play': 'Offside',
+  'Not Interfering With An Opponent': 'Offside',
+  'Challenging Opponent For The Ball': 'Offside',
+  'Not Challenging Opponent For The Ball': 'Offside',
+  'Making Obvious Action': 'Offside',
+  'Not Making Obvious Action': 'Offside',
+  'Clear Impact On Ability Of Opponent To Play The Ball': 'Offside',
+  'No Clear Impact On Opponent': 'Offside',
+  'Clearly Obstructing Opponent\'s Line Of Vision': 'Offside',
+  'Not Clearly Obstructing Opponent\'s Line Of Vision': 'Offside',
+  'Ball Deliberately Saved By Opponent': 'Offside',
+  'Ball Rebounds/Deflects Off Opponent': 'Offside',
+  'Ball Rebounds/Deflects Off Crossbar': 'Offside',
+  'Touching/Playing Ball Passed By Teammate': 'Offside',
+  'DOGSO While Attempting To Play The Ball': 'DOGSO',
+  'DOGSO Whilst Not Attempting To Play The Ball': 'DOGSO',
+  'Denying A Goal Or Obvious Goal-Scoring Opportunity': 'DOGSO',
+  'Promising Attack Stopped While Attempting To Play The Ball': 'SPA',
+  'Stopping A Promising Attack While Not Attempting To Play The Ball': 'SPA',
+  'No Promising Attack Stopped': 'SPA',
+  'No Reckless Challenge': 'SPA',
+  'No Serious Foul Play': 'SPA',
+};
+
 const TAG_CATEGORIES = [
-  { value: 'GENERAL', label: 'General' },
-  { value: 'CONCEPT', label: 'Concept' },
-  { value: 'COMPETITION', label: 'Competition' },
-  { value: 'SCENARIO', label: 'Scenario' },
+  { value: 'CATEGORY', label: 'Category', color: '#FF6B6B' },      // Red
+  { value: 'RESTARTS', label: 'Restarts', color: '#4A90E2' },      // Blue
+  { value: 'CRITERIA', label: 'Criteria', color: '#FFD93D' },      // Yellow
+  { value: 'SANCTION', label: 'Sanction', color: '#EC4899' },       // Pink/Magenta
+  { value: 'SCENARIO', label: 'Scenario', color: '#6BCF7F' },      // Green
+];
+
+// Map group values to their colors
+const GROUP_COLORS: Record<string, string> = {
+  CATEGORY: '#FF6B6B',
+  RESTARTS: '#4A90E2',
+  CRITERIA: '#FFD93D',
+  SANCTION: '#EC4899', // Pink/Magenta - distinct and vibrant
+  SCENARIO: '#6BCF7F',
+};
+
+// Preset colors for each category
+const PRESET_COLORS: Record<string, string[]> = {
+  // Rainbow palette for categories
+  CATEGORY: [
+    '#FF6B6B', // Red
+    '#FF8C42', // Orange
+    '#FFD93D', // Yellow
+    '#6BCF7F', // Green
+    '#4ECDC4', // Teal
+    '#45B7D1', // Light Blue
+    '#5F9DF7', // Blue
+    '#9B72CB', // Purple
+    '#C77DFF', // Light Purple
+    '#E0ACD5', // Pink
+    '#FF6B9D', // Hot Pink
+    '#F72585', // Magenta
+    '#7209B7', // Deep Purple
+    '#560BAD', // Dark Purple
+  ],
+  RESTARTS: ['#00A5E8', '#4A90E2', '#5C6AC4', '#667EEA', '#764BA2'],
+  // Criteria usually inherit, but provide the palette just in case
+  CRITERIA: [
+    '#FF6B6B', '#FF8C42', '#FFD93D', '#6BCF7F', '#4ECDC4', 
+    '#45B7D1', '#5F9DF7', '#9B72CB', '#F72585'
+  ],
+  SANCTION: ['#F5B400', '#FF4D6D', '#1BC47D', '#95E1D3'],
+  SCENARIO: ['#A8E6CF', '#FFDAC1', '#B5EAD7', '#C7CEEA', '#FFB6B9'],
+};
+
+// Define the rainbow order for categories
+const CATEGORY_ORDER = [
+  'Challenges', 'DOGSO', 'SPA', 'Handball', 'Holding', 
+  'Illegal Use Of Arms', 'Penalty Area Decisions', 'Simulation',
+  'Advantage', 'Dissent', 'Referee Abuse', 'Offside', 
+  'Teamwork', 'Laws Of The Game'
 ];
 
 export function TagManager({ tags, onRefresh }: TagManagerProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [expandedTabs, setExpandedTabs] = useState<Record<string, boolean>>({
+    CATEGORY: false,
+    RESTARTS: false,
+    CRITERIA: false,
+    SANCTION: false,
+    SCENARIO: false,
+  });
+  const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({});
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    category: 'GENERAL',
+    category: 'CATEGORY',
+    parentCategory: '',
     color: '#00E8F8',
     description: '',
     isActive: true,
   });
+  const [customColor, setCustomColor] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Filter tags based on search query
+  const filteredTags = tags.filter(tag => 
+    tag.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    tag.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tag.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Auto-expand tabs when searching
+  useEffect(() => {
+    if (searchQuery) {
+      setExpandedTabs({
+        CATEGORY: true,
+        RESTARTS: true,
+        CRITERIA: true,
+        SANCTION: true,
+        SCENARIO: true,
+      });
+      // Also expand sub-categories for CRITERIA
+      const allSubCategories: Record<string, boolean> = {};
+      filteredTags.forEach(tag => {
+        if (tag.category === 'CRITERIA' && tag.parentCategory) {
+          allSubCategories[tag.parentCategory] = true;
+        }
+      });
+      if (Object.keys(allSubCategories).length > 0) {
+        setExpandedSubCategories(prev => ({ ...prev, ...allSubCategories }));
+      }
+    }
+  }, [searchQuery, tags.length]); // Re-run when query changes or tags update
+
+  // Get category tags (these serve as categories for criteria)
+  const categoryTags = tags.filter(t => t.category === 'CATEGORY' && t.isActive);
+
+  // Pre-sort category tags for the dropdown
+  const sortedDropdownTags = [...categoryTags].sort((a, b) => {
+    const indexA = CATEGORY_ORDER.indexOf(a.name);
+    const indexB = CATEGORY_ORDER.indexOf(b.name);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  // Click outside handler for category dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target as Node)) {
+        setIsGroupDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Update color to group color when category changes (for new tags)
+  // SANCTION tags always use the same color
+  useEffect(() => {
+    if (isCreating && !editingTag) {
+      const groupColor = GROUP_COLORS[formData.category] || '#00E8F8';
+      setFormData(prev => ({ ...prev, color: groupColor }));
+    }
+    // Also enforce SANCTION color when editing
+    if (formData.category === 'SANCTION' && formData.color !== GROUP_COLORS.SANCTION) {
+      setFormData(prev => ({ ...prev, color: GROUP_COLORS.SANCTION }));
+    }
+  }, [formData.category, isCreating, editingTag]);
+
+  const toggleTab = (category: string) => {
+    setExpandedTabs(prev => ({ ...prev, [category]: !prev[category] }));
+  };
+
+  const toggleSubCategory = (subCategory: string) => {
+    setExpandedSubCategories(prev => ({ ...prev, [subCategory]: !prev[subCategory] }));
+  };
+
+  const handleGroupSelect = (groupValue: string) => {
+    const groupColor = GROUP_COLORS[groupValue] || '#00E8F8';
+    setFormData(prev => ({
+      ...prev,
+      category: groupValue,
+      parentCategory: '',
+      color: groupColor // Set to group's unique color
+    }));
+    setIsGroupDropdownOpen(false);
+  };
+
+  const handleCategorySelect = (categoryName: string) => {
+    const selectedCat = categoryTags.find(c => c.name === categoryName);
+    setFormData(prev => ({
+      ...prev,
+      parentCategory: categoryName,
+      color: selectedCat?.color || prev.color // Inherit color
+    }));
+    setIsCategoryDropdownOpen(false);
+  };
 
   const resetForm = () => {
     setFormData({
       name: '',
-      category: 'GENERAL',
+      category: 'CATEGORY',
+      parentCategory: '',
       color: '#00E8F8',
       description: '',
       isActive: true,
     });
+    setCustomColor('');
     setIsCreating(false);
     setEditingTag(null);
   };
 
   const handleEdit = (tag: Tag) => {
     setEditingTag(tag);
+    // SANCTION tags always use the same color
+    const tagColor = tag.category === 'SANCTION' ? GROUP_COLORS.SANCTION : (tag.color || '#00E8F8');
     setFormData({
       name: tag.name,
       category: tag.category,
-      color: tag.color || '#00E8F8',
+      parentCategory: tag.parentCategory || '',
+      color: tagColor,
       description: tag.description || '',
       isActive: tag.isActive,
     });
+    setCustomColor('');
     setIsCreating(true);
+    
+    // Scroll to form section
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,20 +310,38 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         ? `/api/admin/library/tags/${editingTag.id}`
         : '/api/admin/library/tags';
       
+      const submitData = {
+        ...formData,
+        parentCategory: formData.category === 'CRITERIA' && formData.parentCategory 
+          ? formData.parentCategory 
+          : null,
+        // SANCTION tags always use the same color
+        color: formData.category === 'SANCTION' ? GROUP_COLORS.SANCTION : formData.color,
+      };
+      
       const response = await fetch(url, {
         method: editingTag ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
-      if (!response.ok) throw new Error('Failed to save tag');
+      if (!response.ok) {
+        const data = await response.json();
+        const errorMessage = data.error || 'Failed to save tag';
+        // Provide more helpful error message for slug conflicts
+        if (errorMessage.includes('slug') && errorMessage.includes('already exists')) {
+          throw new Error(`A tag with a similar name already exists. The system will automatically generate a unique identifier. Please try again, or use a more unique name.`);
+        }
+        throw new Error(errorMessage);
+      }
 
+      const result = await response.json();
       alert(editingTag ? 'Tag updated successfully!' : 'Tag created successfully!');
       resetForm();
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save error:', error);
-      alert('Failed to save tag');
+      alert(error.message || 'Failed to save tag');
     }
   };
 
@@ -102,30 +361,160 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Delete failed');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Delete failed');
+      }
 
       alert('Tag deleted successfully!');
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete error:', error);
-      alert('Failed to delete tag');
+      alert(error.message || 'Failed to delete tag');
     }
   };
 
-  const groupedTags = tags.reduce((acc, tag) => {
+  // Group tags by category
+  const groupedTags = filteredTags.reduce((acc, tag) => {
     if (!acc[tag.category]) acc[tag.category] = [];
     acc[tag.category].push(tag);
     return acc;
   }, {} as Record<string, Tag[]>);
 
+  // Debug: Log tags
+  console.log('TagManager: Received', tags.length, 'tags');
+  if (tags.length > 0) {
+    console.log('TagManager: Categories:', Object.keys(groupedTags));
+    console.log('TagManager: Sample tag:', tags[0]);
+  }
+
+  // Sort tags within each category by order
+  Object.keys(groupedTags).forEach(category => {
+    groupedTags[category].sort((a, b) => a.order - b.order);
+  });
+
+
+  // Group criteria tags by their category (parentCategory references CATEGORY tags)
+  const criteriaByCategory: Record<string, Tag[]> = {};
+  const generalCriteria: Tag[] = [];
+  
+  // Initialize with ALL category tags (even if they have 0 criteria)
+  categoryTags.forEach(cat => {
+    criteriaByCategory[cat.name] = [];
+  });
+  
+  // Then populate with actual criteria
+  if (groupedTags.CRITERIA) {
+    groupedTags.CRITERIA.forEach(tag => {
+      if (tag.parentCategory && criteriaByCategory[tag.parentCategory]) {
+        criteriaByCategory[tag.parentCategory].push(tag);
+      } else {
+        generalCriteria.push(tag);
+      }
+    });
+  }
+
+  // Map category tags to their colors
+  const categoryColors: Record<string, string> = {};
+  const categoryTagsMap: Record<string, Tag> = {};
+  categoryTags.forEach(cat => {
+    categoryColors[cat.name] = cat.color || '#00E8F8';
+    categoryTagsMap[cat.name] = cat;
+  });
+
+  // Get sorted category entries in rainbow order (includes empty groups)
+  const sortedCategoryEntries = Object.entries(criteriaByCategory).sort((a, b) => {
+    const indexA = CATEGORY_ORDER.indexOf(a[0]);
+    const indexB = CATEGORY_ORDER.indexOf(b[0]);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  const renderTagItem = (tag: Tag) => (
+    <div
+      key={tag.id}
+      className="flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border border-dark-600 hover:border-cyan-500/50 transition-all"
+    >
+      <div className="flex items-center gap-3 flex-1">
+        <div
+          className="w-8 h-8 rounded-lg border-2"
+          style={{ backgroundColor: tag.color, borderColor: tag.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-text-primary">{tag.name}</span>
+            {!tag.isActive && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-500">
+                Inactive
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-sm text-text-muted mt-1">
+            <span>{tag.slug}</span>
+            {tag._count && (
+              <span>• {tag._count.videos} video{tag._count.videos !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleEdit(tag)}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => handleDelete(tag.id, tag.name, tag._count?.videos || 0)}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg className="h-5 w-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          placeholder="Search tags by name, slug, or description..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 rounded-xl bg-dark-800/50 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-text-muted"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-primary transition-colors"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {/* Create/Edit Form */}
-      <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
+      <div ref={formRef} className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-text-primary">
-            {isCreating ? (editingTag ? 'Edit Tag' : 'Create New Tag') : 'Tag Management'}
-          </h3>
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">
+              {isCreating ? (editingTag ? 'Edit Tag' : 'Create New Tag') : 'Tag Management'}
+            </h3>
+            <p className="text-sm text-text-muted mt-1">
+              <strong>Category</strong> tags are also criteria groups. <strong>Criteria</strong> tags belong to categories.
+            </p>
+          </div>
           {!isCreating && (
             <button
               onClick={() => setIsCreating(true)}
@@ -152,58 +541,213 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                 />
               </div>
 
-              <div>
+              <div className="relative" ref={groupDropdownRef}>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Category
+                  Group
                 </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                
+                <button
+                  type="button"
+                  onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
                 >
-                  {TAG_CATEGORIES.map(cat => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-4 h-4 rounded-full border border-dark-600"
+                      style={{ backgroundColor: GROUP_COLORS[formData.category] || '#00E8F8' }} 
+                    />
+                    <span>{TAG_CATEGORIES.find(c => c.value === formData.category)?.label}</span>
+                  </div>
+                  <svg 
+                    className={cn(
+                      "w-4 h-4 text-text-secondary transition-transform", 
+                      isGroupDropdownOpen && "rotate-180"
+                    )}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isGroupDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-dark-900 border border-dark-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    {TAG_CATEGORIES.map(cat => (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => handleGroupSelect(cat.value)}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-dark-800 transition-colors"
+                      >
+                        <div 
+                          className="w-4 h-4 rounded-full border border-dark-600"
+                          style={{ backgroundColor: GROUP_COLORS[cat.value] || '#00E8F8' }}
+                        />
+                        <span className="text-text-primary">{cat.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
+            {/* Category Dropdown - Only for CRITERIA group */}
+            {formData.category === 'CRITERIA' && (
+              <div className="relative" ref={categoryDropdownRef}>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Color
+                  Parent Category <span className="text-cyan-500 text-xs">(Which category does this criterion belong to?)</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-12 h-10 rounded border border-dark-600 bg-dark-900 cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="flex-1 px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
-                    placeholder="#00E8F8"
-                  />
-                </div>
-              </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                >
+                  <div className="flex items-center gap-2">
+                    {formData.parentCategory ? (
+                      <>
+                        <div 
+                          className="w-4 h-4 rounded border border-dark-600"
+                          style={{ backgroundColor: categoryTags.find(c => c.name === formData.parentCategory)?.color || '#00E8F8' }} 
+                        />
+                        <span>{formData.parentCategory}</span>
+                      </>
+                    ) : (
+                      <span className="text-text-muted">Select Category...</span>
+                    )}
+                  </div>
+                  <svg 
+                    className={cn(
+                      "w-4 h-4 text-text-secondary transition-transform", 
+                      isCategoryDropdownOpen && "rotate-180"
+                    )}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Status
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer mt-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="w-5 h-5 rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
-                  />
-                  <span className="text-sm font-medium text-text-primary">Active</span>
-                </label>
+                {isCategoryDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-dark-900 border border-dark-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleCategorySelect('')}
+                      className="w-full flex items-center px-4 py-2 text-sm text-text-muted hover:bg-dark-800 transition-colors"
+                    >
+                      No Category
+                    </button>
+                    {sortedDropdownTags.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleCategorySelect(cat.name)}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-dark-800 transition-colors"
+                      >
+                        <div 
+                          className="w-4 h-4 rounded border border-dark-600"
+                          style={{ backgroundColor: cat.color || '#00E8F8' }}
+                        />
+                        <span className="text-text-primary">{cat.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                <p className="text-xs text-text-muted mt-1">
+                  Groups this criteria tag under a category (e.g., Handball, Offside, DOGSO)
+                </p>
               </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Color
+              </label>
+              
+              {/* SANCTION tags use fixed color */}
+              {formData.category === 'SANCTION' ? (
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-dark-900/50 border border-dark-600">
+                  <div 
+                    className="w-10 h-10 rounded-lg border-2 border-cyan-500 ring-2 ring-cyan-500/50"
+                    style={{ backgroundColor: GROUP_COLORS.SANCTION }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">
+                      SANCTION tags use a fixed color
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      All sanction tags share the same color for consistency
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Preset Colors */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(PRESET_COLORS[formData.category] || PRESET_COLORS.CATEGORY).map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, color })}
+                        className={cn(
+                          "w-10 h-10 rounded-lg border-2 transition-all hover:scale-110",
+                          formData.color === color
+                            ? "border-cyan-500 ring-2 ring-cyan-500/50"
+                            : "border-dark-600 hover:border-dark-400"
+                        )}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Custom Color Option */}
+                  <details className="mt-2">
+                    <summary className="text-xs text-text-muted cursor-pointer hover:text-text-secondary mb-2">
+                      + Add custom color
+                    </summary>
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="color"
+                        value={customColor || formData.color}
+                        onChange={(e) => {
+                          setCustomColor(e.target.value);
+                          setFormData({ ...formData, color: e.target.value });
+                        }}
+                        className="w-12 h-10 rounded border border-dark-600 bg-dark-900 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={customColor || formData.color}
+                        onChange={(e) => {
+                          setCustomColor(e.target.value);
+                          setFormData({ ...formData, color: e.target.value });
+                        }}
+                        className="flex-1 px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                        placeholder="#00E8F8"
+                      />
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Status
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-5 h-5 rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
+                />
+                <span className="text-sm font-medium text-text-primary">Active</span>
+              </label>
             </div>
 
             <div>
@@ -238,69 +782,222 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         )}
       </div>
 
-      {/* Tags List */}
-      {Object.entries(groupedTags).map(([category, categoryTags]) => (
-        <div key={category} className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
-          <h4 className="text-lg font-semibold text-text-primary mb-4">
-            {TAG_CATEGORIES.find(c => c.value === category)?.label || category} Tags
-            <span className="text-sm font-normal text-text-muted ml-2">({categoryTags.length})</span>
-          </h4>
+      {/* Collapsible Category Tabs */}
+      {TAG_CATEGORIES.map(({ value, label }) => {
+        const categoryTags = groupedTags[value] || [];
+        const isExpanded = expandedTabs[value] ?? true;
 
-          <div className="space-y-2">
-            {categoryTags.map(tag => (
-              <div
-                key={tag.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border border-dark-600 hover:border-cyan-500/50 transition-all"
+        if (value === 'CRITERIA') {
+          // Special rendering for Criteria with sub-grouping
+          const groupColor = GROUP_COLORS[value] || '#00E8F8';
+          return (
+            <div key={value} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+              <button
+                onClick={() => toggleTab(value)}
+                className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <div
-                    className="w-8 h-8 rounded-lg border-2"
-                    style={{ backgroundColor: tag.color, borderColor: tag.color }}
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: groupColor }}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-text-primary">{tag.name}</span>
-                      {!tag.isActive && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-500">
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-text-muted mt-1">
-                      <span>{tag.slug}</span>
-                      {tag._count && (
-                        <span>• {tag._count.videos} video{tag._count.videos !== 1 ? 's' : ''}</span>
-                      )}
-                    </div>
-                  </div>
+                  <h4 className="text-lg font-semibold text-text-primary">
+                    {label}
+                    <span className="text-sm font-normal text-text-muted ml-2">
+                      ({(groupedTags.CRITERIA || []).length})
+                    </span>
+                  </h4>
                 </div>
+                <svg
+                  className={cn(
+                    "w-5 h-5 text-text-muted transition-transform",
+                    isExpanded && "rotate-180"
+                  )}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(tag)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(tag.id, tag.name, tag._count?.videos || 0)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
-                  >
-                    Delete
-                  </button>
+              {isExpanded && (
+                <div className="p-6 pt-0 space-y-4">
+                  {/* Criteria grouped by CATEGORY tags - Groups auto-generated */}
+                  {sortedCategoryEntries.map(([categoryName, criteriaTags]) => {
+                    const isSubExpanded = expandedSubCategories[categoryName] ?? false;
+                    // Get the actual CATEGORY tag object
+                    const categoryTag = categoryTagsMap[categoryName];
+                    
+                    if (!categoryTag) return null; // Skip if category was deleted
+                    
+                    return (
+                      <div key={categoryName} className="rounded-xl bg-dark-900/30 border border-dark-600 overflow-hidden">
+                        <button
+                          onClick={() => toggleSubCategory(categoryName)}
+                          className="w-full flex items-center justify-between p-4 hover:bg-dark-700/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: categoryTag.color || '#00E8F8' }}
+                            />
+                            <h5 className="font-semibold text-text-secondary uppercase tracking-wider text-sm">
+                              {categoryTag.name}
+                            </h5>
+                            <span className="text-xs text-text-muted bg-dark-800 px-2 py-0.5 rounded-full">
+                              {criteriaTags.length} criteria
+                            </span>
+                          </div>
+                          <svg
+                            className={cn(
+                              "w-4 h-4 text-text-muted transition-transform",
+                              isSubExpanded && "rotate-180"
+                            )}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        
+                        {isSubExpanded && (
+                          <div className="p-4 pt-0 space-y-2 border-t border-dark-600/50 mt-2">
+                            {/* Show the CATEGORY tag itself first */}
+                            <div className="mb-3 pb-3 border-b border-dark-600/30">
+                              <div className="text-xs text-text-muted mb-2 uppercase tracking-wider">Category Tag:</div>
+                              {renderTagItem(categoryTag)}
+                            </div>
+                            
+                            {/* Then show all criteria under this category */}
+                            {criteriaTags.length > 0 ? (
+                              <>
+                                <div className="text-xs text-text-muted mb-2 uppercase tracking-wider">
+                                  Criteria Tags ({criteriaTags.length}):
+                                </div>
+                                {criteriaTags.map(renderTagItem)}
+                              </>
+                            ) : (
+                              <div className="text-sm text-text-muted italic text-center py-4">
+                                No criteria yet. Create criteria with parentCategory: "{categoryTag.name}"
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* General criteria (no category) */}
+                  {generalCriteria.length > 0 && (
+                    <div className="rounded-xl bg-dark-900/30 border border-dark-600 overflow-hidden">
+                      <button
+                        onClick={() => toggleSubCategory('No Category')}
+                        className="w-full flex items-center justify-between p-4 hover:bg-dark-700/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 rounded border border-dark-600 bg-dark-800" />
+                          <h5 className="font-semibold text-text-secondary uppercase tracking-wider text-sm">
+                            No Category
+                          </h5>
+                          <span className="text-xs text-text-muted bg-dark-800 px-2 py-0.5 rounded-full">
+                            {generalCriteria.length}
+                          </span>
+                        </div>
+                        <svg
+                          className={cn(
+                            "w-4 h-4 text-text-muted transition-transform",
+                            (expandedSubCategories['No Category'] ?? false) && "rotate-180"
+                          )}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {(expandedSubCategories['No Category'] ?? false) && (
+                        <div className="p-4 pt-0 space-y-2 border-t border-dark-600/50 mt-2">
+                          {generalCriteria.map(renderTagItem)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {categoryTags.length === 0 && (
+                    <p className="text-text-muted text-center py-8">No criteria tags yet</p>
+                  )}
                 </div>
+              )}
+            </div>
+          );
+        }
+
+        // Regular category rendering
+        const groupColor = GROUP_COLORS[value] || '#00E8F8';
+        return (
+          <div key={value} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+            <button
+              onClick={() => toggleTab(value)}
+              className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: groupColor }}
+                />
+                <h4 className="text-lg font-semibold text-text-primary">
+                  {label}
+                  <span className="text-sm font-normal text-text-muted ml-2">
+                    ({categoryTags.length})
+                  </span>
+                </h4>
               </div>
-            ))}
+              <svg
+                className={cn(
+                  "w-5 h-5 text-text-muted transition-transform",
+                  isExpanded && "rotate-180"
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {isExpanded && (
+              <div className="p-6 pt-0">
+                <div className="space-y-2">
+                  {(value === 'CATEGORY' 
+                    ? [...categoryTags].sort((a, b) => {
+                        const indexA = CATEGORY_ORDER.indexOf(a.name);
+                        const indexB = CATEGORY_ORDER.indexOf(b.name);
+                        if (indexA === -1) return 1;
+                        if (indexB === -1) return -1;
+                        return indexA - indexB;
+                      })
+                    : categoryTags
+                  ).map(renderTagItem)}
+                </div>
+                {categoryTags.length === 0 && (
+                  <p className="text-text-muted text-center py-8">No {label.toLowerCase()} tags yet</p>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {tags.length === 0 && (
         <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-12 text-center">
           <svg className="w-16 h-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
           </svg>
-          <p className="text-text-secondary">No tags created yet</p>
+          <p className="text-text-secondary">No tags found. Check console for debugging info.</p>
+          <p className="text-text-muted text-sm mt-2">If tags exist in database, there may be an API issue.</p>
         </div>
       )}
     </div>
