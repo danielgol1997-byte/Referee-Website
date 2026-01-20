@@ -153,49 +153,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         const canDirectUpload = !!cloudConfig?.cloudName && !!cloudConfig?.uploadPreset;
         const allowServerFallback = process.env.NODE_ENV !== "production";
 
-        if (canDirectUpload) {
-          const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudConfig.cloudName}/video/upload`;
-          const uploadFormData = new FormData();
-          uploadFormData.append('file', videoFile);
-          uploadFormData.append('upload_preset', cloudConfig.uploadPreset);
-
-          const uploadResponse = await fetch(cloudinaryUrl, {
-            method: 'POST',
-            body: uploadFormData,
-          });
-
-          console.log('Upload response status:', uploadResponse.status);
-
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
-            try {
-              const errorData = JSON.parse(errorText);
-              errorMessage = errorData?.error?.message || errorData?.error || errorMessage;
-              console.error('Server error response:', errorData);
-            } catch (parseError) {
-              console.error('Could not parse error response:', parseError);
-              console.error('Error response text:', errorText);
-              if (uploadResponse.status === 403) {
-                errorMessage = "Forbidden by Cloudinary. Check that the upload preset exists and is UNSIGNED, and that it allows video uploads.";
-              } else {
-                errorMessage = errorText || errorMessage;
-              }
-            }
-            throw new Error(errorMessage);
-          }
-
-          const uploadResult = await uploadResponse.json();
-          console.log('Upload successful:', uploadResult);
-
-          if (!uploadResult?.secure_url || !uploadResult?.public_id) {
-            throw new Error('Upload response missing Cloudinary URL');
-          }
-
-          fileUrl = uploadResult.secure_url;
-          thumbnailUrl = getThumbnailUrl(uploadResult.public_id);
-          duration = uploadResult.duration || 0;
-        } else if (allowServerFallback) {
+        const uploadViaServer = async () => {
           const uploadFormData = new FormData();
           uploadFormData.append('video', videoFile);
 
@@ -235,6 +193,57 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
           fileUrl = uploadResult.video.url;
           thumbnailUrl = uploadResult.video.thumbnailUrl;
           duration = uploadResult.video.duration;
+        };
+
+        if (canDirectUpload) {
+          const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudConfig.cloudName}/video/upload`;
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', videoFile);
+          uploadFormData.append('upload_preset', cloudConfig.uploadPreset);
+
+          const uploadResponse = await fetch(cloudinaryUrl, {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          console.log('Upload response status:', uploadResponse.status);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData?.error?.message || errorData?.error || errorMessage;
+              console.error('Server error response:', errorData);
+            } catch (parseError) {
+              console.error('Could not parse error response:', parseError);
+              console.error('Error response text:', errorText);
+              if (uploadResponse.status === 403) {
+                errorMessage = "Forbidden by Cloudinary. Check that the upload preset exists and is UNSIGNED, and that it allows video uploads.";
+              } else {
+                errorMessage = errorText || errorMessage;
+              }
+            }
+            if (errorMessage.toLowerCase().includes("upload preset not found")) {
+              console.warn("Upload preset not found. Falling back to server-side upload.");
+              await uploadViaServer();
+              return;
+            }
+            throw new Error(errorMessage);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          console.log('Upload successful:', uploadResult);
+
+          if (!uploadResult?.secure_url || !uploadResult?.public_id) {
+            throw new Error('Upload response missing Cloudinary URL');
+          }
+
+          fileUrl = uploadResult.secure_url;
+          thumbnailUrl = getThumbnailUrl(uploadResult.public_id);
+          duration = uploadResult.duration || 0;
+        } else if (allowServerFallback) {
+          await uploadViaServer();
         } else {
           throw new Error(
             "Cloudinary client upload is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in Vercel."
