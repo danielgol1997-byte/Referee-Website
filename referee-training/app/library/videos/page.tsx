@@ -4,26 +4,27 @@ import { VideoLibraryView } from "@/components/library/VideoLibraryView";
 export const revalidate = 300;
 
 export default async function VideoLibraryPage() {
-  // Fetch RAP categories with video counts
-  const rapCategories = await prisma.videoCategory.findMany({
-    where: {
-      rapCategoryCode: { not: null },
-      isActive: true,
-    },
-    include: {
-      _count: {
-        select: {
-          videos: {
-            where: { isActive: true }
+  try {
+    // Fetch RAP categories with video counts
+    const rapCategories = await prisma.videoCategory.findMany({
+      where: {
+        rapCategoryCode: { not: null },
+        isActive: true,
+      },
+      include: {
+        _count: {
+          select: {
+            videos: {
+              where: { isActive: true }
+            }
           }
         }
-      }
-    },
-    orderBy: { order: 'asc' }
-  });
+      },
+      orderBy: { order: 'asc' }
+    });
 
-  // Fetch all active videos
-  const videos = await prisma.videoClip.findMany({
+    // Fetch all active videos
+    const videos = await prisma.videoClip.findMany({
     where: {
       isActive: true,
     },
@@ -109,10 +110,14 @@ export default async function VideoLibraryPage() {
     }).length,
   };
 
-  return (
-    <VideoLibraryView 
-      videos={formattedVideos}
-      videoCounts={videoCounts}
-    />
-  );
+    return (
+      <VideoLibraryView 
+        videos={formattedVideos}
+        videoCounts={videoCounts}
+      />
+    );
+  } catch (error) {
+    console.error('Error loading video library:', error);
+    throw new Error(`Failed to load video library: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
