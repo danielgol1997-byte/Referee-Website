@@ -59,6 +59,7 @@ interface InlineVideoPlayerProps {
  * - Frame-by-frame navigation (perfect for decision analysis)
  * - Draggable A-B loop markers with visual indicators (always visible)
  * - Variable playback speed (0.25x - 1x)
+ * - Volume control with mute
  * - Comprehensive keyboard shortcuts
  * - Beautiful animations and transitions
  * - Next/Prev video navigation
@@ -73,10 +74,11 @@ interface InlineVideoPlayerProps {
  * - A: Set loop start marker (drag on timeline to adjust)
  * - B: Set loop end marker (drag on timeline to adjust)
  * - Shift + L: Toggle loop on/off
- * - C: Clear loop markers
+ * - C: Reset loop markers
  * - [ : Decrease playback speed
  * - ] : Increase playback speed
  * - 1: Reset speed to 1x
+ * - M: Mute/Unmute
  * - I: Show answer
  * - ?: Show keyboard shortcuts
  * - Esc: Close video
@@ -105,6 +107,8 @@ export function InlineVideoPlayer({
   const [draggingMarker, setDraggingMarker] = useState<'A' | 'B' | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -254,6 +258,20 @@ export function InlineVideoPlayer({
       videoRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
+
+  // Update video volume
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  // Update video muted state
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
 
   // Update currentTime and duration from video
   useEffect(() => {
@@ -461,6 +479,13 @@ export function InlineVideoPlayer({
         setLoopMarkerA(0);
         setLoopMarkerB(duration);
         setIsLoopEnabled(false);
+        return;
+      }
+
+      // Toggle mute with 'm'
+      if (e.key === "m") {
+        e.preventDefault();
+        setIsMuted(!isMuted);
         return;
       }
 
@@ -735,10 +760,10 @@ export function InlineVideoPlayer({
                         <div className={cn(
                           "relative w-3 h-6 transition-all",
                           "border-l-2 border-t-2 border-b-2 rounded-l-sm",
-                          "group-hover/marker:scale-125 group-hover/marker:shadow-lg",
+                          "group-hover/marker:scale-110",
                           isLoopEnabled 
-                            ? "border-green-400 shadow-[0_0_10px_rgba(74,222,128,0.8)]" 
-                            : "border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
+                            ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
+                            : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
                         )} />
                         {/* Hover tooltip */}
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
@@ -758,10 +783,10 @@ export function InlineVideoPlayer({
                         <div className={cn(
                           "relative w-3 h-6 transition-all",
                           "border-r-2 border-t-2 border-b-2 rounded-r-sm",
-                          "group-hover/marker:scale-125 group-hover/marker:shadow-lg",
+                          "group-hover/marker:scale-110",
                           isLoopEnabled 
-                            ? "border-green-400 shadow-[0_0_10px_rgba(74,222,128,0.8)]" 
-                            : "border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
+                            ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
+                            : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
                         )} />
                         {/* Hover tooltip */}
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
@@ -864,6 +889,50 @@ export function InlineVideoPlayer({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       </button>
+
+                      {/* Volume control */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsMuted(!isMuted)}
+                          className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded transition-all"
+                          title="Mute/Unmute (M)"
+                        >
+                          {isMuted ? (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                            </svg>
+                          ) : volume > 0.5 ? (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                          )}
+                        </button>
+                        
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={isMuted ? 0 : volume}
+                          onChange={(e) => {
+                            const newVolume = parseFloat(e.target.value);
+                            setVolume(newVolume);
+                            if (newVolume > 0 && isMuted) {
+                              setIsMuted(false);
+                            }
+                          }}
+                          className="w-20 h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, white 0%, white ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
+                          }}
+                          title="Volume"
+                        />
+                      </div>
 
                       {/* Playback speed control */}
                       <div className="flex items-center gap-1">
@@ -1034,6 +1103,10 @@ export function InlineVideoPlayer({
                         <div className="flex justify-between items-center">
                           <span className="text-white/70">Reset speed to 1x</span>
                           <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">1</kbd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/70">Mute/Unmute</span>
+                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">M</kbd>
                         </div>
                         {hasAnswer && (
                           <div className="flex justify-between items-center">
