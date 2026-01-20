@@ -151,6 +151,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         
         const cloudConfig = getClientUploadConfig();
         const canDirectUpload = !!cloudConfig?.cloudName && !!cloudConfig?.uploadPreset;
+        const allowServerFallback = process.env.NODE_ENV !== "production";
 
         if (canDirectUpload) {
           const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudConfig.cloudName}/video/upload`;
@@ -175,7 +176,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
             } catch (parseError) {
               console.error('Could not parse error response:', parseError);
               console.error('Error response text:', errorText);
-              errorMessage = errorText || errorMessage;
+              if (uploadResponse.status === 403) {
+                errorMessage = "Forbidden by Cloudinary. Check that the upload preset exists and is UNSIGNED, and that it allows video uploads.";
+              } else {
+                errorMessage = errorText || errorMessage;
+              }
             }
             throw new Error(errorMessage);
           }
@@ -190,7 +195,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
           fileUrl = uploadResult.secure_url;
           thumbnailUrl = getThumbnailUrl(uploadResult.public_id);
           duration = uploadResult.duration || 0;
-        } else {
+        } else if (allowServerFallback) {
           const uploadFormData = new FormData();
           uploadFormData.append('video', videoFile);
 
@@ -211,7 +216,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
             } catch (parseError) {
               console.error('Could not parse error response:', parseError);
               console.error('Error response text:', errorText);
-              errorMessage = errorText || errorMessage;
+              if (uploadResponse.status === 403) {
+                errorMessage = "Upload forbidden by Vercel. Configure client-side Cloudinary upload (NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET) to bypass Vercel limits.";
+              } else {
+                errorMessage = errorText || errorMessage;
+              }
             }
             throw new Error(errorMessage);
           }
@@ -226,6 +235,10 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
           fileUrl = uploadResult.video.url;
           thumbnailUrl = uploadResult.video.thumbnailUrl;
           duration = uploadResult.video.duration;
+        } else {
+          throw new Error(
+            "Cloudinary client upload is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in Vercel."
+          );
         }
       }
 
