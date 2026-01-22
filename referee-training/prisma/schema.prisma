@@ -264,23 +264,39 @@ model VideoCategory {
 }
 
 model Tag {
-  id             String      @id @default(cuid())
-  name           String      @unique
-  slug           String      @unique
-  category       TagCategory @default(CATEGORY)
-  parentCategory String?     // For CRITERIA tags: which decision type (Challenges, Handball, etc.)
-  rapCategory    String?     // For CATEGORY tags: which RAP category (A=Decision Making, B=Management, C=Offside, D=Teamwork, L=Laws)
+  id             String         @id @default(cuid())
+  name           String         @unique
+  slug           String         @unique
+  categoryId     String         // Reference to TagCategory
+  parentCategory String?        // For CRITERIA tags: which decision type (Challenges, Handball, etc.)
+  rapCategory    String?        // For CATEGORY tags: which RAP category (A=Decision Making, B=Management, C=Offside, D=Teamwork, L=Laws)
   color          String?
   description    String?
-  order          Int         @default(0)
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  order          Int            @default(0)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  category       TagCategory    @relation(fields: [categoryId], references: [id])
   videos         VideoTag[]
 
   @@index([isActive, order])
-  @@index([category, parentCategory])
+  @@index([categoryId, parentCategory])
   @@index([rapCategory])
+}
+
+model TagCategory {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  slug               String   @unique
+  description        String?
+  canBeCorrectAnswer Boolean  @default(false) // Whether tags in this category can be selected as correct answers
+  order              Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tags               Tag[]
+
+  @@index([isActive, order])
 }
 
 model DecisionType {
@@ -365,14 +381,6 @@ enum SanctionType {
   RED_CARD_SFP        // Red card - Serious Foul Play
   RED_CARD_VC         // Red card - Violent Conduct
   RED_CARD_OTHER      // Red card - Other sending-off offense
-}
-
-enum TagCategory {
-  CATEGORY      // Offence categories (Challenges, DOGSO, SPA, etc.)
-  RESTARTS      // Restart types (Direct FK, Indirect FK, etc.)
-  CRITERIA      // Criteria for offences (Careless, Reckless, etc.)
-  SANCTION      // Disciplinary sanctions (Yellow, Red, etc.)
-  SCENARIO      // Game scenarios (Penalty, Free kick, etc.)
 }
 
 enum OffsideReason {

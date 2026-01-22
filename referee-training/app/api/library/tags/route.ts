@@ -7,33 +7,40 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET() {
   try {
-    const tags = await prisma.tag.findMany({
+    const tagCategories = await prisma.tagCategory.findMany({
+      where: { isActive: true },
+      include: {
+        tags: {
+          where: { isActive: true },
+          orderBy: [
+            { order: 'asc' },
+            { name: 'asc' },
+          ],
+        },
+      },
       orderBy: [
-        { category: 'asc' },
         { order: 'asc' },
-        { name: 'asc' }
+        { name: 'asc' },
       ],
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        category: true,
-        parentCategory: true,
-        color: true,
-        order: true,
-      }
     });
 
-    // Group tags by category
-    const grouped = {
-      CATEGORY: tags.filter(t => t.category === 'CATEGORY'),
-      RESTARTS: tags.filter(t => t.category === 'RESTARTS'),
-      CRITERIA: tags.filter(t => t.category === 'CRITERIA'),
-      SANCTION: tags.filter(t => t.category === 'SANCTION'),
-      SCENARIO: tags.filter(t => t.category === 'SCENARIO'),
-    };
-
-    return NextResponse.json(grouped);
+    return NextResponse.json({
+      tagCategories: tagCategories.map(category => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        canBeCorrectAnswer: category.canBeCorrectAnswer,
+        order: category.order,
+        tags: category.tags.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          slug: tag.slug,
+          parentCategory: tag.parentCategory,
+          color: tag.color,
+          order: tag.order,
+        })),
+      })),
+    });
   } catch (error) {
     console.error('Error fetching tags:', error);
     return NextResponse.json(

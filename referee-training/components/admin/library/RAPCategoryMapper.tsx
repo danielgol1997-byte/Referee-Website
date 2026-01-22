@@ -3,11 +3,17 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+interface TagCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface Tag {
   id: string;
   name: string;
   slug: string;
-  category: string;
+  category: TagCategory;
   rapCategory?: string | null;
   color?: string;
 }
@@ -50,6 +56,9 @@ const RAP_CATEGORIES = [
   },
 ];
 
+const CATEGORY_TAG_CATEGORY_SLUG = 'category';
+const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+
 /**
  * RAPCategoryMapper - Map CATEGORY tags to RAP categories
  * 
@@ -78,7 +87,7 @@ export function RAPCategoryMapper({ onRefresh }: RAPCategoryMapperProps) {
         // Group criteria by RAP category for display
         const criteriaByRAP: Record<string, number> = {};
         allTags
-          .filter((t: Tag) => t.category === 'CRITERIA' && t.rapCategory)
+          .filter((t: Tag) => t.category?.slug === CRITERIA_TAG_CATEGORY_SLUG && t.rapCategory)
           .forEach((tag: Tag) => {
             if (tag.rapCategory) {
               criteriaByRAP[tag.rapCategory] = (criteriaByRAP[tag.rapCategory] || 0) + 1;
@@ -99,7 +108,7 @@ export function RAPCategoryMapper({ onRefresh }: RAPCategoryMapperProps) {
       if (response.ok) {
         const data = await response.json();
         const tags = data.tags || [];
-        const categories = tags.filter((t: Tag) => t.category === 'CATEGORY');
+        const categories = tags.filter((t: Tag) => t.category?.slug === CATEGORY_TAG_CATEGORY_SLUG);
         setCategoryTags(categories);
         
         // Initialize mappings

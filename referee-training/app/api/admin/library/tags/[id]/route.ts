@@ -27,7 +27,7 @@ export async function PATCH(
     if (body.rapCategory !== undefined) updateData.rapCategory = body.rapCategory;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.slug !== undefined) updateData.slug = body.slug;
-    if (body.category !== undefined) updateData.category = body.category;
+    if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
     if (body.parentCategory !== undefined) updateData.parentCategory = body.parentCategory;
     if (body.color !== undefined) updateData.color = body.color;
     if (body.description !== undefined) updateData.description = body.description;
@@ -37,6 +37,9 @@ export async function PATCH(
     const tag = await prisma.tag.update({
       where: { id },
       data: updateData,
+      include: {
+        category: true,
+      },
     });
 
     console.log('✅ Tag partially updated:', { id, fields: Object.keys(updateData) });
@@ -71,7 +74,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, category, parentCategory, color, description, order, isActive } = body;
+    const { name, slug, categoryId, parentCategory, color, description, order, isActive } = body;
 
     // Get current tag to check if name changed
     const currentTag = await prisma.tag.findUnique({
@@ -158,14 +161,17 @@ export async function PUT(
       data: {
         name,
         slug: finalSlug,
-        category,
-        parentCategory: category === 'CRITERIA' ? parentCategory : null,
+        categoryId,
+        parentCategory,
         color,
         description,
         order,
         isActive,
         // Preserve rapCategory if not explicitly updated
         ...(body.rapCategory !== undefined && { rapCategory: body.rapCategory }),
+      },
+      include: {
+        category: true,
       },
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { RAPCategory } from "./RAPCategoryTabs";
 
@@ -12,24 +12,25 @@ export interface VideoFilters {
   scenarios: string[];
   laws: number[];
   rapCategory?: RAPCategory;
+  customTagFilters?: Record<string, string[]>;
 }
 
 interface Tag {
   id: string;
   name: string;
   slug: string;
-  category: string;
   parentCategory?: string;
   color?: string;
   order?: number;
 }
 
-interface TagGroups {
-  CATEGORY: Tag[];
-  RESTARTS: Tag[];
-  CRITERIA: Tag[];
-  SANCTION: Tag[];
-  SCENARIO: Tag[];
+interface TagCategory {
+  id: string;
+  name: string;
+  slug: string;
+  canBeCorrectAnswer: boolean;
+  order: number;
+  tags: Tag[];
 }
 
 interface VideoFilterBarProps {
@@ -38,9 +39,9 @@ interface VideoFilterBarProps {
   videoCounts?: Record<RAPCategory, number>;
 }
 
-type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | 'law';
+type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | 'law' | `custom:${string}`;
 
-const FILTER_CONFIG: Record<FilterType, { label: string; color: string; key: keyof VideoFilters }> = {
+const FILTER_CONFIG: Record<'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | 'law', { label: string; color: string; key: keyof VideoFilters }> = {
   category: { label: 'Category', color: '#FF6B6B', key: 'categoryTags' },
   criteria: { label: 'Criteria', color: '#FFD93D', key: 'criteria' },
   restart: { label: 'Restart', color: '#4A90E2', key: 'restarts' },
@@ -51,6 +52,19 @@ const FILTER_CONFIG: Record<FilterType, { label: string; color: string; key: key
 
 const DEFAULT_FILTER_ORDER: FilterType[] = ['category', 'criteria', 'restart', 'sanction', 'scenario', 'law'];
 const DEFAULT_VISIBLE_FILTERS: FilterType[] = ['category', 'criteria', 'restart', 'sanction'];
+const CUSTOM_FILTER_PREFIX = 'custom:';
+const CATEGORY_TAG_CATEGORY_SLUG = 'category';
+const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+const RESTARTS_TAG_CATEGORY_SLUG = 'restarts';
+const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
+const SCENARIO_TAG_CATEGORY_SLUG = 'scenario';
+const GROUP_COLORS: Record<string, string> = {
+  category: '#FF6B6B',
+  criteria: '#FFD93D',
+  restarts: '#4A90E2',
+  sanction: '#EC4899',
+  scenario: '#6BCF7F',
+};
 const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law ${i + 1}` }));
 
 /**
@@ -64,13 +78,7 @@ const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law $
  */
 export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoFilterBarProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [tags, setTags] = useState<TagGroups>({
-    CATEGORY: [],
-    RESTARTS: [],
-    CRITERIA: [],
-    SANCTION: [],
-    SCENARIO: [],
-  });
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(DEFAULT_VISIBLE_FILTERS);
@@ -110,7 +118,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
         const response = await fetch('/api/library/tags');
         if (response.ok) {
           const data = await response.json();
-          setTags(data);
+          setTagCategories(data.tagCategories || []);
         }
       } catch (error) {
         console.error('Failed to fetch tags:', error);
@@ -120,6 +128,62 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
     }
     fetchTags();
   }, []);
+
+  const tagCategoryMap = useMemo(
+    () => tagCategories.reduce((acc, category) => {
+      acc[category.slug] = category;
+      return acc;
+    }, {} as Record<string, TagCategory>),
+    [tagCategories]
+  );
+
+  const customCategories = useMemo(
+    () => tagCategories.filter(category =>
+      ![
+        CATEGORY_TAG_CATEGORY_SLUG,
+        CRITERIA_TAG_CATEGORY_SLUG,
+        RESTARTS_TAG_CATEGORY_SLUG,
+        SANCTION_TAG_CATEGORY_SLUG,
+        SCENARIO_TAG_CATEGORY_SLUG,
+      ].includes(category.slug)
+    ),
+    [tagCategories]
+  );
+
+  const customFilterTypes = useMemo(
+    () => customCategories.map(category => `${CUSTOM_FILTER_PREFIX}${category.slug}` as FilterType),
+    [customCategories]
+  );
+
+  useEffect(() => {
+    if (customFilterTypes.length === 0) {
+      return;
+    }
+
+    setFilterOrder(prev => {
+      const next = [...prev];
+      let changed = false;
+      customFilterTypes.forEach(type => {
+        if (!next.includes(type)) {
+          next.splice(Math.max(next.length - 1, 0), 0, type);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+
+    setVisibleFilters(prev => {
+      const next = [...prev];
+      let changed = false;
+      customFilterTypes.forEach(type => {
+        if (!next.includes(type)) {
+          next.push(type);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [customFilterTypes]);
 
   // Close settings on click outside
   useEffect(() => {
@@ -182,17 +246,42 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
     }, 3000);
   };
 
+  const categoryGroup = tagCategoryMap[CATEGORY_TAG_CATEGORY_SLUG];
+  const criteriaGroup = tagCategoryMap[CRITERIA_TAG_CATEGORY_SLUG];
+  const restartsGroup = tagCategoryMap[RESTARTS_TAG_CATEGORY_SLUG];
+  const sanctionGroup = tagCategoryMap[SANCTION_TAG_CATEGORY_SLUG];
+  const scenarioGroup = tagCategoryMap[SCENARIO_TAG_CATEGORY_SLUG];
+
   // Get filtered criteria based on selected categories
-  const filteredCriteriaTags = filters.categoryTags.length > 0
-    ? tags.CRITERIA.filter(tag => {
+  const filteredCriteriaTags = filters.categoryTags.length > 0 && criteriaGroup?.tags
+    ? criteriaGroup.tags.filter(tag => {
         const selectedCategoryNames = filters.categoryTags
-          .map(slug => tags.CATEGORY.find(c => c.slug === slug)?.name)
+          .map(slug => categoryGroup?.tags.find(c => c.slug === slug)?.name)
           .filter(Boolean);
         return tag.parentCategory && selectedCategoryNames.includes(tag.parentCategory);
       })
     : [];
 
+  const isCustomFilter = (type: FilterType): type is `custom:${string}` =>
+    type.startsWith(CUSTOM_FILTER_PREFIX);
+  const getCustomSlug = (type: FilterType) => type.replace(CUSTOM_FILTER_PREFIX, '');
+
   const addFilter = (type: FilterType, value: string | number) => {
+    if (isCustomFilter(type)) {
+      const slug = getCustomSlug(type);
+      const currentValues = filters.customTagFilters?.[slug] || [];
+      if (!currentValues.includes(value as string)) {
+        onFiltersChange({
+          ...filters,
+          customTagFilters: {
+            ...(filters.customTagFilters || {}),
+            [slug]: [...currentValues, value as string],
+          },
+        });
+      }
+      return;
+    }
+
     const key = FILTER_CONFIG[type].key;
     const currentValues = filters[key] as any[] || [];
     
@@ -215,6 +304,19 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
   };
 
   const removeFilter = (type: FilterType, value: string | number) => {
+    if (isCustomFilter(type)) {
+      const slug = getCustomSlug(type);
+      const currentValues = filters.customTagFilters?.[slug] || [];
+      onFiltersChange({
+        ...filters,
+        customTagFilters: {
+          ...(filters.customTagFilters || {}),
+          [slug]: currentValues.filter((v: any) => v !== value),
+        },
+      });
+      return;
+    }
+
     const key = FILTER_CONFIG[type].key;
     const currentValues = filters[key] as any[] || [];
     const newFilters = { 
@@ -238,6 +340,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       sanctions: [],
       scenarios: [],
       laws: [],
+      customTagFilters: {},
     });
   };
 
@@ -291,13 +394,33 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
   // Get visible filters in the saved order
   const orderedVisibleFilters = filterOrder.filter(f => visibleFilters.includes(f));
 
+  const customFilterCount = Object.values(filters.customTagFilters || {}).reduce(
+    (count, values) => count + values.length,
+    0
+  );
+
   const activeFilterCount = 
     filters.categoryTags.length +
     filters.restarts.length +
     filters.criteria.length +
     filters.sanctions.length +
     filters.scenarios.length +
-    filters.laws.length;
+    filters.laws.length +
+    customFilterCount;
+
+  const getFilterConfig = (type: FilterType) => {
+    if (isCustomFilter(type)) {
+      const slug = getCustomSlug(type);
+      const category = tagCategoryMap[slug];
+      return {
+        label: category?.name || slug,
+        color: GROUP_COLORS[slug] || '#00E8F8',
+        key: 'customTagFilters' as const,
+        customSlug: slug,
+      };
+    }
+    return FILTER_CONFIG[type];
+  };
 
   const shouldShow = isHovered;
 
@@ -344,8 +467,8 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
               <FilterDropdown
                 key={type}
                 type={type}
-                config={FILTER_CONFIG[type]}
-                tags={tags}
+                config={getFilterConfig(type)}
+                tagCategoryMap={tagCategoryMap}
                 filters={filters}
                 isLoading={isLoading}
                 onAdd={addFilter}
@@ -376,7 +499,9 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
                     Customize Filters
                   </h4>
                   <div className="space-y-2">
-                    {filterOrder.map(type => (
+                    {filterOrder.map(type => {
+                      const config = getFilterConfig(type);
+                      return (
                       <div
                         key={type}
                         draggable
@@ -399,10 +524,10 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
                         <div className="flex items-center gap-2 flex-1">
                           <div 
                             className="w-3 h-3 rounded flex-shrink-0"
-                            style={{ backgroundColor: FILTER_CONFIG[type].color }}
+                            style={{ backgroundColor: config.color }}
                           />
                           <span className="text-sm text-text-primary">
-                            {FILTER_CONFIG[type].label}
+                            {config.label}
                           </span>
                         </div>
                         
@@ -411,7 +536,8 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M4 15h16" />
                         </svg>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                   <p className="text-xs text-text-muted mt-3 italic">
                     * Can't remove Category while Criteria is visible
@@ -445,7 +571,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
 function FilterDropdown({
   type,
   config,
-  tags,
+  tagCategoryMap,
   filters,
   isLoading,
   onAdd,
@@ -456,8 +582,8 @@ function FilterDropdown({
   onClose
 }: {
   type: FilterType;
-  config: { label: string; color: string; key: keyof VideoFilters };
-  tags: TagGroups;
+  config: { label: string; color: string; key: keyof VideoFilters; customSlug?: string };
+  tagCategoryMap: Record<string, TagCategory>;
   filters: VideoFilters;
   isLoading: boolean;
   onAdd: (type: FilterType, value: string | number) => void;
@@ -485,15 +611,19 @@ function FilterDropdown({
   const getOptions = (): any[] => {
     if (type === 'law') return LAWS;
     if (type === 'criteria') return filteredCriteriaTags;
-    if (type === 'category') return tags.CATEGORY;
-    if (type === 'restart') return tags.RESTARTS;
-    if (type === 'sanction') return tags.SANCTION;
-    if (type === 'scenario') return tags.SCENARIO;
+    if (type === 'category') return tagCategoryMap[CATEGORY_TAG_CATEGORY_SLUG]?.tags || [];
+    if (type === 'restart') return tagCategoryMap[RESTARTS_TAG_CATEGORY_SLUG]?.tags || [];
+    if (type === 'sanction') return tagCategoryMap[SANCTION_TAG_CATEGORY_SLUG]?.tags || [];
+    if (type === 'scenario') return tagCategoryMap[SCENARIO_TAG_CATEGORY_SLUG]?.tags || [];
+    if (config.customSlug) return tagCategoryMap[config.customSlug]?.tags || [];
     return [];
   };
 
   const options = getOptions();
-  const selectedValues = filters[config.key] as any[] || [];
+  const selectedValues =
+    config.key === 'customTagFilters' && config.customSlug
+      ? (filters.customTagFilters?.[config.customSlug] || [])
+      : (filters[config.key] as any[] || []);
   const isDisabled = type === 'criteria' && filters.categoryTags.length === 0;
 
   // Get selected items

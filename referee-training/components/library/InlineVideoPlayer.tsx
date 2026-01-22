@@ -32,7 +32,14 @@ interface Video {
     id: string;
     slug: string;
     name: string;
-    category: string;
+    category:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+          canBeCorrectAnswer: boolean;
+        }
+      | null;
     isCorrectDecision?: boolean;
     decisionOrder?: number;
   }>;
@@ -67,6 +74,7 @@ interface InlineVideoPlayerProps {
  * 
  * Keyboard Shortcuts:
  * - Space: Play/Pause
+ * - R: Replay video from start
  * - , (comma): Previous frame
  * - . (period): Next frame
  * - Shift + ←/→: Jump 5 seconds
@@ -80,7 +88,7 @@ interface InlineVideoPlayerProps {
  * - 1: Reset speed to 1x
  * - M: Mute/Unmute
  * - I: Show answer
- * - ?: Show keyboard shortcuts
+ * - ? or /: Show keyboard shortcuts
  * - Esc: Close video
  */
 export function InlineVideoPlayer({
@@ -115,9 +123,10 @@ export function InlineVideoPlayer({
   const animationFrameRef = useRef<number | undefined>(undefined);
 
   // Determine if we should show the "Show Answer" button
-  // Show if ANY tags are marked with isCorrectDecision: true
+  // Show if ANY tags are marked with isCorrectDecision: true or explanation-only has text
   const hasCorrectDecisionTags = video.tags?.some(tag => tag.isCorrectDecision) || false;
-  const hasAnswer = Boolean(onDecisionReveal && hasCorrectDecisionTags);
+  const hasExplanation = Boolean(video.decisionExplanation && video.decisionExplanation.trim().length > 0);
+  const hasAnswer = Boolean(onDecisionReveal && (hasCorrectDecisionTags || (video.isEducational && hasExplanation)));
 
   // Assume 30fps for frame-by-frame navigation
   const FRAME_RATE = 30;
@@ -539,8 +548,20 @@ export function InlineVideoPlayer({
         return;
       }
 
-      // Toggle keyboard shortcuts help with '?'
-      if (e.key === "?") {
+      // Replay video from start with 'r' or 'R'
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          setCurrentTime(0);
+          videoRef.current.play();
+          setIsPlaying(true);
+        }
+        return;
+      }
+
+      // Toggle keyboard shortcuts help with '?' or '/'
+      if (e.key === "?" || e.key === "/") {
         e.preventDefault();
         setShowKeyboardHelp(!showKeyboardHelp);
         return;
@@ -1049,6 +1070,10 @@ export function InlineVideoPlayer({
                           <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Space</kbd>
                         </div>
                         <div className="flex justify-between items-center">
+                          <span className="text-white/70">Replay from start</span>
+                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">R</kbd>
+                        </div>
+                        <div className="flex justify-between items-center">
                           <span className="text-white/70">Close video</span>
                           <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Esc</kbd>
                         </div>
@@ -1116,12 +1141,12 @@ export function InlineVideoPlayer({
                         )}
                         <div className="flex justify-between items-center">
                           <span className="text-white/70">Show shortcuts</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">?</kbd>
+                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">? or /</kbd>
                         </div>
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-white/10 text-xs text-white/50 text-center">
-                        Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono">?</kbd> anytime to toggle this help
+                        Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono">?</kbd> or <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono">/</kbd> anytime to toggle this help
                       </div>
                     </div>
                   </motion.div>

@@ -3,11 +3,23 @@
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+interface TagCategory {
+  id: string;
+  name: string;
+  slug: string;
+  canBeCorrectAnswer: boolean;
+  order: number;
+  isActive?: boolean;
+  description?: string | null;
+  _count?: { tags: number };
+}
+
 interface Tag {
   id: string;
   name: string;
   slug: string;
-  category: string;
+  category: TagCategory;
+  categoryId?: string;
   parentCategory?: string | null;
   color?: string;
   description?: string;
@@ -86,27 +98,23 @@ const CRITERIA_TO_CATEGORY: Record<string, string> = {
   'No Serious Foul Play': 'SPA',
 };
 
-const TAG_CATEGORIES = [
-  { value: 'CATEGORY', label: 'Category', color: '#FF6B6B' },      // Red
-  { value: 'RESTARTS', label: 'Restarts', color: '#4A90E2' },      // Blue
-  { value: 'CRITERIA', label: 'Criteria', color: '#FFD93D' },      // Yellow
-  { value: 'SANCTION', label: 'Sanction', color: '#EC4899' },       // Pink/Magenta
-  { value: 'SCENARIO', label: 'Scenario', color: '#6BCF7F' },      // Green
-];
+const CATEGORY_TAG_CATEGORY_SLUG = 'category';
+const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
 
-// Map group values to their colors
+// Map known tag category slugs to their colors
 const GROUP_COLORS: Record<string, string> = {
-  CATEGORY: '#FF6B6B',
-  RESTARTS: '#4A90E2',
-  CRITERIA: '#FFD93D',
-  SANCTION: '#EC4899', // Pink/Magenta - distinct and vibrant
-  SCENARIO: '#6BCF7F',
+  category: '#FF6B6B',
+  restarts: '#4A90E2',
+  criteria: '#FFD93D',
+  sanction: '#EC4899', // Pink/Magenta - distinct and vibrant
+  scenario: '#6BCF7F',
 };
 
 // Preset colors for each category
 const PRESET_COLORS: Record<string, string[]> = {
   // Rainbow palette for categories
-  CATEGORY: [
+  category: [
     '#FF6B6B', // Red
     '#FF8C42', // Orange
     '#FFD93D', // Yellow
@@ -122,14 +130,14 @@ const PRESET_COLORS: Record<string, string[]> = {
     '#7209B7', // Deep Purple
     '#560BAD', // Dark Purple
   ],
-  RESTARTS: ['#00A5E8', '#4A90E2', '#5C6AC4', '#667EEA', '#764BA2'],
+  restarts: ['#00A5E8', '#4A90E2', '#5C6AC4', '#667EEA', '#764BA2'],
   // Criteria usually inherit, but provide the palette just in case
-  CRITERIA: [
+  criteria: [
     '#FF6B6B', '#FF8C42', '#FFD93D', '#6BCF7F', '#4ECDC4', 
     '#45B7D1', '#5F9DF7', '#9B72CB', '#F72585'
   ],
-  SANCTION: ['#F5B400', '#FF4D6D', '#1BC47D', '#95E1D3'],
-  SCENARIO: ['#A8E6CF', '#FFDAC1', '#B5EAD7', '#C7CEEA', '#FFB6B9'],
+  sanction: ['#F5B400', '#FF4D6D', '#1BC47D', '#95E1D3'],
+  scenario: ['#A8E6CF', '#FFDAC1', '#B5EAD7', '#C7CEEA', '#FFB6B9'],
 };
 
 // Define the rainbow order for categories
@@ -143,19 +151,23 @@ const CATEGORY_ORDER = [
 export function TagManager({ tags, onRefresh }: TagManagerProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
-  const [expandedTabs, setExpandedTabs] = useState<Record<string, boolean>>({
-    CATEGORY: false,
-    RESTARTS: false,
-    CRITERIA: false,
-    SANCTION: false,
-    SCENARIO: false,
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
+  const [isCreatingTagCategory, setIsCreatingTagCategory] = useState(false);
+  const [editingTagCategory, setEditingTagCategory] = useState<TagCategory | null>(null);
+  const [tagCategoryFormData, setTagCategoryFormData] = useState({
+    name: '',
+    description: '',
+    canBeCorrectAnswer: false,
+    order: 0,
+    isActive: true,
   });
+  const [expandedTabs, setExpandedTabs] = useState<Record<string, boolean>>({});
   const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({});
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    category: 'CATEGORY',
+    categoryId: '',
     parentCategory: '',
     color: '#00E8F8',
     description: '',
@@ -177,17 +189,15 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
   // Auto-expand tabs when searching
   useEffect(() => {
     if (searchQuery) {
-      setExpandedTabs({
-        CATEGORY: true,
-        RESTARTS: true,
-        CRITERIA: true,
-        SANCTION: true,
-        SCENARIO: true,
+      const expanded: Record<string, boolean> = {};
+      tagCategories.forEach(category => {
+        expanded[category.id] = true;
       });
+      setExpandedTabs(expanded);
       // Also expand sub-categories for CRITERIA
       const allSubCategories: Record<string, boolean> = {};
       filteredTags.forEach(tag => {
-        if (tag.category === 'CRITERIA' && tag.parentCategory) {
+        if (tag.category?.slug === CRITERIA_TAG_CATEGORY_SLUG && tag.parentCategory) {
           allSubCategories[tag.parentCategory] = true;
         }
       });
@@ -195,10 +205,54 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         setExpandedSubCategories(prev => ({ ...prev, ...allSubCategories }));
       }
     }
-  }, [searchQuery, tags.length]); // Re-run when query changes or tags update
+  }, [searchQuery, tags.length, tagCategories]);
+
+  const fetchTagCategories = async () => {
+    try {
+      const response = await fetch('/api/admin/library/tag-categories');
+      if (!response.ok) {
+        console.error('Failed to fetch tag categories');
+        return;
+      }
+      const data = await response.json();
+      setTagCategories(data.tagCategories || []);
+    } catch (error) {
+      console.error('Failed to fetch tag categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTagCategories();
+  }, []);
+
+  useEffect(() => {
+    if (tagCategories.length === 0) {
+      return;
+    }
+
+    if (Object.keys(expandedTabs).length === 0) {
+      const initialExpanded: Record<string, boolean> = {};
+      tagCategories.forEach(category => {
+        initialExpanded[category.id] = false;
+      });
+      setExpandedTabs(initialExpanded);
+    }
+
+    if (!formData.categoryId) {
+      const defaultCategory =
+        tagCategories.find(category => category.slug === CATEGORY_TAG_CATEGORY_SLUG) ||
+        tagCategories[0];
+      if (defaultCategory) {
+        setFormData(prev => ({ ...prev, categoryId: defaultCategory.id }));
+      }
+    }
+  }, [tagCategories, expandedTabs, formData.categoryId]);
+
+  const selectedTagCategory = tagCategories.find(category => category.id === formData.categoryId);
+  const selectedTagCategorySlug = selectedTagCategory?.slug;
 
   // Get category tags (these serve as categories for criteria)
-  const categoryTags = tags.filter(t => t.category === 'CATEGORY' && t.isActive);
+  const categoryTags = tags.filter(t => t.category?.slug === CATEGORY_TAG_CATEGORY_SLUG && t.isActive);
 
   // Pre-sort category tags for the dropdown
   const sortedDropdownTags = [...categoryTags].sort((a, b) => {
@@ -229,14 +283,17 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
   // SANCTION tags always use the same color
   useEffect(() => {
     if (isCreating && !editingTag) {
-      const groupColor = GROUP_COLORS[formData.category] || '#00E8F8';
+      const groupColor = (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8';
       setFormData(prev => ({ ...prev, color: groupColor }));
     }
     // Also enforce SANCTION color when editing
-    if (formData.category === 'SANCTION' && formData.color !== GROUP_COLORS.SANCTION) {
-      setFormData(prev => ({ ...prev, color: GROUP_COLORS.SANCTION }));
+    if (
+      selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG &&
+      formData.color !== GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+    ) {
+      setFormData(prev => ({ ...prev, color: GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }));
     }
-  }, [formData.category, isCreating, editingTag]);
+  }, [selectedTagCategorySlug, isCreating, editingTag, formData.color]);
 
   const toggleTab = (category: string) => {
     setExpandedTabs(prev => ({ ...prev, [category]: !prev[category] }));
@@ -246,11 +303,13 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     setExpandedSubCategories(prev => ({ ...prev, [subCategory]: !prev[subCategory] }));
   };
 
-  const handleGroupSelect = (groupValue: string) => {
-    const groupColor = GROUP_COLORS[groupValue] || '#00E8F8';
+  const handleGroupSelect = (categoryId: string) => {
+    const selectedCategory = tagCategories.find(category => category.id === categoryId);
+    const categorySlug = selectedCategory?.slug;
+    const groupColor = (categorySlug && GROUP_COLORS[categorySlug]) || '#00E8F8';
     setFormData(prev => ({
       ...prev,
-      category: groupValue,
+      categoryId,
       parentCategory: '',
       color: groupColor // Set to group's unique color
     }));
@@ -268,9 +327,12 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
   };
 
   const resetForm = () => {
+    const defaultCategory =
+      tagCategories.find(category => category.slug === CATEGORY_TAG_CATEGORY_SLUG) ||
+      tagCategories[0];
     setFormData({
       name: '',
-      category: 'CATEGORY',
+      categoryId: defaultCategory?.id || '',
       parentCategory: '',
       color: '#00E8F8',
       description: '',
@@ -281,13 +343,69 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     setEditingTag(null);
   };
 
+  const resetTagCategoryForm = () => {
+    setTagCategoryFormData({
+      name: '',
+      description: '',
+      canBeCorrectAnswer: false,
+      order: 0,
+      isActive: true,
+    });
+    setIsCreatingTagCategory(false);
+    setEditingTagCategory(null);
+  };
+
+  const handleTagCategoryEdit = (category: TagCategory) => {
+    setEditingTagCategory(category);
+    setTagCategoryFormData({
+      name: category.name,
+      description: category.description || '',
+      canBeCorrectAnswer: category.canBeCorrectAnswer,
+      order: category.order || 0,
+      isActive: category.isActive !== undefined ? category.isActive : true,
+    });
+    setIsCreatingTagCategory(true);
+  };
+
+  const handleTagCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = editingTagCategory
+        ? `/api/admin/library/tag-categories/${editingTagCategory.id}`
+        : '/api/admin/library/tag-categories';
+
+      const response = await fetch(url, {
+        method: editingTagCategory ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tagCategoryFormData),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save tag category');
+      }
+
+      alert(editingTagCategory ? 'Tag category updated successfully!' : 'Tag category created successfully!');
+      resetTagCategoryForm();
+      await fetchTagCategories();
+      onRefresh();
+    } catch (error: any) {
+      console.error('Tag category save error:', error);
+      alert(error.message || 'Failed to save tag category');
+    }
+  };
+
   const handleEdit = (tag: Tag) => {
     setEditingTag(tag);
     // SANCTION tags always use the same color
-    const tagColor = tag.category === 'SANCTION' ? GROUP_COLORS.SANCTION : (tag.color || '#00E8F8');
+    const tagCategorySlug = tag.category?.slug;
+    const tagColor =
+      tagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
+        ? GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+        : (tag.color || '#00E8F8');
     setFormData({
       name: tag.name,
-      category: tag.category,
+      categoryId: tag.category?.id || '',
       parentCategory: tag.parentCategory || '',
       color: tagColor,
       description: tag.description || '',
@@ -312,11 +430,15 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       
       const submitData = {
         ...formData,
-        parentCategory: formData.category === 'CRITERIA' && formData.parentCategory 
-          ? formData.parentCategory 
-          : null,
+        parentCategory:
+          selectedTagCategorySlug === CRITERIA_TAG_CATEGORY_SLUG && formData.parentCategory
+            ? formData.parentCategory
+            : null,
         // SANCTION tags always use the same color
-        color: formData.category === 'SANCTION' ? GROUP_COLORS.SANCTION : formData.color,
+        color:
+          selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
+            ? GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+            : formData.color,
       };
       
       const response = await fetch(url, {
@@ -376,8 +498,9 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
 
   // Group tags by category
   const groupedTags = filteredTags.reduce((acc, tag) => {
-    if (!acc[tag.category]) acc[tag.category] = [];
-    acc[tag.category].push(tag);
+    const categoryId = tag.category?.id || 'uncategorized';
+    if (!acc[categoryId]) acc[categoryId] = [];
+    acc[categoryId].push(tag);
     return acc;
   }, {} as Record<string, Tag[]>);
 
@@ -394,6 +517,9 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
   });
 
 
+  const criteriaTagCategory = tagCategories.find(category => category.slug === CRITERIA_TAG_CATEGORY_SLUG);
+  const criteriaCategoryId = criteriaTagCategory?.id;
+
   // Group criteria tags by their category (parentCategory references CATEGORY tags)
   const criteriaByCategory: Record<string, Tag[]> = {};
   const generalCriteria: Tag[] = [];
@@ -404,8 +530,8 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
   });
   
   // Then populate with actual criteria
-  if (groupedTags.CRITERIA) {
-    groupedTags.CRITERIA.forEach(tag => {
+  if (criteriaCategoryId && groupedTags[criteriaCategoryId]) {
+    groupedTags[criteriaCategoryId].forEach(tag => {
       if (tag.parentCategory && criteriaByCategory[tag.parentCategory]) {
         criteriaByCategory[tag.parentCategory].push(tag);
       } else {
@@ -504,6 +630,146 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         )}
       </div>
 
+      {/* Tag Category Management */}
+      <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-text-primary">Tag Categories</h3>
+            <p className="text-sm text-text-muted mt-1">
+              Tag categories control whether tags are filter-only or can also be used as correct answers.
+            </p>
+          </div>
+          {!isCreatingTagCategory && (
+            <button
+              onClick={() => setIsCreatingTagCategory(true)}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all"
+            >
+              + Create Tag Category
+            </button>
+          )}
+        </div>
+
+        {isCreatingTagCategory && (
+          <form onSubmit={handleTagCategorySubmit} className="space-y-4 mb-6">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Tag Category Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={tagCategoryFormData.name}
+                  onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, name: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Order
+                </label>
+                <input
+                  type="number"
+                  value={tagCategoryFormData.order}
+                  onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, order: Number(e.target.value) })}
+                  className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Description
+              </label>
+              <textarea
+                value={tagCategoryFormData.description}
+                onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, description: e.target.value })}
+                className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                rows={2}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={tagCategoryFormData.canBeCorrectAnswer}
+                  onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, canBeCorrectAnswer: e.target.checked })}
+                  className="rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
+                />
+                Can be used for correct answers
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={tagCategoryFormData.isActive}
+                  onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, isActive: e.target.checked })}
+                  className="rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
+                />
+                Active
+              </label>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={resetTagCategoryForm}
+                className="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-text-primary hover:bg-dark-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all"
+              >
+                {editingTagCategory ? 'Update Tag Category' : 'Create Tag Category'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="space-y-2">
+          {tagCategories.map(category => (
+            <div
+              key={category.id}
+              className="flex items-center justify-between p-3 rounded-lg bg-dark-900/40 border border-dark-600"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: GROUP_COLORS[category.slug] || '#00E8F8' }}
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-text-primary">{category.name}</span>
+                    {!category.isActive && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-500">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {category.canBeCorrectAnswer ? 'Correct answer + filter' : 'Filter only'}
+                    {category._count?.tags !== undefined && (
+                      <span> • {category._count.tags} tag{category._count.tags !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleTagCategoryEdit(category)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          ))}
+          {tagCategories.length === 0 && (
+            <p className="text-text-muted text-sm">No tag categories yet.</p>
+          )}
+        </div>
+      </div>
+
       {/* Create/Edit Form */}
       <div ref={formRef} className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -512,7 +778,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
               {isCreating ? (editingTag ? 'Edit Tag' : 'Create New Tag') : 'Tag Management'}
             </h3>
             <p className="text-sm text-text-muted mt-1">
-              <strong>Category</strong> tags are also criteria groups. <strong>Criteria</strong> tags belong to categories.
+              <strong>Category</strong> tags are also criteria groups. <strong>Criteria</strong> tags belong to category tags.
             </p>
           </div>
           {!isCreating && (
@@ -543,7 +809,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
 
               <div className="relative" ref={groupDropdownRef}>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Group
+                  Tag Category
                 </label>
                 
                 <button
@@ -554,9 +820,9 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-4 h-4 rounded-full border border-dark-600"
-                      style={{ backgroundColor: GROUP_COLORS[formData.category] || '#00E8F8' }} 
+                      style={{ backgroundColor: (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8' }} 
                     />
-                    <span>{TAG_CATEGORIES.find(c => c.value === formData.category)?.label}</span>
+                    <span>{selectedTagCategory?.name || 'Select Tag Category'}</span>
                   </div>
                   <svg 
                     className={cn(
@@ -573,27 +839,32 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
 
                 {isGroupDropdownOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-dark-900 border border-dark-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                    {TAG_CATEGORIES.map(cat => (
+                    {tagCategories.map(category => (
                       <button
-                        key={cat.value}
+                        key={category.id}
                         type="button"
-                        onClick={() => handleGroupSelect(cat.value)}
+                        onClick={() => handleGroupSelect(category.id)}
                         className="w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-dark-800 transition-colors"
                       >
                         <div 
                           className="w-4 h-4 rounded-full border border-dark-600"
-                          style={{ backgroundColor: GROUP_COLORS[cat.value] || '#00E8F8' }}
+                          style={{ backgroundColor: GROUP_COLORS[category.slug] || '#00E8F8' }}
                         />
-                        <span className="text-text-primary">{cat.label}</span>
+                        <span className="text-text-primary">{category.name}</span>
                       </button>
                     ))}
+                    {tagCategories.length === 0 && (
+                      <div className="px-4 py-2 text-sm text-text-muted">
+                        No tag categories yet
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
             {/* Category Dropdown - Only for CRITERIA group */}
-            {formData.category === 'CRITERIA' && (
+            {selectedTagCategorySlug === CRITERIA_TAG_CATEGORY_SLUG && (
               <div className="relative" ref={categoryDropdownRef}>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
                   Parent Category <span className="text-cyan-500 text-xs">(Which category does this criterion belong to?)</span>
@@ -668,15 +939,15 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
               </label>
               
               {/* SANCTION tags use fixed color */}
-              {formData.category === 'SANCTION' ? (
+              {selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG ? (
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-dark-900/50 border border-dark-600">
                   <div 
                     className="w-10 h-10 rounded-lg border-2 border-cyan-500 ring-2 ring-cyan-500/50"
-                    style={{ backgroundColor: GROUP_COLORS.SANCTION }}
+                    style={{ backgroundColor: GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }}
                   />
                   <div>
                     <p className="text-sm font-medium text-text-primary">
-                      SANCTION tags use a fixed color
+                      Sanction tags use a fixed color
                     </p>
                     <p className="text-xs text-text-muted">
                       All sanction tags share the same color for consistency
@@ -687,7 +958,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                 <>
                   {/* Preset Colors */}
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {(PRESET_COLORS[formData.category] || PRESET_COLORS.CATEGORY).map((color) => (
+                    {(PRESET_COLORS[selectedTagCategorySlug || CATEGORY_TAG_CATEGORY_SLUG] || PRESET_COLORS[CATEGORY_TAG_CATEGORY_SLUG]).map((color) => (
                       <button
                         key={color}
                         type="button"
@@ -782,18 +1053,18 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         )}
       </div>
 
-      {/* Collapsible Category Tabs */}
-      {TAG_CATEGORIES.map(({ value, label }) => {
-        const categoryTags = groupedTags[value] || [];
-        const isExpanded = expandedTabs[value] ?? true;
+      {/* Collapsible Tag Category Tabs */}
+      {tagCategories.map((category) => {
+        const groupTags = groupedTags[category.id] || [];
+        const isExpanded = expandedTabs[category.id] ?? true;
+        const groupColor = GROUP_COLORS[category.slug] || '#00E8F8';
 
-        if (value === 'CRITERIA') {
+        if (category.slug === CRITERIA_TAG_CATEGORY_SLUG) {
           // Special rendering for Criteria with sub-grouping
-          const groupColor = GROUP_COLORS[value] || '#00E8F8';
           return (
-            <div key={value} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+            <div key={category.id} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
               <button
-                onClick={() => toggleTab(value)}
+                onClick={() => toggleTab(category.id)}
                 className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -802,9 +1073,9 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                     style={{ backgroundColor: groupColor }}
                   />
                   <h4 className="text-lg font-semibold text-text-primary">
-                    {label}
+                    {category.name}
                     <span className="text-sm font-normal text-text-muted ml-2">
-                      ({(groupedTags.CRITERIA || []).length})
+                      ({groupTags.length})
                     </span>
                   </h4>
                 </div>
@@ -936,11 +1207,10 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         }
 
         // Regular category rendering
-        const groupColor = GROUP_COLORS[value] || '#00E8F8';
         return (
-          <div key={value} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+          <div key={category.id} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
             <button
-              onClick={() => toggleTab(value)}
+              onClick={() => toggleTab(category.id)}
               className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -949,9 +1219,9 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                   style={{ backgroundColor: groupColor }}
                 />
                 <h4 className="text-lg font-semibold text-text-primary">
-                  {label}
+                  {category.name}
                   <span className="text-sm font-normal text-text-muted ml-2">
-                    ({categoryTags.length})
+                    ({groupTags.length})
                   </span>
                 </h4>
               </div>
@@ -971,19 +1241,19 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
             {isExpanded && (
               <div className="p-6 pt-0">
                 <div className="space-y-2">
-                  {(value === 'CATEGORY' 
-                    ? [...categoryTags].sort((a, b) => {
+                  {(category.slug === CATEGORY_TAG_CATEGORY_SLUG 
+                    ? [...groupTags].sort((a, b) => {
                         const indexA = CATEGORY_ORDER.indexOf(a.name);
                         const indexB = CATEGORY_ORDER.indexOf(b.name);
                         if (indexA === -1) return 1;
                         if (indexB === -1) return -1;
                         return indexA - indexB;
                       })
-                    : categoryTags
+                    : groupTags
                   ).map(renderTagItem)}
                 </div>
-                {categoryTags.length === 0 && (
-                  <p className="text-text-muted text-center py-8">No {label.toLowerCase()} tags yet</p>
+                {groupTags.length === 0 && (
+                  <p className="text-text-muted text-center py-8">No {category.name.toLowerCase()} tags yet</p>
                 )}
               </div>
             )}

@@ -35,7 +35,12 @@ interface Video {
     id: string;
     slug: string;
     name: string;
-    category: string;
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      canBeCorrectAnswer: boolean;
+    } | null;
     rapCategory?: string | null;
     isCorrectDecision?: boolean;
     decisionOrder?: number;
@@ -65,6 +70,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     sanctions: [],
     scenarios: [],
     laws: [],
+    customTagFilters: {},
   });
   const [activeCategory, setActiveCategory] = useState<RAPCategory>("all");
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
@@ -147,6 +153,16 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       if (!hasMatch) return false;
     }
 
+    // Custom tag category filters
+    if (filters.customTagFilters) {
+      for (const [categorySlug, selectedTags] of Object.entries(filters.customTagFilters)) {
+        if (selectedTags.length > 0) {
+          const hasMatch = selectedTags.some(tagSlug => videoTagSlugs.includes(tagSlug));
+          if (!hasMatch) return false;
+        }
+      }
+    }
+
     // Law filter (multiple)
     if (filters.laws.length > 0) {
       const hasMatch = filters.laws.some(law => video.lawNumbers.includes(law));
@@ -157,8 +173,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   })
   .sort((a, b) => {
     // Get first CATEGORY tag from each video
-    const aCategoryTag = a.tags?.find(t => t.category === 'CATEGORY');
-    const bCategoryTag = b.tags?.find(t => t.category === 'CATEGORY');
+    const aCategoryTag = a.tags?.find(t => t.category?.slug === 'category');
+    const bCategoryTag = b.tags?.find(t => t.category?.slug === 'category');
     
     // If both have category tags, sort alphabetically by tag name
     if (aCategoryTag && bCategoryTag) {

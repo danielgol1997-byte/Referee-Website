@@ -18,12 +18,21 @@ export async function GET(request: Request) {
 
     const tags = await prisma.tag.findMany({
       include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            canBeCorrectAnswer: true,
+            order: true,
+          }
+        },
         _count: {
           select: { videos: true },
         },
       },
       orderBy: [
-        { category: 'asc' },
+        { category: { order: 'asc' } },
         { order: 'asc' },
         { name: 'asc' },
       ],
@@ -53,12 +62,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, slug, category, parentCategory, color, description, order, isActive } = body;
+    const { name, slug, categoryId, parentCategory, color, description, order, isActive } = body;
 
     // Validation
     if (!name) {
       return NextResponse.json(
         { error: 'Missing required field: name' },
+        { status: 400 }
+      );
+    }
+
+    if (!categoryId) {
+      return NextResponse.json(
+        { error: 'Missing required field: categoryId' },
         { status: 400 }
       );
     }
@@ -118,12 +134,15 @@ export async function POST(request: Request) {
       data: {
         name,
         slug: tagSlug,
-        category: category || 'CATEGORY',
-        parentCategory: category === 'CRITERIA' ? parentCategory : null,
+        categoryId,
+        parentCategory,
         color,
         description,
         order: order || 0,
         isActive: isActive !== undefined ? isActive : true,
+      },
+      include: {
+        category: true,
       },
     });
 

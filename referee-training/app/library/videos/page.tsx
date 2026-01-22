@@ -41,7 +41,11 @@ export default async function VideoLibraryPage() {
       },
       tags: {
         include: {
-          tag: true
+          tag: {
+            include: {
+              category: true
+            }
+          }
         }
       }
     },
@@ -78,7 +82,14 @@ export default async function VideoLibraryPage() {
       id: vt.tag.id,
       slug: vt.tag.slug,
       name: vt.tag.name,
-      category: vt.tag.category,
+      category: vt.tag.category
+        ? {
+            id: vt.tag.category.id,
+            name: vt.tag.category.name,
+            slug: vt.tag.category.slug,
+            canBeCorrectAnswer: vt.tag.category.canBeCorrectAnswer,
+          }
+        : null,
       rapCategory: vt.tag.rapCategory,
       isCorrectDecision: vt.isCorrectDecision,
       decisionOrder: vt.decisionOrder,

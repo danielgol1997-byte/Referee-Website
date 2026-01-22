@@ -85,4 +85,3 @@ export async function uploadImageClient(file: File, uploadPreset: string, cloudN
 
   return response.json();
 }
-

@@ -1,21 +1,35 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
-  tags: Array<{ id: string; name: string; color?: string; category?: string; parentCategory?: string }>;
+  tags: Array<{
+    id: string;
+    name: string;
+    color?: string;
+    category?: { id: string; name: string; slug: string; canBeCorrectAnswer: boolean; order?: number };
+    parentCategory?: string;
+  }>;
   onSuccess?: () => void;
   editingVideo?: any;
+}
+
+interface TagCategory {
+  id: string;
+  name: string;
+  slug: string;
+  canBeCorrectAnswer: boolean;
+  order?: number;
 }
 
 interface Tag {
   id: string;
   name: string;
   color?: string;
-  category?: string;
+  category?: TagCategory;
   parentCategory?: string;
 }
 
@@ -23,12 +37,15 @@ const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law $
 
 // Tag group colors
 const GROUP_COLORS: Record<string, string> = {
-  CATEGORY: '#FF6B6B',
-  RESTARTS: '#4A90E2',
-  CRITERIA: '#FFD93D',
-  SANCTION: '#EC4899',
-  SCENARIO: '#6BCF7F',
+  category: '#FF6B6B',
+  restarts: '#4A90E2',
+  criteria: '#FFD93D',
+  sanction: '#EC4899',
+  scenario: '#6BCF7F',
 };
+
+const CATEGORY_TAG_CATEGORY_SLUG = 'category';
+const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
 
 export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo }: VideoUploadFormProps) {
   const [loading, setLoading] = useState(false);
@@ -44,6 +61,10 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   // Form data
   const [title, setTitle] = useState(editingVideo?.title || '');
   const [description, setDescription] = useState(editingVideo?.description || '');
+  const [decisionExplanation, setDecisionExplanation] = useState(editingVideo?.decisionExplanation || '');
+  const [isEducationalOverride, setIsEducationalOverride] = useState<boolean | null>(
+    editingVideo?.isEducational ? true : null
+  );
   const [selectedLaws, setSelectedLaws] = useState<number[]>(editingVideo?.lawNumbers || []);
   const [playOn, setPlayOn] = useState(editingVideo?.playOn || false);
   const [noOffence, setNoOffence] = useState(editingVideo?.noOffence || false);
@@ -68,17 +89,52 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
     }
   }, [editingVideo, tags]);
 
+  useEffect(() => {
+    if (editingVideo) {
+      setDecisionExplanation(editingVideo.decisionExplanation || '');
+      setIsEducationalOverride(editingVideo.isEducational ? true : null);
+    }
+  }, [editingVideo]);
+
+  const autoEducational = useMemo(() => {
+    const autoNames = new Set([
+      'advantage',
+      'dissent',
+      'referee abuse',
+      'teamwork',
+      'laws of the game',
+    ]);
+
+    const selectedCategoryTags = [...correctDecisionTags, ...invisibleTags].filter(
+      tag => tag.category?.slug === CATEGORY_TAG_CATEGORY_SLUG
+    );
+
+    return selectedCategoryTags.some(tag => autoNames.has(tag.name.toLowerCase().trim()));
+  }, [correctDecisionTags, invisibleTags]);
+
+  const effectiveIsEducational = isEducationalOverride ?? autoEducational;
+
+  const tagCategoryMap = tags.reduce((acc, tag) => {
+    if (tag.category) {
+      acc[tag.category.id] = tag.category;
+    }
+    return acc;
+  }, {} as Record<string, TagCategory>);
+
   // Group tags by category
   const tagGroups = tags.reduce((acc, tag) => {
-    if (!acc[tag.category || 'OTHER']) {
-      acc[tag.category || 'OTHER'] = [];
+    const categoryId = tag.category?.id || 'other';
+    if (!acc[categoryId]) {
+      acc[categoryId] = [];
     }
-    acc[tag.category || 'OTHER'].push(tag);
+    acc[categoryId].push(tag);
     return acc;
   }, {} as Record<string, Tag[]>);
 
   // Get unique tag categories (dynamically)
-  const tagCategories = Object.keys(tagGroups).filter(cat => cat !== 'OTHER');
+  const tagCategories = Object.values(tagCategoryMap).sort(
+    (a, b) => (a.order || 0) - (b.order || 0)
+  );
 
   // Handle drag and drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -136,6 +192,10 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
     e.preventDefault();
     if (!title || (!videoFile && !editingVideo)) {
       alert('Please provide a title and video file');
+      return;
+    }
+    if (effectiveIsEducational && !decisionExplanation.trim()) {
+      alert('Please provide an explanation for explanation-only videos.');
       return;
     }
 
@@ -307,6 +367,8 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       const videoData = {
         title,
         description,
+        decisionExplanation: decisionExplanation.trim() || null,
+        isEducational: effectiveIsEducational,
         fileUrl,
         thumbnailUrl,
         duration,
@@ -371,9 +433,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       setThumbnailPreview('');
       setTitle('');
       setDescription('');
+      setDecisionExplanation('');
       setSelectedLaws([]);
       setCorrectDecisionTags([]);
       setInvisibleTags([]);
+      setIsEducationalOverride(null);
       
       onSuccess?.();
     } catch (error: any) {
@@ -499,6 +563,36 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
               placeholder="Add a description for this video..."
             />
           </div>
+
+          <div className="flex flex-col gap-3 rounded-lg bg-dark-900/40 border border-dark-700 p-4">
+            <label className="inline-flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={effectiveIsEducational}
+                onChange={(e) => setIsEducationalOverride(e.target.checked)}
+                className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
+              />
+              <span className="text-sm font-medium text-text-primary">
+                Explanation-only answer
+              </span>
+            </label>
+            <p className="text-xs text-text-muted">
+              Auto-enabled for Advantage, Dissent, Referee Abuse, Teamwork, and Laws of the Game category tags.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Explanation {effectiveIsEducational && <span className="text-red-500">*</span>}
+            </label>
+            <textarea
+              value={decisionExplanation}
+              onChange={(e) => setDecisionExplanation(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-3 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              placeholder="Explain the decision or guidance for this clip..."
+            />
+          </div>
         </div>
       </div>
 
@@ -527,12 +621,12 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
 
           {/* Dynamic Tag Group Dropdowns */}
           {tagCategories.map(category => {
-            let filteredOptions = tagGroups[category] || [];
+            let filteredOptions = tagGroups[category.id] || [];
             
             // For CRITERIA tags, filter based on selected CATEGORY tags
-            if (category === 'CRITERIA') {
+            if (category.slug === CRITERIA_TAG_CATEGORY_SLUG) {
               const selectedCategoryNames = [...correctDecisionTags, ...invisibleTags]
-                .filter(t => t.category === 'CATEGORY')
+                .filter(t => t.category?.slug === CATEGORY_TAG_CATEGORY_SLUG)
                 .map(t => t.name);
               
               // Only show criteria that belong to selected categories
@@ -545,11 +639,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
             
             return (
               <TagDropdown
-                key={category}
-                label={category.charAt(0) + category.slice(1).toLowerCase()}
-                color={GROUP_COLORS[category] || '#00E8F8'}
+                key={category.id}
+                label={category.name}
+                color={GROUP_COLORS[category.slug] || '#00E8F8'}
                 options={filteredOptions}
-                selected={[...correctDecisionTags, ...invisibleTags].filter(t => t.category === category)}
+                selected={[...correctDecisionTags, ...invisibleTags].filter(t => t.category?.id === category.id)}
                 onSelect={(tag) => {
                   if (![...correctDecisionTags, ...invisibleTags].find(t => t.id === tag.id)) {
                     setInvisibleTags([...invisibleTags, tag]);
@@ -833,7 +927,9 @@ function CorrectDecisionList({
     setDraggedIndex(index);
   };
 
-  const invisibleTags = allTags.filter(t => !tags.find(ct => ct.id === t.id));
+  const invisibleTags = allTags.filter(t =>
+    !tags.find(ct => ct.id === t.id) && t.category?.canBeCorrectAnswer
+  );
 
   return (
     <div className="space-y-3">
@@ -917,13 +1013,17 @@ function InvisibleTagsList({
           >
             <div className="w-4 h-4 rounded" style={{ backgroundColor: tag.color }} />
             <span className="flex-1 text-text-primary">{tag.name}</span>
-            <button
-              type="button"
-              onClick={() => onMoveToCorrect(tag)}
-              className="text-cyan-500 hover:text-cyan-400 transition-colors text-xs font-medium"
-            >
-              Move to Correct
-            </button>
+            {tag.category?.canBeCorrectAnswer ? (
+              <button
+                type="button"
+                onClick={() => onMoveToCorrect(tag)}
+                className="text-cyan-500 hover:text-cyan-400 transition-colors text-xs font-medium"
+              >
+                Move to Correct
+              </button>
+            ) : (
+              <span className="text-xs text-text-muted">Filter only</span>
+            )}
             <button
               type="button"
               onClick={() => onRemove(tag)}

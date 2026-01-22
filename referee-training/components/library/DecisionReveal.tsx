@@ -22,7 +22,12 @@ interface DecisionRevealProps {
   tags?: Array<{
     id: string;
     name: string;
-    category: string;
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      canBeCorrectAnswer: boolean;
+    } | null;
     isCorrectDecision?: boolean;
     decisionOrder?: number;
   }>;
@@ -115,9 +120,9 @@ export function DecisionReveal({
     .filter(tag => tag.isCorrectDecision === true)
     .sort((a, b) => (a.decisionOrder || 0) - (b.decisionOrder || 0));
 
-  const restartTags = correctDecisionTags.filter(tag => tag.category === 'RESTARTS');
-  const sanctionTags = correctDecisionTags.filter(tag => tag.category === 'SANCTION');
-  const criteriaTags = correctDecisionTags.filter(tag => tag.category === 'CRITERIA');
+  const restartTags = correctDecisionTags.filter(tag => tag.category?.slug === 'restarts');
+  const sanctionTags = correctDecisionTags.filter(tag => tag.category?.slug === 'sanction');
+  const criteriaTags = correctDecisionTags.filter(tag => tag.category?.slug === 'criteria');
 
   // Determine title based on ALL tags (not just correct decision tags)
   const hasHandball = tags.some(tag => tag.name.toLowerCase().includes('handball'));
@@ -152,24 +157,6 @@ export function DecisionReveal({
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white hover:text-cyan-400 transition-colors"
-            aria-label="Close"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2.5}
-              stroke="currentColor"
-              className="w-6 h-6"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
           {/* Title: Play on / No offence / Offence */}
           {!isEducational && (playOn || noOffence || hasDecisionData) && (
             <div className={cn(
@@ -288,10 +275,16 @@ export function DecisionReveal({
             {/* Explanation */}
             {decisionExplanation && (
               <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
-                <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
+                <div className={cn(
+                  "text-sm font-semibold text-white uppercase tracking-wider mb-3",
+                  isEducational && "text-center"
+                )}>
                   {isEducational ? "Explanation" : "Why"}
                 </div>
-                <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                <div className={cn(
+                  "text-slate-300 leading-relaxed whitespace-pre-line",
+                  isEducational && "text-center text-base"
+                )}>
                   {decisionExplanation}
                 </div>
               </div>

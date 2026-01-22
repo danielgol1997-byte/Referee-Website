@@ -26,10 +26,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const criteriaCategory = await prisma.tagCategory.findUnique({
+      where: { slug: 'criteria' },
+      select: { id: true },
+    });
+
+    if (!criteriaCategory) {
+      return NextResponse.json(
+        { error: 'Criteria tag category not found' },
+        { status: 404 }
+      );
+    }
+
     // Update all CRITERIA tags that have this parentCategory
     const result = await prisma.tag.updateMany({
       where: {
-        category: 'CRITERIA',
+        categoryId: criteriaCategory.id,
         parentCategory: parentCategory,
       },
       data: {
