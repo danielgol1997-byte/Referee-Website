@@ -30,6 +30,7 @@ export default async function OnboardingPage() {
         title="Complete your profile"
         description="We only need a few details to set up your training profile."
         submitLabel="Finish setup"
+        redirectTo="/"
         initialValues={{
           name: user?.name ?? "",
           country: user?.country ?? "",

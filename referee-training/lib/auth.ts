@@ -167,7 +167,7 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       // On sign in, user object is passed. Store role in token.
       if (user) {
         const userWithRole = user as { role?: Role; country?: string | null; email?: string | null };
@@ -198,7 +198,7 @@ export const authOptions: NextAuthOptions = {
         token.role = userWithRole.role;
         token.country = userWithRole.country;
       }
-      if (token.email && (token.profileComplete === false || token.role === undefined || token.isActive === undefined)) {
+      if (token.email && (trigger === "update" || token.profileComplete === false || token.role === undefined || token.isActive === undefined)) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
           select: {

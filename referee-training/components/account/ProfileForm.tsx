@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -15,12 +17,16 @@ export function ProfileForm({
   title,
   description,
   submitLabel = "Save",
+  redirectTo,
 }: {
   initialValues: ProfileValues;
   title: string;
   description?: string;
   submitLabel?: string;
+  redirectTo?: string;
 }) {
+  const router = useRouter();
+  const { update } = useSession();
   const [values, setValues] = useState<ProfileValues>(initialValues);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +57,11 @@ export function ProfileForm({
         throw new Error(data?.error ?? "Failed to update profile");
       }
       setSuccess("Profile saved.");
+      await update();
+      if (redirectTo) {
+        router.replace(redirectTo);
+        router.refresh();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update profile";
       setError(message);
