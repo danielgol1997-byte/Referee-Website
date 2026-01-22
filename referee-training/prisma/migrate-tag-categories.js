@@ -10,9 +10,9 @@ async function migrateTagCategories() {
     const columns = await prisma.$queryRawUnsafe(`
       SELECT column_name FROM information_schema.columns WHERE table_name = 'Tag';
     `);
-    const columnNames = columns.map(c => c.column_name);
-    const hasOldCategory = columnNames.includes('oldCategory');
-    const hasCategoryId = columnNames.includes('categoryId');
+    let columnNames = columns.map(c => c.column_name);
+    let hasOldCategory = columnNames.includes('oldCategory');
+    let hasCategoryId = columnNames.includes('categoryId');
 
     if (!hasOldCategory && columnNames.includes('category')) {
       // Step 1: Rename the old category column
@@ -21,6 +21,8 @@ async function migrateTagCategories() {
         ALTER TABLE "Tag" RENAME COLUMN "category" TO "oldCategory";
       `);
       console.log('✓ Renamed category to oldCategory\n');
+      hasOldCategory = true;
+      columnNames = columnNames.filter(name => name !== 'category').concat('oldCategory');
     } else {
       console.log('Step 1: ✓ Column already renamed (oldCategory exists)\n');
     }
@@ -32,11 +34,13 @@ async function migrateTagCategories() {
         ALTER TABLE "Tag" ADD COLUMN "categoryId" TEXT;
       `);
       console.log('✓ Added categoryId column\n');
+      hasCategoryId = true;
+      columnNames = columnNames.concat('categoryId');
     } else {
       console.log('Step 2: ✓ categoryId column already exists\n');
     }
 
-    if (columnNames.includes('oldCategory')) {
+    if (hasOldCategory) {
       // Step 3: Remove default value from oldCategory
       console.log('Step 3: Removing default value from oldCategory...');
       await prisma.$executeRawUnsafe(`
@@ -180,7 +184,7 @@ async function migrateTagCategories() {
       console.log('\n');
     }
 
-    if (columnNames.includes('oldCategory')) {
+    if (hasOldCategory) {
       // Step 6: Migrate existing Tag data
       console.log('Step 6: Migrating existing tags...');
       const tags = await prisma.$queryRawUnsafe(`
@@ -206,7 +210,7 @@ async function migrateTagCategories() {
       console.log('Step 6: ✓ oldCategory column not present, skipping\n');
     }
 
-    if (columnNames.includes('oldCategory')) {
+    if (hasOldCategory) {
       // Step 7: Drop the old column
       console.log('Step 7: Dropping old category column...');
       await prisma.$executeRawUnsafe(`
