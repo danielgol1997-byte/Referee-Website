@@ -71,10 +71,14 @@ async function migrateTagCategories() {
 
     if (enumUsage[0].count === 0) {
       console.log('Step 3b: Dropping old TagCategory enum type...');
-      await prisma.$executeRawUnsafe(`
-        DROP TYPE IF EXISTS "TagCategory";
-      `);
-      console.log('✓ Dropped old TagCategory enum\n');
+      try {
+        await prisma.$executeRawUnsafe(`
+          DROP TYPE IF EXISTS "TagCategory";
+        `);
+        console.log('✓ Dropped old TagCategory enum\n');
+      } catch (error) {
+        console.log('Step 3b: Skipping enum drop due to in-use type\n');
+      }
     } else {
       console.log('Step 3b: Skipping enum drop (still in use)\n');
     }
