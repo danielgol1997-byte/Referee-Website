@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -194,7 +195,11 @@ export function UserManagementPanel() {
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-t border-dark-700/70">
-                  <td className="px-4 py-3 font-medium text-text-primary">{user.name || "—"}</td>
+                  <td className="px-4 py-3 font-medium text-text-primary">
+                    <Link className="text-accent hover:text-accent/80" href={`/super-admin/users/${user.id}`}>
+                      {user.name || "View user"}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">{user.email}</td>
                   <td className="px-4 py-3 capitalize">{user.authProvider}</td>
                   <td className="px-4 py-3">

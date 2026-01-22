@@ -29,6 +29,7 @@ declare module "next-auth/jwt" {
     country?: string | null;
     profileComplete?: boolean;
     isActive?: boolean;
+    email?: string | null;
   }
 }
 

@@ -172,6 +172,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         const userWithRole = user as { role?: Role; country?: string | null; email?: string | null };
         if (userWithRole.email) {
+          token.email = userWithRole.email;
+        }
+        if (userWithRole.email) {
           const dbUser = await prisma.user.findUnique({
             where: { email: userWithRole.email },
             select: {
@@ -194,6 +197,25 @@ export const authOptions: NextAuthOptions = {
 
         token.role = userWithRole.role;
         token.country = userWithRole.country;
+      }
+      if (token.email && (token.profileComplete === false || token.role === undefined || token.isActive === undefined)) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: {
+            id: true,
+            role: true,
+            country: true,
+            profileComplete: true,
+            isActive: true,
+          },
+        });
+        if (dbUser) {
+          token.sub = dbUser.id;
+          token.role = dbUser.role;
+          token.country = dbUser.country;
+          token.profileComplete = dbUser.profileComplete;
+          token.isActive = dbUser.isActive;
+        }
       }
       // Ensure role persists on token for middleware access
       return token;

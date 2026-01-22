@@ -9,6 +9,10 @@ export default withAuth(
     const role = token?.role;
     const pathname = req.nextUrl.pathname;
 
+    if (token && token.profileComplete === false && !pathname.startsWith("/onboarding")) {
+      return NextResponse.redirect(new URL("/onboarding", req.url));
+    }
+
     // Role-gated areas: if you're authenticated but not allowed, don't bounce to login.
     // Redirect to home (or you can later replace with a dedicated /forbidden page).
     if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
@@ -43,6 +47,8 @@ export const config = {
     "/stats",
     "/admin/:path*",
     "/super-admin/:path*",
+    "/account",
+    "/onboarding",
   ],
 };
 
