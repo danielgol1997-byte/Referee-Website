@@ -83,15 +83,38 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Get the decision type name first
+    const decisionType = await prisma.decisionType.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    if (!decisionType) {
+      return NextResponse.json(
+        { error: 'Decision type not found' },
+        { status: 404 }
+      );
+    }
+
+    // Find the CRITERIA tag category
+    const criteriaCategory = await prisma.tagCategory.findUnique({
+      where: { slug: 'criteria' },
+      select: { id: true },
+    });
+
+    if (!criteriaCategory) {
+      return NextResponse.json(
+        { error: 'CRITERIA tag category not found' },
+        { status: 500 }
+      );
+    }
+
     // Check if any tags use this decision type
     const tagCount = await prisma.tag.count({
       where: {
-        category: 'CRITERIA',
+        categoryId: criteriaCategory.id,
         parentCategory: {
-          in: await prisma.decisionType.findUnique({
-            where: { id },
-            select: { name: true },
-          }).then(dt => dt ? [dt.name] : []),
+          in: [decisionType.name],
         },
       },
     });
