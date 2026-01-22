@@ -17,6 +17,11 @@ model User {
   country               String?
   level                 String?
   image                 String?
+  authProvider          String               @default("credentials")
+  profileComplete       Boolean              @default(false)
+  isActive              Boolean              @default(true)
+  disabledAt            DateTime?
+  lastLoginAt           DateTime?
   emailVerified         DateTime?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt

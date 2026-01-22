@@ -25,6 +25,8 @@ export async function POST(req: Request) {
         country,
         level,
         role: "REFEREE",
+        authProvider: "credentials",
+        profileComplete: false,
       },
       select: { id: true, email: true, name: true, role: true },
     });

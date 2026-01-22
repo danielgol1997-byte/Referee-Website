@@ -1,6 +1,7 @@
 import { TabNavigation } from "@/components/admin/TabNavigation";
 import { LawsAdminPanel } from "@/components/admin/laws/LawsAdminPanel";
 import { VideoLibraryContent } from "@/components/admin/library/VideoLibraryContent";
+import { UserManagementPanel } from "@/components/admin/users/UserManagementPanel";
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
@@ -8,6 +9,7 @@ const TABS = [
   { label: "VAR Practice", value: "var" },
   { label: "AR Practice", value: "ar" },
   { label: "Video Library", value: "library" },
+  { label: "Users", value: "users" },
 ];
 
 export default async function SuperAdminPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
@@ -52,6 +54,9 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
         
         {/* Video Library Management */}
         {activeTab === "library" && <VideoLibraryContent />}
+
+        {/* User Management */}
+        {activeTab === "users" && <UserManagementPanel />}
       </div>
     </div>
   );

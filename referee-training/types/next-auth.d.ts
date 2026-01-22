@@ -10,12 +10,16 @@ declare module "next-auth" {
       image?: string | null;
       role: Role;
       country?: string | null;
+      profileComplete?: boolean;
+      isActive?: boolean;
     };
   }
 
   interface User {
     role: Role;
     country?: string | null;
+    profileComplete?: boolean;
+    isActive?: boolean;
   }
 }
 
@@ -23,6 +27,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: Role;
     country?: string | null;
+    profileComplete?: boolean;
+    isActive?: boolean;
   }
 }
 

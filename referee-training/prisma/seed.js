@@ -15,6 +15,8 @@ async function createUsers() {
       password,
       role: Role.REFEREE,
       country: "Denmark",
+      authProvider: "credentials",
+      profileComplete: true,
     },
   });
 
@@ -27,6 +29,8 @@ async function createUsers() {
       password,
       role: Role.ADMIN,
       country: "Germany",
+      authProvider: "credentials",
+      profileComplete: true,
     },
   });
 
@@ -39,6 +43,8 @@ async function createUsers() {
       password,
       role: Role.SUPER_ADMIN,
       country: "England",
+      authProvider: "credentials",
+      profileComplete: true,
     },
   });
 }

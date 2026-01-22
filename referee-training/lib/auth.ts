@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
         });
 
-        if (!user?.password) {
+        if (!user?.password || user.isActive === false) {
           return null;
         }
 
@@ -48,6 +48,11 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) {
           return null;
         }
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
 
         return {
           id: user.id,
@@ -99,19 +104,94 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!account || account.provider === "credentials") {
+        return true;
+      }
+
+      const email = user.email ?? (profile as { email?: string | null } | undefined)?.email;
+      if (!email) {
+        return false;
+      }
+
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, isActive: true, image: true, name: true, authProvider: true },
+      });
+
+      if (existing && existing.isActive === false) {
+        return false;
+      }
+
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            email,
+            name: user.name ?? (profile as { name?: string | null } | undefined)?.name ?? "Google User",
+            image: user.image ?? (profile as { picture?: string | null } | undefined)?.picture ?? null,
+            role: Role.REFEREE,
+            authProvider: account.provider,
+            profileComplete: false,
+            lastLoginAt: new Date(),
+          },
+        });
+        return true;
+      }
+
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          lastLoginAt: new Date(),
+          ...(existing.authProvider !== account.provider && { authProvider: account.provider }),
+          ...(existing.name ? {} : { name: user.name ?? existing.name }),
+          ...(existing.image ? {} : { image: user.image ?? existing.image }),
+        },
+      });
+
+      return true;
+    },
     async session({ session, token }) {
       if (session.user) {
-        const tokenWithRole = token as { role?: Role; country?: string | null; sub?: string };
+        const tokenWithRole = token as {
+          role?: Role;
+          country?: string | null;
+          sub?: string;
+          profileComplete?: boolean;
+          isActive?: boolean;
+        };
         session.user.id = tokenWithRole.sub ?? "";
         session.user.role = tokenWithRole.role ?? Role.REFEREE;
         session.user.country = tokenWithRole.country ?? null;
+        session.user.profileComplete = tokenWithRole.profileComplete ?? false;
+        session.user.isActive = tokenWithRole.isActive ?? true;
       }
       return session;
     },
     async jwt({ token, user }) {
       // On sign in, user object is passed. Store role in token.
       if (user) {
-        const userWithRole = user as { role?: Role; country?: string | null };
+        const userWithRole = user as { role?: Role; country?: string | null; email?: string | null };
+        if (userWithRole.email) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: userWithRole.email },
+            select: {
+              id: true,
+              role: true,
+              country: true,
+              profileComplete: true,
+              isActive: true,
+            },
+          });
+          if (dbUser) {
+            token.sub = dbUser.id;
+            token.role = dbUser.role;
+            token.country = dbUser.country;
+            token.profileComplete = dbUser.profileComplete;
+            token.isActive = dbUser.isActive;
+            return token;
+          }
+        }
+
         token.role = userWithRole.role;
         token.country = userWithRole.country;
       }
