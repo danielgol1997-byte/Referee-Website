@@ -61,12 +61,23 @@ async function migrateTagCategories() {
       console.log('Step 3: ✓ oldCategory column not present, skipping\n');
     }
     
-    // Step 3b: Drop the old TagCategory enum type
-    console.log('Step 3b: Dropping old TagCategory enum type...');
-    await prisma.$executeRawUnsafe(`
-      DROP TYPE IF EXISTS "TagCategory";
+    // Step 3b: Drop the old TagCategory enum type only if unused
+    console.log('Step 3b: Checking old TagCategory enum usage...');
+    const enumUsage = await prisma.$queryRawUnsafe(`
+      SELECT COUNT(*)::int AS count
+      FROM information_schema.columns
+      WHERE udt_name = 'TagCategory';
     `);
-    console.log('✓ Dropped old TagCategory enum\n');
+
+    if (enumUsage[0].count === 0) {
+      console.log('Step 3b: Dropping old TagCategory enum type...');
+      await prisma.$executeRawUnsafe(`
+        DROP TYPE IF EXISTS "TagCategory";
+      `);
+      console.log('✓ Dropped old TagCategory enum\n');
+    } else {
+      console.log('Step 3b: Skipping enum drop (still in use)\n');
+    }
 
     // Step 4: Check if TagCategory table exists
     const tableCheck = await prisma.$queryRawUnsafe(`
