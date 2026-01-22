@@ -36,22 +36,26 @@ async function migrateTagCategories() {
       console.log('Step 2: ✓ categoryId column already exists\n');
     }
 
-    // Step 3: Remove default value from oldCategory
-    console.log('Step 3: Removing default value from oldCategory...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "Tag" 
-      ALTER COLUMN "oldCategory" DROP DEFAULT;
-    `);
-    console.log('✓ Removed default value\n');
-    
-    // Step 3a: Convert oldCategory from enum to TEXT
-    console.log('Step 3a: Converting oldCategory column to TEXT type...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "Tag" 
-      ALTER COLUMN "oldCategory" TYPE TEXT 
-      USING "oldCategory"::TEXT;
-    `);
-    console.log('✓ Converted oldCategory to TEXT\n');
+    if (columnNames.includes('oldCategory')) {
+      // Step 3: Remove default value from oldCategory
+      console.log('Step 3: Removing default value from oldCategory...');
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Tag" 
+        ALTER COLUMN "oldCategory" DROP DEFAULT;
+      `);
+      console.log('✓ Removed default value\n');
+      
+      // Step 3a: Convert oldCategory from enum to TEXT
+      console.log('Step 3a: Converting oldCategory column to TEXT type...');
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Tag" 
+        ALTER COLUMN "oldCategory" TYPE TEXT 
+        USING "oldCategory"::TEXT;
+      `);
+      console.log('✓ Converted oldCategory to TEXT\n');
+    } else {
+      console.log('Step 3: ✓ oldCategory column not present, skipping\n');
+    }
     
     // Step 3b: Drop the old TagCategory enum type
     console.log('Step 3b: Dropping old TagCategory enum type...');
@@ -176,34 +180,42 @@ async function migrateTagCategories() {
       console.log('\n');
     }
 
-    // Step 6: Migrate existing Tag data
-    console.log('Step 6: Migrating existing tags...');
-    const tags = await prisma.$queryRawUnsafe(`
-      SELECT id, "oldCategory" FROM "Tag" WHERE "oldCategory" IS NOT NULL;
-    `);
-    
-    console.log(`Found ${tags.length} tags to migrate`);
-    
-    for (const tag of tags) {
-      const oldCategoryUpper = tag.oldCategory.toUpperCase();
-      const newCategoryId = categoryMap[oldCategoryUpper];
+    if (columnNames.includes('oldCategory')) {
+      // Step 6: Migrate existing Tag data
+      console.log('Step 6: Migrating existing tags...');
+      const tags = await prisma.$queryRawUnsafe(`
+        SELECT id, "oldCategory" FROM "Tag" WHERE "oldCategory" IS NOT NULL;
+      `);
       
-      if (newCategoryId) {
-        await prisma.$executeRawUnsafe(`
-          UPDATE "Tag" SET "categoryId" = $1 WHERE id = $2;
-        `, newCategoryId, tag.id);
-      } else {
-        console.log(`  ⚠️  Warning: Unknown category '${tag.oldCategory}' for tag ${tag.id}`);
+      console.log(`Found ${tags.length} tags to migrate`);
+      
+      for (const tag of tags) {
+        const oldCategoryUpper = tag.oldCategory.toUpperCase();
+        const newCategoryId = categoryMap[oldCategoryUpper];
+        
+        if (newCategoryId) {
+          await prisma.$executeRawUnsafe(`
+            UPDATE "Tag" SET "categoryId" = $1 WHERE id = $2;
+          `, newCategoryId, tag.id);
+        } else {
+          console.log(`  ⚠️  Warning: Unknown category '${tag.oldCategory}' for tag ${tag.id}`);
+        }
       }
+      console.log(`✓ Migrated ${tags.length} tags\n`);
+    } else {
+      console.log('Step 6: ✓ oldCategory column not present, skipping\n');
     }
-    console.log(`✓ Migrated ${tags.length} tags\n`);
 
-    // Step 7: Drop the old column
-    console.log('Step 7: Dropping old category column...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "Tag" DROP COLUMN "oldCategory";
-    `);
-    console.log('✓ Dropped oldCategory column\n');
+    if (columnNames.includes('oldCategory')) {
+      // Step 7: Drop the old column
+      console.log('Step 7: Dropping old category column...');
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Tag" DROP COLUMN "oldCategory";
+      `);
+      console.log('✓ Dropped oldCategory column\n');
+    } else {
+      console.log('Step 7: ✓ oldCategory column not present, skipping\n');
+    }
 
     // Step 8: Make categoryId required
     console.log('Step 8: Making categoryId required...');
