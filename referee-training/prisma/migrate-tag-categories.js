@@ -245,22 +245,36 @@ async function migrateTagCategories() {
 
     // Step 9: Add foreign key constraint
     console.log('Step 9: Adding foreign key constraint...');
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE "Tag" 
-      ADD CONSTRAINT "Tag_categoryId_fkey" 
-      FOREIGN KEY ("categoryId") 
-      REFERENCES "TagCategory"("id") 
-      ON DELETE RESTRICT 
-      ON UPDATE CASCADE;
+    const existingFk = await prisma.$queryRawUnsafe(`
+      SELECT COUNT(*)::int AS count FROM pg_constraint WHERE conname = 'Tag_categoryId_fkey';
     `);
-    console.log('✓ Added foreign key constraint\n');
+    if (existingFk[0].count === 0) {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Tag" 
+        ADD CONSTRAINT "Tag_categoryId_fkey" 
+        FOREIGN KEY ("categoryId") 
+        REFERENCES "TagCategory"("id") 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE;
+      `);
+      console.log('✓ Added foreign key constraint\n');
+    } else {
+      console.log('✓ Foreign key already exists, skipping\n');
+    }
 
     // Step 10: Create index
     console.log('Step 10: Creating indexes...');
-    await prisma.$executeRawUnsafe(`
-      CREATE INDEX "Tag_categoryId_parentCategory_idx" ON "Tag"("categoryId", "parentCategory");
+    const existingIndex = await prisma.$queryRawUnsafe(`
+      SELECT COUNT(*)::int AS count FROM pg_indexes WHERE indexname = 'Tag_categoryId_parentCategory_idx';
     `);
-    console.log('✓ Created indexes\n');
+    if (existingIndex[0].count === 0) {
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX "Tag_categoryId_parentCategory_idx" ON "Tag"("categoryId", "parentCategory");
+      `);
+      console.log('✓ Created indexes\n');
+    } else {
+      console.log('✓ Index already exists, skipping\n');
+    }
 
     console.log('✅ Migration completed successfully!');
     
