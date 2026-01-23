@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { RAPCategory } from "./RAPCategoryTabs";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 export interface VideoFilters {
   categoryTags: string[];
@@ -11,7 +10,7 @@ export interface VideoFilters {
   criteria: string[];
   sanctions: string[];
   scenarios: string[];
-  laws: number[];
+  laws: number[]; // Deprecated: kept for backward compatibility, use customTagFilters['laws'] instead
   rapCategory?: RAPCategory;
   customTagFilters?: Record<string, string[]>;
 }
@@ -40,18 +39,17 @@ interface VideoFilterBarProps {
   videoCounts?: Record<RAPCategory, number>;
 }
 
-type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | 'law' | `custom:${string}`;
+type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | `custom:${string}`;
 
-const FILTER_CONFIG: Record<'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | 'law', { label: string; color: string; key: keyof VideoFilters }> = {
+const FILTER_CONFIG: Record<'category' | 'criteria' | 'restart' | 'sanction' | 'scenario', { label: string; color: string; key: keyof VideoFilters }> = {
   category: { label: 'Category', color: '#FF6B6B', key: 'categoryTags' },
   criteria: { label: 'Criteria', color: '#FFD93D', key: 'criteria' },
   restart: { label: 'Restart', color: '#4A90E2', key: 'restarts' },
   sanction: { label: 'Sanction', color: '#EC4899', key: 'sanctions' },
   scenario: { label: 'Scenario', color: '#6BCF7F', key: 'scenarios' },
-  law: { label: 'Law', color: '#9B72CB', key: 'laws' },
 };
 
-const DEFAULT_FILTER_ORDER: FilterType[] = ['category', 'criteria', 'restart', 'sanction', 'scenario', 'law'];
+const DEFAULT_FILTER_ORDER: FilterType[] = ['category', 'criteria', 'restart', 'sanction', 'scenario'];
 const DEFAULT_VISIBLE_FILTERS: FilterType[] = ['category', 'criteria', 'restart', 'sanction'];
 const CUSTOM_FILTER_PREFIX = 'custom:';
 const CATEGORY_TAG_CATEGORY_SLUG = 'category';
@@ -60,13 +58,13 @@ const RESTARTS_TAG_CATEGORY_SLUG = 'restarts';
 const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
 const SCENARIO_TAG_CATEGORY_SLUG = 'scenario';
 const GROUP_COLORS: Record<string, string> = {
+  laws: '#9B72CB',
   category: '#FF6B6B',
   criteria: '#FFD93D',
   restarts: '#4A90E2',
   sanction: '#EC4899',
   scenario: '#6BCF7F',
 };
-const LAWS = LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) }));
 
 /**
  * VideoFilterBar - Redesigned Multi-Select Filter Bar
@@ -340,7 +338,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       criteria: [],
       sanctions: [],
       scenarios: [],
-      laws: [],
+      laws: [], // Deprecated but kept for backward compatibility
       customTagFilters: {},
     });
   };
@@ -406,7 +404,6 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
     filters.criteria.length +
     filters.sanctions.length +
     filters.scenarios.length +
-    filters.laws.length +
     customFilterCount;
 
   const getFilterConfig = (type: FilterType) => {
@@ -610,7 +607,6 @@ function FilterDropdown({
 
   // Get options based on filter type
   const getOptions = (): any[] => {
-    if (type === 'law') return LAWS;
     if (type === 'criteria') return filteredCriteriaTags;
     if (type === 'category') return tagCategoryMap[CATEGORY_TAG_CATEGORY_SLUG]?.tags || [];
     if (type === 'restart') return tagCategoryMap[RESTARTS_TAG_CATEGORY_SLUG]?.tags || [];
@@ -629,9 +625,6 @@ function FilterDropdown({
 
   // Get selected items
   const selectedItems = selectedValues.map(val => {
-    if (type === 'law') {
-      return { label: formatLawLabel(Number(val)), value: val, color: config.color };
-    }
     const tag = options.find((opt: any) => opt.slug === val || opt.value === val);
     return tag ? { 
       label: tag.label || tag.name, 
@@ -717,9 +710,9 @@ function FilterDropdown({
           {options.length > 0 ? (
             <div className="p-2">
               {options.map((option: any) => {
-                const value = type === 'law' ? option.value : option.slug;
-                const label = type === 'law' ? option.label : option.name;
-                const itemColor = type === 'law' ? config.color : option.color || config.color;
+                const value = option.slug;
+                const label = option.name;
+                const itemColor = option.color || config.color;
                 const isSelected = selectedValues.includes(value);
 
                 return (

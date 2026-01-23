@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
@@ -34,8 +33,6 @@ interface Tag {
   parentCategory?: string;
 }
 
-const LAWS = LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) }));
-
 // Tag group colors
 const GROUP_COLORS: Record<string, string> = {
   category: '#FF6B6B',
@@ -65,7 +62,6 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   );
   const [title, setTitle] = useState(editingVideo?.title || '');
   const [decisionExplanation, setDecisionExplanation] = useState(editingVideo?.decisionExplanation || '');
-  const [selectedLaws, setSelectedLaws] = useState<number[]>(editingVideo?.lawNumbers || []);
   const [playOn, setPlayOn] = useState(editingVideo?.playOn || false);
   const [noOffence, setNoOffence] = useState(editingVideo?.noOffence || false);
   const [correctDecisionTags, setCorrectDecisionTags] = useState<Tag[]>([]);
@@ -359,7 +355,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         duration,
         // Don't pass categoryId - let the backend handle it
         videoCategoryId: videoCategories[0]?.id || null,
-        lawNumbers: selectedLaws,
+        lawNumbers: [], // Deprecated: Laws now managed via tags
         playOn: hasDecisionTags ? playOn : false,
         noOffence: hasDecisionTags ? noOffence : false,
         tagData: allTagData, // Send structured tag data with order and type
@@ -579,25 +575,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         <h3 className="text-lg font-semibold text-text-primary mb-4">Tagging</h3>
         
         <div className="space-y-6">
-          {/* Laws of the Game */}
-          <TagDropdown
-            label="Laws of the Game"
-            color="#9B72CB"
-            options={LAWS.map(l => ({ id: l.value.toString(), name: l.label, color: '#9B72CB' }))}
-            selected={LAWS.filter(l => selectedLaws.includes(l.value)).map(l => ({ id: l.value.toString(), name: l.label, color: '#9B72CB' }))}
-            onSelect={(tag) => {
-              const lawNum = parseInt(tag.id);
-              if (!selectedLaws.includes(lawNum)) {
-                setSelectedLaws([...selectedLaws, lawNum]);
-              }
-            }}
-            onRemove={(tag) => {
-              const lawNum = parseInt(tag.id);
-              setSelectedLaws(selectedLaws.filter(l => l !== lawNum));
-            }}
-          />
-
-          {/* Dynamic Tag Group Dropdowns */}
+          {/* Dynamic Tag Group Dropdowns (including Laws) */}
           {tagCategories.map(category => {
             let filteredOptions = tagGroups[category.id] || [];
             

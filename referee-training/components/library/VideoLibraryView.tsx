@@ -167,7 +167,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       if (!hasMatch) return false;
     }
 
-    // Custom tag category filters
+    // Custom tag category filters (including Laws)
     if (filters.customTagFilters) {
       for (const [categorySlug, selectedTags] of Object.entries(filters.customTagFilters)) {
         if (selectedTags.length > 0) {
@@ -177,11 +177,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       }
     }
 
-    // Law filter (multiple)
-    if (filters.laws.length > 0) {
-      const hasMatch = filters.laws.some(law => video.lawNumbers.includes(law));
-      if (!hasMatch) return false;
-    }
+    // Deprecated: laws filter (kept for backward compatibility, but laws now use tag system)
+    // The customTagFilters above now handles law filtering via the 'laws' tag category
 
     return true;
   })
