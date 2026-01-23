@@ -76,6 +76,7 @@ export default async function VideoLibraryPage() {
     const formattedVideos = videos.map(video => ({
       id: video.id,
       title: video.title,
+      fileUrl: video.fileUrl,
       thumbnailUrl: video.thumbnailUrl || undefined,
       duration: video.duration || undefined,
       viewCount: video.viewCount,
