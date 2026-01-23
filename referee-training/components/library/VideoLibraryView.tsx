@@ -444,7 +444,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
                 return (
                   <div 
                     key={video.id} 
-                    ref={(el) => (videoRefs.current[index] = el)}
+                    ref={(el) => { videoRefs.current[index] = el; }}
                     className="relative"
                     style={{ zIndex: isClosing ? 10 : 0 }}
                   >
