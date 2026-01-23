@@ -81,6 +81,11 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
             "animate-in fade-in-0 zoom-in-95 duration-200",
             "max-h-60 overflow-auto"
           )}
+          style={{
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y',
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
           <div className="p-1">
             {options.map((option) => (

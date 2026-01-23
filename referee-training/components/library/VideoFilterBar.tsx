@@ -708,7 +708,12 @@ function FilterDropdown({
       {/* Dropdown Menu */}
       {isOpen && !isDisabled && (
         <div className="absolute z-50 mt-1 w-64 max-h-80 overflow-y-auto rounded-lg bg-dark-900 border-2 shadow-2xl"
-             style={{ borderColor: config.color }}>
+             style={{ 
+               borderColor: config.color,
+               overscrollBehavior: 'contain',
+               touchAction: 'pan-y',
+               WebkitOverflowScrolling: 'touch',
+             }}>
           {options.length > 0 ? (
             <div className="p-2">
               {options.map((option: any) => {
