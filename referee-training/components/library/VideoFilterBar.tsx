@@ -281,24 +281,22 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       return;
     }
 
-    const key = FILTER_CONFIG[type].key;
+    // Safety check: skip if filter type no longer exists in config (e.g., deprecated 'law' type)
+    const config = FILTER_CONFIG[type as keyof typeof FILTER_CONFIG];
+    if (!config) return;
+
+    const key = config.key;
     const currentValues = filters[key] as any[] || [];
     
-    if (type === 'law') {
-      if (!currentValues.includes(value)) {
-        onFiltersChange({ ...filters, [key]: [...currentValues, value] });
+    if (!currentValues.includes(value)) {
+      const newFilters = { ...filters, [key]: [...currentValues, value] };
+      
+      // Clear criteria when no categories selected
+      if (type === 'category' && newFilters.categoryTags.length === 0) {
+        newFilters.criteria = [];
       }
-    } else {
-      if (!currentValues.includes(value)) {
-        const newFilters = { ...filters, [key]: [...currentValues, value] };
-        
-        // Clear criteria when no categories selected
-        if (type === 'category' && newFilters.categoryTags.length === 0) {
-          newFilters.criteria = [];
-        }
-        
-        onFiltersChange(newFilters);
-      }
+      
+      onFiltersChange(newFilters);
     }
   };
 
@@ -316,7 +314,11 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       return;
     }
 
-    const key = FILTER_CONFIG[type].key;
+    // Safety check: skip if filter type no longer exists in config (e.g., deprecated 'law' type)
+    const config = FILTER_CONFIG[type as keyof typeof FILTER_CONFIG];
+    if (!config) return;
+
+    const key = config.key;
     const currentValues = filters[key] as any[] || [];
     const newFilters = { 
       ...filters, 
