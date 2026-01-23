@@ -687,7 +687,7 @@ export function InlineVideoPlayer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={cn(
-              "fixed inset-0 bg-black/80 z-[2000] backdrop-blur-sm",
+              "fixed inset-0 bg-black/80 z-[9000] backdrop-blur-sm",
               "transition-opacity duration-300"
             )}
             onClick={(e) => {
@@ -701,7 +701,7 @@ export function InlineVideoPlayer({
             key="player-container"
             ref={playerWrapperRef}
             className={cn(
-              "fixed inset-0 z-[2001] flex flex-col items-center justify-center pointer-events-none",
+              "fixed inset-0 z-[9001] flex flex-col items-center justify-center pointer-events-none",
               // Responsive padding - less on small screens
               isFullscreen ? "p-0" : "pt-[88px] sm:pt-[100px] pb-4 sm:pb-6 px-2 sm:px-4 md:px-12",
               className
@@ -722,13 +722,13 @@ export function InlineVideoPlayer({
               onMouseEnter={() => setShowControls(true)}
               onMouseLeave={() => setShowControls(false)}
               transition={isSharedLayoutEnabled ? { type: "spring", stiffness: 250, damping: 25 } : { duration: 0 }}
-              style={{ borderRadius: isFullscreen ? "0" : "16px", zIndex: 2002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
+              style={{ borderRadius: isFullscreen ? "0" : "16px", zIndex: 9002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
             >
               {/* Close Button */}
               <button
                 onClick={(e) => handleClose(e)}
                 className={cn(
-                  "absolute top-4 right-4 z-[2003] w-10 h-10",
+                  "absolute top-4 right-4 z-[9003] w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
@@ -760,7 +760,7 @@ export function InlineVideoPlayer({
                   setShowKeyboardHelp(true);
                 }}
                 className={cn(
-                  "absolute top-4 right-16 z-[2003] w-10 h-10",
+                  "absolute top-4 right-16 z-[9003] w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
@@ -781,7 +781,7 @@ export function InlineVideoPlayer({
                     onPrev?.();
                   }}
                   className={cn(
-                    "absolute top-1/2 left-4 -translate-y-1/2 z-[2103] w-12 h-12",
+                    "absolute top-1/2 left-4 -translate-y-1/2 z-[9103] w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -803,7 +803,7 @@ export function InlineVideoPlayer({
                     onNext?.();
                   }}
                   className={cn(
-                    "absolute top-1/2 right-4 -translate-y-1/2 z-[2103] w-12 h-12",
+                    "absolute top-1/2 right-4 -translate-y-1/2 z-[9103] w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -1195,7 +1195,7 @@ export function InlineVideoPlayer({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-[2004] bg-black/95 backdrop-blur-sm flex items-center justify-center p-8"
+                    className="absolute inset-0 z-[9004] bg-black/95 backdrop-blur-sm flex items-center justify-center p-8"
                     onClick={() => setShowKeyboardHelp(false)}
                   >
                     <div className="max-w-2xl w-full bg-dark-800 rounded-xl p-6 border border-white/10" onClick={(e) => e.stopPropagation()}>
