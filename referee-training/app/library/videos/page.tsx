@@ -32,6 +32,7 @@ export default async function VideoLibraryPage() {
       select: {
         id: true,
         title: true,
+        fileUrl: true,
         thumbnailUrl: true,
         duration: true,
         viewCount: true,
