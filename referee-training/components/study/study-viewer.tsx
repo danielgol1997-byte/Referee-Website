@@ -37,6 +37,7 @@ type Question = {
   isRead: boolean;
   readAt: string | Date | null;
   isStarred?: boolean;
+  isVar?: boolean;
 };
 
 const normalizeSearchText = (value: string) =>
@@ -169,15 +170,9 @@ export function StudyViewer() {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (lawFilter.length > 0) {
-        // Send multiple law numbers as comma-separated string
-        params.append("lawNumbers", lawFilter.join(","));
-      }
-      if (readFilter !== "all") params.append("readStatus", readFilter);
-      if (includeVar) params.append("includeVar", "true");
+      const params = new URLSearchParams({ includeVar: "true" });
 
-      const res = await fetch(`/api/study/questions?${params}`, {
+      const res = await fetch(`/api/study/questions?${params.toString()}`, {
         signal: abortController.signal,
       });
       
@@ -222,7 +217,7 @@ export function StudyViewer() {
         setLoading(false);
       }
     }
-  }, [lawFilter, readFilter, includeVar]);
+  }, []);
 
   useEffect(() => {
     fetchQuestions();
@@ -242,6 +237,22 @@ export function StudyViewer() {
       filtered = filtered.filter((q) => starredIds.includes(q.id));
     }
 
+    if (!includeVar) {
+      filtered = filtered.filter((q) => !q.isVar);
+    }
+
+    if (lawFilter.length > 0) {
+      filtered = filtered.filter((q) =>
+        q.lawNumbers?.some((lawNum) => lawFilter.includes(lawNum))
+      );
+    }
+
+    if (readFilter === "read") {
+      filtered = filtered.filter((q) => q.isRead);
+    } else if (readFilter === "unread") {
+      filtered = filtered.filter((q) => !q.isRead);
+    }
+
     const normalizedQuery = normalizeSearchText(searchQuery);
     if (!normalizedQuery) {
       return filtered;
@@ -258,7 +269,7 @@ export function StudyViewer() {
       .map((item) => item.question);
 
     return scored;
-  }, [questions, searchQuery, starFilter, starredIds]);
+  }, [questions, searchQuery, starFilter, starredIds, includeVar, lawFilter, readFilter]);
 
   // Ensure current index is valid when filteredQuestions changes
   useEffect(() => {

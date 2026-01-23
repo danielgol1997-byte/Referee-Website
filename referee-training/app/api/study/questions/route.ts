@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
         text: true,
         explanation: true,
         lawNumbers: true,
+        isVar: true,
         createdAt: true,
       },
       orderBy: [
