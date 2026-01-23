@@ -126,9 +126,11 @@ export function InlineVideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const playerWrapperRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
 
   const safePlay = useCallback(() => {
@@ -172,6 +174,10 @@ export function InlineVideoPlayer({
       e.preventDefault();
       e.stopPropagation();
     }
+    // Exit fullscreen if active
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -181,8 +187,36 @@ export function InlineVideoPlayer({
     setLoopMarkerA(0);
     setLoopMarkerB(0);
     setIsLoopEnabled(false);
+    setIsFullscreen(false);
     onClose();
   }, [onClose]);
+
+  // Fullscreen toggle
+  const toggleFullscreen = useCallback(async () => {
+    if (!playerWrapperRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await playerWrapperRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error("Fullscreen error:", err);
+    }
+  }, []);
+
+  // Listen for fullscreen changes (user can exit with ESC)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   // Frame stepping
   const stepFrame = useCallback((direction: 'forward' | 'backward') => {
@@ -384,11 +418,18 @@ export function InlineVideoPlayer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isExpanded) return;
 
-      // Close video with Escape
+      // Close video with Escape (if not in fullscreen)
       if (e.key === "Escape") {
-        if (!isAnswerOpen) {
+        if (!isAnswerOpen && !document.fullscreenElement) {
           handleClose();
         }
+        return;
+      }
+
+      // Toggle fullscreen with 'f' or 'F'
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
         return;
       }
 
@@ -600,7 +641,7 @@ export function InlineVideoPlayer({
     };
   }, [
     isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal,
-    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay
+    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay, toggleFullscreen
   ]);
 
   const handleVideoPlay = () => {
@@ -632,10 +673,11 @@ export function InlineVideoPlayer({
           {/* Expanded Video Container */}
           <motion.div
             key="player-container"
+            ref={playerWrapperRef}
             className={cn(
               "fixed inset-0 z-[2001] flex flex-col items-center justify-center pointer-events-none",
-              // Top padding to separate from header (header is 88px)
-              "pt-[100px] pb-6 px-4 md:px-12", 
+              // Responsive padding - less on small screens
+              isFullscreen ? "p-0" : "pt-[88px] sm:pt-[100px] pb-4 sm:pb-6 px-2 sm:px-4 md:px-12",
               className
             )}
             initial={{ opacity: 1 }}
@@ -644,11 +686,17 @@ export function InlineVideoPlayer({
             <motion.div
               key={`player-${video.id}`}
               layoutId={`video-${video.id}`}
-              className="relative w-full max-w-6xl flex flex-col bg-dark-900 border border-dark-600 rounded-xl overflow-hidden shadow-2xl pointer-events-auto"
+              className={cn(
+                "relative flex flex-col bg-dark-900 border border-dark-600 rounded-xl overflow-hidden shadow-2xl pointer-events-auto",
+                // Responsive sizing - ensure it fits on all screens
+                isFullscreen 
+                  ? "w-full h-full rounded-none" 
+                  : "w-full max-w-6xl max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)]"
+              )}
               onMouseEnter={() => setShowControls(true)}
               onMouseLeave={() => setShowControls(false)}
               transition={isSharedLayoutEnabled ? { type: "spring", stiffness: 250, damping: 25 } : { duration: 0 }}
-              style={{ borderRadius: "16px", zIndex: 2002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
+              style={{ borderRadius: isFullscreen ? "0" : "16px", zIndex: 2002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
             >
               {/* Close Button */}
               <button
@@ -745,12 +793,16 @@ export function InlineVideoPlayer({
               )}
 
               {/* Video Player */}
-              <div className="relative aspect-video bg-black w-full group/video">
+              <div className={cn(
+                "relative bg-black w-full group/video",
+                isFullscreen ? "h-full" : "aspect-video"
+              )}>
                 <video
                   ref={videoRef}
                   src={video.fileUrl}
                   className={cn(
-                    "w-full h-full object-contain transition-opacity duration-200",
+                    "w-full h-full transition-opacity duration-200",
+                    isFullscreen ? "object-contain" : "object-contain",
                     isVideoReady ? "opacity-100" : "opacity-0"
                   )}
                   preload="metadata"
@@ -1004,6 +1056,23 @@ export function InlineVideoPlayer({
                         />
                       </div>
 
+                      {/* Fullscreen button */}
+                      <button
+                        onClick={() => toggleFullscreen()}
+                        className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded transition-all"
+                        title="Fullscreen (F)"
+                      >
+                        {isFullscreen ? (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                          </svg>
+                        )}
+                      </button>
+
                       {/* Playback speed control */}
                       <div className="flex items-center gap-1">
                         <button
@@ -1053,7 +1122,10 @@ export function InlineVideoPlayer({
               </div>
 
               {/* Video Info & Controls - Footer */}
-              <div className="p-4 bg-dark-900/95 border-t border-white/10 flex items-center justify-between">
+              <div className={cn(
+                "p-4 bg-dark-900/95 border-t border-white/10 flex items-center justify-between",
+                "flex-shrink-0" // Prevent footer from being compressed
+              )}>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-white line-clamp-1">{video.title}</h2>
                   {video.description && (
@@ -1188,6 +1260,10 @@ export function InlineVideoPlayer({
                             <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">I</kbd>
                           </div>
                         )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/70">Fullscreen</span>
+                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">F</kbd>
+                        </div>
                         <div className="flex justify-between items-center">
                           <span className="text-white/70">Show shortcuts</span>
                           <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">? or /</kbd>
