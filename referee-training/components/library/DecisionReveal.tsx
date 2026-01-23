@@ -141,12 +141,12 @@ export function DecisionReveal({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/90 z-[250] transition-opacity duration-300"
+        className="fixed inset-0 bg-black/90 z-[3000] transition-opacity duration-300"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-[260] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-[3010] flex items-center justify-center p-4 overflow-y-auto">
         <div
           className={cn(
             "relative w-full max-w-3xl bg-gradient-to-br from-[#0F1419] to-[#1E293B]",
