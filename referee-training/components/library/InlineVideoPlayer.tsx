@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { DecisionReveal } from "./DecisionReveal";
 
 interface LoopMarker {
   time: number;
@@ -60,6 +61,8 @@ interface InlineVideoPlayerProps {
   hasNext?: boolean;
   hasPrev?: boolean;
   className?: string;
+  showDecision?: boolean;
+  onCloseDecision?: () => void;
 }
 
 /**
@@ -109,6 +112,8 @@ export function InlineVideoPlayer({
   hasNext = false,
   hasPrev = false,
   className,
+  showDecision = false,
+  onCloseDecision,
 }: InlineVideoPlayerProps) {
   const [showControls, setShowControls] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -376,17 +381,40 @@ export function InlineVideoPlayer({
     }
   }, [currentTime, isLoopEnabled, loopMarkerA, loopMarkerB]);
 
-  // Auto-play when expanded
+  // Auto-play when expanded + Disable body scroll
   useEffect(() => {
     if (isExpanded && videoRef.current) {
       safePlay();
       setIsPlaying(true);
+      // Disable body scroll - use both overflow hidden and position fixed
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
     } else if (!isExpanded && videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
       setIsPlaying(false);
       setCurrentTime(0);
+      // Re-enable body scroll and restore scroll position
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
     }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+    };
   }, [isExpanded, video.id, safePlay]);
 
   // Global mouse event handlers for scrubbing
@@ -632,12 +660,10 @@ export function InlineVideoPlayer({
 
     if (isExpanded) {
       document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
     }
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [
     isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal,
@@ -1278,6 +1304,28 @@ export function InlineVideoPlayer({
                 )}
               </AnimatePresence>
             </motion.div>
+
+            {/* Decision Reveal - Inside fullscreen container */}
+            {showDecision && (
+              <DecisionReveal
+                isOpen={showDecision}
+                onClose={() => onCloseDecision?.()}
+                playOn={video.playOn}
+                noOffence={video.noOffence}
+                correctDecision={video.correctDecision}
+                restartType={video.restartType}
+                sanctionType={video.sanctionType}
+                offsideReason={video.offsideReason}
+                decisionExplanation={video.decisionExplanation}
+                keyPoints={video.keyPoints}
+                commonMistakes={video.commonMistakes}
+                varRelevant={false}
+                varNotes={video.varNotes}
+                isEducational={video.isEducational}
+                lawNumbers={video.lawNumbers}
+                tags={video.tags}
+              />
+            )}
           </motion.div>
         </>
       )}

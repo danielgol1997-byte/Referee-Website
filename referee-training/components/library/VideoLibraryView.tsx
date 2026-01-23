@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { RAPCategoryTabs, RAPCategory } from "./RAPCategoryTabs";
 import { VideoCard3D } from "./VideoCard3D";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
-import { DecisionReveal } from "./DecisionReveal";
 import { VideoFilterBar, VideoFilters } from "./VideoFilterBar";
 import { LayoutGroup, motion } from "framer-motion";
 
@@ -482,28 +481,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
             onPrev={handlePrev}
             hasNext={hasNext}
             hasPrev={hasPrev}
-          />
-        )}
-
-        {/* Decision Reveal Overlay */}
-        {expandedVideo && (
-          <DecisionReveal
-            isOpen={showDecision}
-            onClose={() => setShowDecision(false)}
-            playOn={expandedVideo.playOn}
-            noOffence={expandedVideo.noOffence}
-            correctDecision={expandedVideo.correctDecision}
-            restartType={expandedVideo.restartType}
-            sanctionType={expandedVideo.sanctionType}
-            offsideReason={expandedVideo.offsideReason}
-            decisionExplanation={expandedVideo.decisionExplanation}
-            keyPoints={expandedVideo.keyPoints}
-            commonMistakes={expandedVideo.commonMistakes}
-            varRelevant={false}
-            varNotes={expandedVideo.varNotes}
-            isEducational={expandedVideo.isEducational}
-            lawNumbers={expandedVideo.lawNumbers}
-            tags={expandedVideo.tags}
+            showDecision={showDecision}
+            onCloseDecision={() => setShowDecision(false)}
           />
         )}
       </div>
