@@ -31,6 +31,7 @@ model User {
   trainingAssignments   TrainingAssignment[]
   testCompletions       UserTestCompletion[]
   uploadedVideos        VideoClip[]
+  questionFavorites     QuestionFavorite[]
 }
 
 model Account {
@@ -126,6 +127,7 @@ model Question {
   category      Category       @relation(fields: [categoryId], references: [id])
   videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id])
   testAnswers   TestAnswer[]
+  favorites     QuestionFavorite[]
 }
 
 model AnswerOption {
@@ -244,6 +246,19 @@ model StudyProgress {
 
   @@unique([userId, questionId])
   @@index([userId, isRead])
+}
+
+model QuestionFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
 }
 
 model VideoCategory {

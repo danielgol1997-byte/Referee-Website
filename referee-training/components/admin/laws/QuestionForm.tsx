@@ -5,8 +5,7 @@ import { QuestionType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 type AnswerOption = { label: string; isCorrect: boolean };
 
@@ -121,8 +120,8 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
               {lawNumbers.length === 0 
                 ? "No laws selected" 
                 : lawNumbers.length === 1
-                ? `Law ${lawNumbers[0]}`
-                : `${lawNumbers.length} laws selected: ${lawNumbers.join(", ")}`
+                ? formatLawLabel(lawNumbers[0])
+                : `${lawNumbers.length} laws selected`
               }
             </span>
             <svg 
@@ -167,7 +166,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
                           : "text-text-secondary hover:text-white hover:bg-dark-700"
                       )}
                     >
-                      <span>Law {num}</span>
+                      <span>{formatLawLabel(num)}</span>
                       {isSelected && (
                         <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

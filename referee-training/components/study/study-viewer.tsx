@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Select } from "@/components/ui/select";
 import Link from "next/link";
+import { formatLawLabel, getLawName } from "@/lib/laws";
 
 // Map law numbers to IFAB URLs (same as carousel)
 const getLawUrl = (lawNumber: number): string => {
@@ -28,27 +29,71 @@ const getLawUrl = (lawNumber: number): string => {
   return lawUrls[lawNumber] || "#";
 };
 
-type AnswerOption = {
-  id: string;
-  label: string;
-  code: string;
-  isCorrect: boolean;
-};
-
 type Question = {
   id: string;
   text: string;
   explanation: string;
   lawNumbers: number[];
-  answerOptions: AnswerOption[];
   isRead: boolean;
   readAt: string | Date | null;
+  isStarred?: boolean;
+};
+
+const normalizeSearchText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getQuestionSearchScore = (question: Question, normalizedQuery: string, tokens: string[]) => {
+  if (!normalizedQuery) return 1;
+
+  const text = normalizeSearchText(question.text || "");
+  const explanation = normalizeSearchText(question.explanation || "");
+  const lawLabels = normalizeSearchText(
+    (question.lawNumbers || []).map((lawNum) => formatLawLabel(lawNum)).join(" ")
+  );
+  const combined = `${text} ${explanation} ${lawLabels}`.trim();
+
+  if (!combined) return 0;
+
+  let score = 0;
+  let matchCount = 0;
+
+  if (combined.includes(normalizedQuery)) {
+    score += 10;
+  }
+
+  const words = combined.split(" ");
+  const hasPrefixMatch = (token: string) =>
+    token.length >= 3 && words.some((word) => word.startsWith(token));
+
+  tokens.forEach((token) => {
+    let tokenScore = 0;
+    if (text.includes(token)) tokenScore += 4;
+    else if (explanation.includes(token)) tokenScore += 3;
+    else if (lawLabels.includes(token)) tokenScore += 3;
+    else if (hasPrefixMatch(token)) tokenScore += 1;
+
+    if (tokenScore > 0) {
+      score += tokenScore;
+      matchCount += 1;
+    }
+  });
+
+  const minMatches = tokens.length <= 1 ? 1 : Math.max(1, Math.ceil(tokens.length * 0.6));
+  if (matchCount < minMatches && !combined.includes(normalizedQuery)) {
+    return 0;
+  }
+
+  return score + matchCount;
 };
 
 export function StudyViewer() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [allLawNumbers, setAllLawNumbers] = useState<number[]>([]); // Store all available law numbers
-  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +103,9 @@ export function StudyViewer() {
   const [includeVar, setIncludeVar] = useState(false);
   const [isLawDropdownOpen, setIsLawDropdownOpen] = useState(false);
   const lawDropdownRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [starFilter, setStarFilter] = useState<"all" | "starred">("all");
+  const [starredIds, setStarredIds] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -66,22 +114,14 @@ export function StudyViewer() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null); // Track fetch requests
 
-  // Fetch all law numbers once on mount (for filter dropdown)
+  // Fetch all law numbers once on mount (for filter dropdown) - using lightweight endpoint
   useEffect(() => {
     const fetchAllLawNumbers = async () => {
       try {
-        const res = await fetch('/api/study/questions?readStatus=all');
+        const res = await fetch('/api/study/law-numbers');
         if (res.ok) {
           const data = await res.json();
-          // Extract all unique law numbers from all questions (questions can have multiple laws)
-          const allLaws = new Set<number>();
-          data.questions.forEach((q: Question) => {
-            if (q.lawNumbers && Array.isArray(q.lawNumbers)) {
-              q.lawNumbers.forEach((lawNum: number) => allLaws.add(lawNum));
-            }
-          });
-          const numbers = Array.from(allLaws).sort((a, b) => a - b);
-          setAllLawNumbers(numbers);
+          setAllLawNumbers(data.lawNumbers || []);
         }
       } catch (err) {
         console.error("Error fetching law numbers:", err);
@@ -163,7 +203,9 @@ export function StudyViewer() {
       
       const questionsData = Array.isArray(data.questions) ? data.questions : [];
       setQuestions(questionsData);
-      setFilteredQuestions(questionsData);
+      setStarredIds(
+        questionsData.filter((q: Question) => q.isStarred).map((q: Question) => q.id)
+      );
       setCurrent(0);
       setShowAnswer(false);
     } catch (err) {
@@ -193,6 +235,31 @@ export function StudyViewer() {
     };
   }, [fetchQuestions]);
 
+  const filteredQuestions = useMemo(() => {
+    let filtered = questions;
+
+    if (starFilter === "starred") {
+      filtered = filtered.filter((q) => starredIds.includes(q.id));
+    }
+
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    if (!normalizedQuery) {
+      return filtered;
+    }
+
+    const tokens = normalizedQuery.split(" ").filter(Boolean);
+    const scored = filtered
+      .map((question) => ({
+        question,
+        score: getQuestionSearchScore(question, normalizedQuery, tokens),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.question);
+
+    return scored;
+  }, [questions, searchQuery, starFilter, starredIds]);
+
   // Ensure current index is valid when filteredQuestions changes
   useEffect(() => {
     if (filteredQuestions.length > 0 && current >= filteredQuestions.length) {
@@ -200,6 +267,11 @@ export function StudyViewer() {
       setShowAnswer(false);
     }
   }, [filteredQuestions.length, current]);
+
+  useEffect(() => {
+    setCurrent(0);
+    setShowAnswer(false);
+  }, [searchQuery, starFilter]);
 
   const currentQuestion = filteredQuestions[current];
   const isFirst = current === 0;
@@ -222,7 +294,7 @@ export function StudyViewer() {
       }
       
       // Update local state only after successful API response
-      setFilteredQuestions((prev) =>
+      setQuestions((prev) =>
         prev.map((q) =>
           q.id === questionId ? { ...q, isRead: true, readAt: new Date() } : q
         )
@@ -341,11 +413,48 @@ export function StudyViewer() {
         return [...prev, lawNumber].sort((a, b) => a - b);
       }
     });
-    // Keep dropdown open to allow multiple selections
+    setIsLawDropdownOpen(false);
   };
 
   const clearAllLaws = () => {
     setLawFilter([]);
+    setIsLawDropdownOpen(false);
+  };
+
+  const toggleStarred = (questionId: string) => {
+    const isCurrentlyStarred = starredIds.includes(questionId);
+    const nextStarredIds = isCurrentlyStarred
+      ? starredIds.filter((id) => id !== questionId)
+      : [...starredIds, questionId];
+
+    setStarredIds(nextStarredIds);
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId ? { ...q, isStarred: !isCurrentlyStarred } : q
+      )
+    );
+
+    fetch("/api/study/favorites", {
+      method: isCurrentlyStarred ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questionId }),
+    }).then((res) => {
+      if (!res.ok) {
+        setStarredIds(starredIds);
+        setQuestions((prev) =>
+          prev.map((q) =>
+            q.id === questionId ? { ...q, isStarred: isCurrentlyStarred } : q
+          )
+        );
+      }
+    }).catch(() => {
+      setStarredIds(starredIds);
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === questionId ? { ...q, isStarred: isCurrentlyStarred } : q
+        )
+      );
+    });
   };
 
   const readOptions = [
@@ -366,8 +475,12 @@ export function StudyViewer() {
               onClick={() => setIsLawDropdownOpen(!isLawDropdownOpen)}
               className="w-48 flex items-center justify-between rounded-lg px-4 py-2.5 text-sm text-left bg-dark-900 border border-cyan-500/20 text-white hover:border-cyan-500/50 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-200"
             >
-              <span className={lawFilter.length === 0 ? "text-text-muted" : ""}>
-                {lawFilter.length === 0 ? "Select Laws" : `${lawFilter.length} selected`}
+              <span className={`${lawFilter.length === 0 ? "text-text-muted" : ""} truncate`}>
+                {lawFilter.length === 0
+                  ? "Select Laws"
+                  : lawFilter.length === 1
+                  ? formatLawLabel(lawFilter[0])
+                  : `${lawFilter.length} selected`}
               </span>
               <svg 
                 className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isLawDropdownOpen ? "rotate-180" : ""}`}
@@ -419,7 +532,7 @@ export function StudyViewer() {
                           }
                         `}
                       >
-                        <span>Law {num}</span>
+                        <span>{formatLawLabel(num)}</span>
                         {isSelected && (
                           <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -433,6 +546,22 @@ export function StudyViewer() {
             )}
           </div>
 
+          {/* Search */}
+          <div className="min-w-[240px] flex-1">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search questions, laws, keywords..."
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-dark-900 border border-cyan-500/20 text-sm text-white placeholder:text-text-muted focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+              />
+            </div>
+          </div>
+
           {/* Read/Unread Filter */}
           <div className="w-40">
             <Select
@@ -442,6 +571,28 @@ export function StudyViewer() {
               className="[&>button]:border-cyan-500/20 [&>button]:hover:border-cyan-500/50 [&>button]:focus:border-cyan-500/50 [&>button]:focus:ring-cyan-500/20"
             />
           </div>
+
+          {/* Starred Filter */}
+          <button
+            type="button"
+            onClick={() => setStarFilter(starFilter === "starred" ? "all" : "starred")}
+            className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all flex items-center gap-2 ${
+              starFilter === "starred"
+                ? "bg-yellow-500/15 border-yellow-400/40 text-yellow-300"
+                : "bg-dark-900 border-cyan-500/20 text-text-secondary hover:text-white hover:border-cyan-500/50"
+            }`}
+            title="Show starred questions"
+          >
+            <svg
+              className={`w-4 h-4 ${starFilter === "starred" ? "text-yellow-300" : "text-text-secondary"}`}
+              viewBox="0 0 24 24"
+              fill={starFilter === "starred" ? "currentColor" : "none"}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.518 4.674a1 1 0 00.95.69h4.914c.969 0 1.371 1.24.588 1.81l-3.976 2.89a1 1 0 00-.364 1.118l1.518 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.89a1 1 0 00-1.176 0l-3.976 2.89c-.784.57-1.838-.197-1.539-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.98 10.101c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.95-.69l1.518-4.674z" />
+            </svg>
+            Starred
+          </button>
 
           <div className="flex-1" />
 
@@ -479,6 +630,28 @@ export function StudyViewer() {
             Mark all as unread
           </button>
         </div>
+
+        {/* Selected Laws Pills */}
+        {lawFilter.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {lawFilter.map((lawNum) => (
+              <div
+                key={lawNum}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 relative group"
+                title={formatLawLabel(lawNum)}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleLaw(lawNum)}
+                  className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-lg hover:scale-110 transition-transform bg-cyan-500"
+                >
+                  ×
+                </button>
+                <span className="ml-2 truncate max-w-[220px]">{formatLawLabel(lawNum)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {filteredQuestions.length === 0 ? (
@@ -488,6 +661,8 @@ export function StudyViewer() {
             onClick={() => {
               setLawFilter([]);
               setReadFilter("all");
+              setSearchQuery("");
+              setStarFilter("all");
             }}
             className="px-4 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white hover:border-cyan-500/50 transition-all cursor-pointer"
           >
@@ -518,7 +693,25 @@ export function StudyViewer() {
           {/* Question Card */}
           {currentQuestion && (
             <div className="rounded-xl border border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden">
-              <div className="p-8 space-y-6">
+              <div className="p-8 space-y-6 relative">
+                {/* Star Toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleStarred(currentQuestion.id)}
+                  className="absolute top-4 right-4 p-1.5 rounded-md bg-dark-900/70 border border-dark-600 hover:border-yellow-400/60 transition-colors"
+                  title={starredIds.includes(currentQuestion.id) ? "Unstar question" : "Star question"}
+                  aria-pressed={starredIds.includes(currentQuestion.id)}
+                >
+                  <svg
+                    className={`w-4 h-4 ${starredIds.includes(currentQuestion.id) ? "text-yellow-400" : "text-text-secondary"}`}
+                    viewBox="0 0 24 24"
+                    fill={starredIds.includes(currentQuestion.id) ? "currentColor" : "none"}
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.518 4.674a1 1 0 00.95.69h4.914c.969 0 1.371 1.24.588 1.81l-3.976 2.89a1 1 0 00-.364 1.118l1.518 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.89a1 1 0 00-1.176 0l-3.976 2.89c-.784.57-1.838-.197-1.539-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.98 10.101c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.95-.69l1.518-4.674z" />
+                  </svg>
+                </button>
+
                 {/* Law Number Badges */}
                 {currentQuestion.lawNumbers && currentQuestion.lawNumbers.length > 0 && (
                   <div className="flex flex-wrap gap-2">
@@ -530,11 +723,14 @@ export function StudyViewer() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:scale-105 transition-all duration-200 group"
                         onClick={(e) => e.stopPropagation()}
+                        title={formatLawLabel(lawNum)}
                       >
                         <svg className="w-4 h-4 text-cyan-400 group-hover:text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <span className="text-sm font-medium text-cyan-400 group-hover:text-cyan-300">Law {lawNum}</span>
+                        <span className="text-sm font-medium text-cyan-400 group-hover:text-cyan-300">
+                          Law {lawNum} - {getLawName(lawNum)}
+                        </span>
                       </Link>
                     ))}
                   </div>

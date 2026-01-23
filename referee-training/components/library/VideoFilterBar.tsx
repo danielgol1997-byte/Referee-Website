@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { RAPCategory } from "./RAPCategoryTabs";
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 export interface VideoFilters {
   categoryTags: string[];
@@ -65,7 +66,7 @@ const GROUP_COLORS: Record<string, string> = {
   sanction: '#EC4899',
   scenario: '#6BCF7F',
 };
-const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law ${i + 1}` }));
+const LAWS = LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) }));
 
 /**
  * VideoFilterBar - Redesigned Multi-Select Filter Bar
@@ -629,7 +630,7 @@ function FilterDropdown({
   // Get selected items
   const selectedItems = selectedValues.map(val => {
     if (type === 'law') {
-      return { label: `Law ${val}`, value: val, color: config.color };
+      return { label: formatLawLabel(Number(val)), value: val, color: config.color };
     }
     const tag = options.find((opt: any) => opt.slug === val || opt.value === val);
     return tag ? { 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 type PoolTest = {
   id: string;
@@ -19,10 +20,9 @@ type PoolTest = {
 
 type CarouselTab = "public" | "user-generated";
 
-const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
 const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
   value: num, 
-  label: `Law ${num}` 
+  label: formatLawLabel(num) 
 }));
 
 export function PoolTestsCarousel() {

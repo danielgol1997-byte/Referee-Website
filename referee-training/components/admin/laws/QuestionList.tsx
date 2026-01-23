@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 const LAW_FILTER_OPTIONS = [
   { value: "", label: "All" },
   { value: "unassigned", label: "No Law Assigned" },
-  ...LAW_NUMBERS.map((num) => ({ value: num, label: `${num}` })),
+  ...LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) })),
 ];
 
 const DIFFICULTY_OPTIONS = [
@@ -440,8 +439,8 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                                       {editForm.lawNumbers.length === 0 
                                         ? "No laws selected" 
                                         : editForm.lawNumbers.length === 1
-                                        ? `Law ${editForm.lawNumbers[0]}`
-                                        : `${editForm.lawNumbers.length} laws: ${editForm.lawNumbers.join(", ")}`
+                                        ? formatLawLabel(editForm.lawNumbers[0])
+                                        : `${editForm.lawNumbers.length} laws selected`
                                       }
                                     </span>
                                     <svg 
@@ -484,7 +483,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                                                   : "text-text-secondary hover:text-white hover:bg-dark-700"
                                               )}
                                             >
-                                              <span>Law {num}</span>
+                                              <span>{formatLawLabel(num)}</span>
                                               {isSelected && (
                                                 <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

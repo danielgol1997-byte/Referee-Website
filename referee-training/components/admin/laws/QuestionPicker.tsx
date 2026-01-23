@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
-const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
 const LAW_FILTER_OPTIONS = [
   { value: "", label: "All Laws" },
-  ...LAW_NUMBERS.map((num) => ({ value: num, label: `Law ${num}` })),
+  ...LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) })),
 ];
 
 const QUESTIONS_PER_PAGE = 20;
@@ -168,8 +168,8 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                       {question.lawNumbers && question.lawNumbers.length > 0 && (
                         <span className="text-xs text-accent font-medium mr-2">
                           {question.lawNumbers.length === 1 
-                            ? `Law ${question.lawNumbers[0]}`
-                            : `Laws ${question.lawNumbers.join(", ")}`
+                            ? formatLawLabel(question.lawNumbers[0])
+                            : `Laws ${question.lawNumbers.map((num) => formatLawLabel(num)).join(", ")}`
                           }
                         </span>
                       )}
@@ -287,8 +287,8 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                         {question.lawNumbers && question.lawNumbers.length > 0 && (
                           <span className="text-xs text-accent font-medium mr-2">
                             {question.lawNumbers.length === 1 
-                              ? `Law ${question.lawNumbers[0]}`
-                              : `Laws ${question.lawNumbers.join(", ")}`
+                            ? formatLawLabel(question.lawNumbers[0])
+                            : `Laws ${question.lawNumbers.map((num) => formatLawLabel(num)).join(", ")}`
                             }
                           </span>
                         )}

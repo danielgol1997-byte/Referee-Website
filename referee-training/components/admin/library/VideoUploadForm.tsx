@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
@@ -33,7 +34,7 @@ interface Tag {
   parentCategory?: string;
 }
 
-const LAWS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Law ${i + 1}` }));
+const LAWS = LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) }));
 
 // Tag group colors
 const GROUP_COLORS: Record<string, string> = {

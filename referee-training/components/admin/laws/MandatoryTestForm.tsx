@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
-
-const LAW_NUMBERS = Array.from({ length: 17 }, (_, idx) => idx + 1);
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
 const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
   value: num, 
-  label: `Law ${num}` 
+  label: formatLawLabel(num) 
 }));
 
 export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {

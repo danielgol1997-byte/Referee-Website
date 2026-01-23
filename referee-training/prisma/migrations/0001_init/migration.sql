@@ -209,4 +209,3 @@ ALTER TABLE "TrainingAssignment" ADD CONSTRAINT "TrainingAssignment_userId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "TrainingAssignment" ADD CONSTRAINT "TrainingAssignment_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-

@@ -43,14 +43,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Get all questions
+    // Get questions with minimal fields (no answerOptions or category - not needed for study mode)
     const questions = await prisma.question.findMany({
       where: questionFilter,
-      include: {
-        answerOptions: {
-          orderBy: { order: "asc" },
-        },
-        category: true,
+      select: {
+        id: true,
+        text: true,
+        explanation: true,
+        lawNumbers: true,
+        createdAt: true,
       },
       orderBy: [
         { createdAt: "asc" },
@@ -68,10 +69,21 @@ export async function GET(req: NextRequest) {
         })
       : [];
 
+    const favorites = questionIds.length > 0
+      ? await prisma.questionFavorite.findMany({
+          where: {
+            userId: session.user.id,
+            questionId: { in: questionIds },
+          },
+          select: { questionId: true },
+        })
+      : [];
+
     // Create a map for quick lookup
     const progressMap = new Map(
       studyProgress.map((sp) => [sp.questionId, sp])
     );
+    const favoriteSet = new Set(favorites.map((favorite) => favorite.questionId));
 
     // Combine questions with progress
     let questionsWithProgress = questions.map((q) => {
@@ -80,6 +92,7 @@ export async function GET(req: NextRequest) {
         ...q,
         isRead: progress?.isRead ?? false,
         readAt: progress?.readAt ?? null,
+        isStarred: favoriteSet.has(q.id),
       };
     });
 

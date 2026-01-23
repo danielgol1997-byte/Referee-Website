@@ -5,8 +5,9 @@ import { InlineVideoPlayer } from "./InlineVideoPlayer";
 import { DecisionReveal } from "./DecisionReveal";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 
-const LAWS = Array.from({ length: 17 }, (_, i) => i + 1);
+const LAWS = LAW_NUMBERS;
 const SANCTIONS = [
   { value: 'YELLOW_CARD', label: 'Yellow Card' },
   { value: 'SECOND_YELLOW', label: 'Second Yellow' },
@@ -173,7 +174,7 @@ export function VideoSearchView() {
                 <option value="">All Laws</option>
                 {LAWS.map((law) => (
                   <option key={law} value={law}>
-                    Law {law}
+                    {formatLawLabel(law)}
                   </option>
                 ))}
               </select>
