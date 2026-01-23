@@ -11,8 +11,18 @@ if (!shouldRunMigration()) {
 }
 
 console.log('Running Tag Category migration for production...');
-const result = spawnSync('node', ['prisma/migrate-tag-categories.js'], {
+const tagCategoryResult = spawnSync('node', ['prisma/migrate-tag-categories.js'], {
   stdio: 'inherit',
 });
 
-process.exit(result.status ?? 1);
+if (tagCategoryResult.status !== 0) {
+  console.error('Tag Category migration failed!');
+  process.exit(tagCategoryResult.status ?? 1);
+}
+
+console.log('\nRunning Laws to Tags migration for production...');
+const lawsResult = spawnSync('node', ['prisma/migrate-laws-to-tags.js'], {
+  stdio: 'inherit',
+});
+
+process.exit(lawsResult.status ?? 1);
