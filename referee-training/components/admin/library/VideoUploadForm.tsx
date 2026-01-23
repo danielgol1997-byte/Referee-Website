@@ -414,7 +414,6 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       setThumbnailPreview('');
       setTitle('');
       setDecisionExplanation('');
-      setSelectedLaws([]);
       setCorrectDecisionTags([]);
       setInvisibleTags([]);
       setUploadMode('decisions');
