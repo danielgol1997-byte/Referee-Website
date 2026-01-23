@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
@@ -60,12 +60,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Form data
-  const [title, setTitle] = useState(editingVideo?.title || '');
-  const [description, setDescription] = useState(editingVideo?.description || '');
-  const [decisionExplanation, setDecisionExplanation] = useState(editingVideo?.decisionExplanation || '');
-  const [isEducationalOverride, setIsEducationalOverride] = useState<boolean | null>(
-    editingVideo?.isEducational ? true : null
+  const [uploadMode, setUploadMode] = useState<'decisions' | 'explanations'>(
+    editingVideo?.isEducational ? 'explanations' : 'decisions'
   );
+  const [title, setTitle] = useState(editingVideo?.title || '');
+  const [decisionExplanation, setDecisionExplanation] = useState(editingVideo?.decisionExplanation || '');
   const [selectedLaws, setSelectedLaws] = useState<number[]>(editingVideo?.lawNumbers || []);
   const [playOn, setPlayOn] = useState(editingVideo?.playOn || false);
   const [noOffence, setNoOffence] = useState(editingVideo?.noOffence || false);
@@ -93,27 +92,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   useEffect(() => {
     if (editingVideo) {
       setDecisionExplanation(editingVideo.decisionExplanation || '');
-      setIsEducationalOverride(editingVideo.isEducational ? true : null);
+      setUploadMode(editingVideo.isEducational ? 'explanations' : 'decisions');
     }
   }, [editingVideo]);
 
-  const autoEducational = useMemo(() => {
-    const autoNames = new Set([
-      'advantage',
-      'dissent',
-      'referee abuse',
-      'teamwork',
-      'laws of the game',
-    ]);
-
-    const selectedCategoryTags = [...correctDecisionTags, ...invisibleTags].filter(
-      tag => tag.category?.slug === CATEGORY_TAG_CATEGORY_SLUG
-    );
-
-    return selectedCategoryTags.some(tag => autoNames.has(tag.name.toLowerCase().trim()));
-  }, [correctDecisionTags, invisibleTags]);
-
-  const effectiveIsEducational = isEducationalOverride ?? autoEducational;
+  const effectiveIsEducational = uploadMode === 'explanations';
 
   const tagCategoryMap = tags.reduce((acc, tag) => {
     if (tag.category) {
@@ -350,12 +333,14 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         }
       }
 
-      // Prepare tag data with correct decision ordering
-      const correctDecisionTagData = correctDecisionTags.map((tag, index) => ({
-        tagId: tag.id,
-        isCorrectDecision: true,
-        decisionOrder: index + 1,
-      }));
+      const hasDecisionTags = !effectiveIsEducational;
+      const correctDecisionTagData = hasDecisionTags
+        ? correctDecisionTags.map((tag, index) => ({
+            tagId: tag.id,
+            isCorrectDecision: true,
+            decisionOrder: index + 1,
+          }))
+        : [];
 
       const invisibleTagData = invisibleTags.map(tag => ({
         tagId: tag.id,
@@ -367,8 +352,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       
       const videoData = {
         title,
-        description,
-        decisionExplanation: decisionExplanation.trim() || null,
+        decisionExplanation: effectiveIsEducational ? decisionExplanation.trim() : null,
         isEducational: effectiveIsEducational,
         fileUrl,
         thumbnailUrl,
@@ -376,8 +360,8 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         // Don't pass categoryId - let the backend handle it
         videoCategoryId: videoCategories[0]?.id || null,
         lawNumbers: selectedLaws,
-        playOn,
-        noOffence,
+        playOn: hasDecisionTags ? playOn : false,
+        noOffence: hasDecisionTags ? noOffence : false,
         tagData: allTagData, // Send structured tag data with order and type
         isActive: true,
       };
@@ -433,12 +417,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       setVideoPreview('');
       setThumbnailPreview('');
       setTitle('');
-      setDescription('');
       setDecisionExplanation('');
       setSelectedLaws([]);
       setCorrectDecisionTags([]);
       setInvisibleTags([]);
-      setIsEducationalOverride(null);
+      setUploadMode('decisions');
       
       onSuccess?.();
     } catch (error: any) {
@@ -456,9 +439,30 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Upload Mode Tabs */}
+      <div className="flex items-center gap-2 rounded-xl border border-dark-600 bg-dark-800/60 p-2">
+        {(['decisions', 'explanations'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setUploadMode(mode)}
+            className={cn(
+              "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold uppercase tracking-wider transition-all",
+              uploadMode === mode
+                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 shadow-lg shadow-cyan-500/20"
+                : "text-text-secondary hover:text-text-primary hover:bg-dark-700"
+            )}
+          >
+            {mode === 'decisions' ? 'Decisions' : 'Explanations'}
+          </button>
+        ))}
+      </div>
+
       {/* Video Upload Section */}
       <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">Upload Video</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-4">
+          {uploadMode === 'decisions' ? 'Upload Decision Clip' : 'Upload Explanation Clip'}
+        </h3>
         
         {!videoPreview ? (
           <div
@@ -552,48 +556,21 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Description (Optional)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-              placeholder="Add a description for this video..."
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-lg bg-dark-900/40 border border-dark-700 p-4">
-            <label className="inline-flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={effectiveIsEducational}
-                onChange={(e) => setIsEducationalOverride(e.target.checked)}
-                className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
+          {uploadMode === 'explanations' && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Explanation <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={decisionExplanation}
+                onChange={(e) => setDecisionExplanation(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                placeholder="Explain the decision or guidance for this clip..."
+                required
               />
-              <span className="text-sm font-medium text-text-primary">
-                Explanation-only answer
-              </span>
-            </label>
-            <p className="text-xs text-text-muted">
-              Auto-enabled for Advantage, Dissent, Referee Abuse, Teamwork, and Laws of the Game category tags.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Explanation {effectiveIsEducational && <span className="text-red-500">*</span>}
-            </label>
-            <textarea
-              value={decisionExplanation}
-              onChange={(e) => setDecisionExplanation(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-              placeholder="Explain the decision or guidance for this clip..."
-            />
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -658,68 +635,69 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
             );
           })}
 
-          {/* Correct Decision Section */}
-          <div className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/30 p-6">
-            <h4 className="text-md font-semibold text-cyan-400 mb-3">Correct Decision Tags</h4>
-            <p className="text-sm text-text-muted mb-4">
-              These tags will be displayed as the correct answer when users view this video. Drag to reorder.
-            </p>
-            
-            {/* Play On / No Offence Toggles */}
-            <div className="flex gap-4 mb-4 p-4 bg-dark-900/50 rounded-lg border border-cyan-500/20">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={playOn}
-                  onChange={(e) => {
-                    setPlayOn(e.target.checked);
-                    if (e.target.checked) setNoOffence(false);
-                  }}
-                  className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
-                />
-                <span className={cn(
-                  "font-semibold text-sm uppercase tracking-wider transition-colors",
-                  playOn ? "text-cyan-400" : "text-slate-600"
-                )}>
-                  Play On
-                </span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={noOffence}
-                  onChange={(e) => {
-                    setNoOffence(e.target.checked);
-                    if (e.target.checked) setPlayOn(false);
-                  }}
-                  className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
-                />
-                <span className={cn(
-                  "font-semibold text-sm uppercase tracking-wider transition-colors",
-                  noOffence ? "text-cyan-400" : "text-slate-600"
-                )}>
-                  No Offence
-                </span>
-              </label>
-              <p className="text-xs text-text-muted ml-auto self-center">
-                When enabled, this will be displayed as the title above the answer sections
+          {uploadMode === 'decisions' && (
+            <div className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/30 p-6">
+              <h4 className="text-md font-semibold text-cyan-400 mb-3">Correct Decision Tags</h4>
+              <p className="text-sm text-text-muted mb-4">
+                These tags will be displayed as the correct answer when users view this video. Drag to reorder.
               </p>
+              
+              {/* Play On / No Offence Toggles */}
+              <div className="flex gap-4 mb-4 p-4 bg-dark-900/50 rounded-lg border border-cyan-500/20">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={playOn}
+                    onChange={(e) => {
+                      setPlayOn(e.target.checked);
+                      if (e.target.checked) setNoOffence(false);
+                    }}
+                    className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
+                  />
+                  <span className={cn(
+                    "font-semibold text-sm uppercase tracking-wider transition-colors",
+                    playOn ? "text-cyan-400" : "text-slate-600"
+                  )}>
+                    Play On
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={noOffence}
+                    onChange={(e) => {
+                      setNoOffence(e.target.checked);
+                      if (e.target.checked) setPlayOn(false);
+                    }}
+                    className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
+                  />
+                  <span className={cn(
+                    "font-semibold text-sm uppercase tracking-wider transition-colors",
+                    noOffence ? "text-cyan-400" : "text-slate-600"
+                  )}>
+                    No Offence
+                  </span>
+                </label>
+                <p className="text-xs text-text-muted ml-auto self-center">
+                  When enabled, this will be displayed as the title above the answer sections
+                </p>
+              </div>
+              
+              <CorrectDecisionList
+                tags={correctDecisionTags}
+                allTags={[...correctDecisionTags, ...invisibleTags]}
+                onReorder={setCorrectDecisionTags}
+                onMove={(tag) => {
+                  setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id));
+                  setCorrectDecisionTags([...correctDecisionTags, tag]);
+                }}
+                onRemove={(tag) => {
+                  setCorrectDecisionTags(correctDecisionTags.filter(t => t.id !== tag.id));
+                  setInvisibleTags([...invisibleTags, tag]);
+                }}
+              />
             </div>
-            
-            <CorrectDecisionList
-              tags={correctDecisionTags}
-              allTags={[...correctDecisionTags, ...invisibleTags]}
-              onReorder={setCorrectDecisionTags}
-              onMove={(tag) => {
-                setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id));
-                setCorrectDecisionTags([...correctDecisionTags, tag]);
-              }}
-              onRemove={(tag) => {
-                setCorrectDecisionTags(correctDecisionTags.filter(t => t.id !== tag.id));
-                setInvisibleTags([...invisibleTags, tag]);
-              }}
-            />
-          </div>
+          )}
 
           {/* Invisible Tags Section */}
           <div className="rounded-xl bg-dark-900/50 border border-dark-600 p-6">
@@ -728,14 +706,16 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
               These tags help filter videos but won't be shown as correct answers.
             </p>
             
-            <InvisibleTagsList
-              tags={invisibleTags}
-              onRemove={(tag) => setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id))}
-              onMoveToCorrect={(tag) => {
-                setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id));
-                setCorrectDecisionTags([...correctDecisionTags, tag]);
-              }}
-            />
+          <InvisibleTagsList
+            tags={invisibleTags}
+            showMoveToCorrect={uploadMode === 'decisions'}
+            showFilterOnlyLabel={uploadMode === 'decisions'}
+            onRemove={(tag) => setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id))}
+            onMoveToCorrect={(tag) => {
+              setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id));
+              setCorrectDecisionTags([...correctDecisionTags, tag]);
+            }}
+          />
           </div>
         </div>
       </div>
@@ -997,10 +977,14 @@ function CorrectDecisionList({
 // Invisible Tags List Component
 function InvisibleTagsList({ 
   tags, 
+  showMoveToCorrect = true,
+  showFilterOnlyLabel = true,
   onRemove,
   onMoveToCorrect
 }: { 
   tags: Tag[]; 
+  showMoveToCorrect?: boolean;
+  showFilterOnlyLabel?: boolean;
   onRemove: (tag: Tag) => void;
   onMoveToCorrect: (tag: Tag) => void;
 }) {
@@ -1014,7 +998,7 @@ function InvisibleTagsList({
           >
             <div className="w-4 h-4 rounded" style={{ backgroundColor: tag.color }} />
             <span className="flex-1 text-text-primary">{tag.name}</span>
-            {tag.category?.canBeCorrectAnswer ? (
+            {showMoveToCorrect && tag.category?.canBeCorrectAnswer ? (
               <button
                 type="button"
                 onClick={() => onMoveToCorrect(tag)}
@@ -1022,9 +1006,9 @@ function InvisibleTagsList({
               >
                 Move to Correct
               </button>
-            ) : (
+            ) : showFilterOnlyLabel ? (
               <span className="text-xs text-text-muted">Filter only</span>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={() => onRemove(tag)}
