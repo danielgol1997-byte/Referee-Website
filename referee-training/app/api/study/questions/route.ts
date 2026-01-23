@@ -69,15 +69,21 @@ export async function GET(req: NextRequest) {
         })
       : [];
 
-    const favorites = questionIds.length > 0
-      ? await prisma.questionFavorite.findMany({
+    let favorites: { questionId: string }[] = [];
+    if (questionIds.length > 0) {
+      try {
+        favorites = await prisma.questionFavorite.findMany({
           where: {
             userId: session.user.id,
             questionId: { in: questionIds },
           },
           select: { questionId: true },
-        })
-      : [];
+        });
+      } catch (favoriteError) {
+        console.error("Error fetching favorites:", favoriteError);
+        favorites = [];
+      }
+    }
 
     // Create a map for quick lookup
     const progressMap = new Map(
