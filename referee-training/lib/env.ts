@@ -27,6 +27,7 @@ const EnvSchema = z.object({
   FACEBOOK_CLIENT_SECRET: z.string().optional(),
 
   NEXTAUTH_DEBUG: z.string().optional(),
+  SUPER_ADMIN_EMAILS: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

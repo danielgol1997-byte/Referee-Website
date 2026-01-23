@@ -12,6 +12,21 @@ function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function normalizeEmail(email: string) {
+  return email.trim().replace(/^["']|["']$/g, "").toLowerCase();
+}
+
+function parseEmailList(list: string | undefined): Set<string> {
+  if (!list) return new Set();
+  return new Set(list.split(",").map(normalizeEmail).filter(Boolean));
+}
+
+const superAdminEmails = parseEmailList(env.SUPER_ADMIN_EMAILS);
+
+function isSuperAdminEmail(email: string) {
+  return superAdminEmails.has(normalizeEmail(email));
+}
+
 export const authOptions: NextAuthOptions = {
   debug: env.NEXTAUTH_DEBUG === "true" || env.NODE_ENV === "development",
   // Critical: must be stable in production/serverless, or auth will appear "randomly logged out".
@@ -123,15 +138,17 @@ export const authOptions: NextAuthOptions = {
         return false;
       }
 
+      const shouldBeSuperAdmin = isSuperAdminEmail(email);
+
       if (!existing) {
         await prisma.user.create({
           data: {
             email,
             name: user.name ?? (profile as { name?: string | null } | undefined)?.name ?? "Google User",
             image: user.image ?? (profile as { picture?: string | null } | undefined)?.picture ?? null,
-            role: Role.REFEREE,
+            role: shouldBeSuperAdmin ? Role.SUPER_ADMIN : Role.REFEREE,
             authProvider: account.provider,
-            profileComplete: false,
+            profileComplete: shouldBeSuperAdmin ? true : false,
             lastLoginAt: new Date(),
           },
         });
@@ -145,6 +162,7 @@ export const authOptions: NextAuthOptions = {
           ...(existing.authProvider !== account.provider && { authProvider: account.provider }),
           ...(existing.name ? {} : { name: user.name ?? existing.name }),
           ...(existing.image ? {} : { image: user.image ?? existing.image }),
+          ...(shouldBeSuperAdmin ? { role: Role.SUPER_ADMIN, profileComplete: true } : {}),
         },
       });
 
@@ -198,7 +216,9 @@ export const authOptions: NextAuthOptions = {
         token.role = userWithRole.role;
         token.country = userWithRole.country;
       }
-      if (token.email && (trigger === "update" || token.profileComplete === false || token.role === undefined || token.isActive === undefined)) {
+      // Always refresh user data from database to ensure role and other fields are up-to-date
+      // This is critical: if token.sub doesn't match the database user ID, update it
+      if (token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
           select: {
@@ -210,11 +230,16 @@ export const authOptions: NextAuthOptions = {
           },
         });
         if (dbUser) {
+          // Always update token.sub to match database user ID
+          // This fixes cases where the token has a stale user ID
           token.sub = dbUser.id;
           token.role = dbUser.role;
           token.country = dbUser.country;
           token.profileComplete = dbUser.profileComplete;
           token.isActive = dbUser.isActive;
+        } else {
+          // User not found in database - invalid token
+          console.warn(`JWT callback: User with email ${token.email} not found in database`);
         }
       }
       // Ensure role persists on token for middleware access

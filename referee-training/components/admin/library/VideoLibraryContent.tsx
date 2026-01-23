@@ -15,29 +15,57 @@ export function VideoLibraryContent() {
   const [tags, setTags] = useState<any[]>([]);
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchVideos = async (page = 1, search = '') => {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+      });
+      if (search) {
+        params.append('search', search);
+      }
+
+      const videosRes = await fetch(`/api/admin/library/videos?${params}`);
+      const videosData = await videosRes.json();
+      
+      setVideos(videosData.videos || []);
+      setPagination(videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    }
+  };
+
+  const fetchCategoriesAndTags = async () => {
+    try {
+      const [categoriesRes, tagsRes] = await Promise.all([
+        fetch('/api/admin/library/categories'),
+        fetch('/api/admin/library/tags'),
+      ]);
+
+      const tagsData = await tagsRes.json();
+      
+      let categoriesData = { categories: [] };
+      if (categoriesRes.ok) {
+        categoriesData = await categoriesRes.json();
+      }
+
+      setVideoCategories(categoriesData.categories || []);
+      setTags(tagsData.tags || []);
+    } catch (error) {
+      console.error('Error fetching categories/tags:', error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [videosRes, categoriesRes, tagsRes] = await Promise.all([
-        fetch('/api/admin/library/videos'),
-        fetch('/api/library/videos/search?q='),
-        fetch('/api/admin/library/tags'),
+      await Promise.all([
+        fetchVideos(1, searchQuery),
+        fetchCategoriesAndTags(),
       ]);
-
-      const videosData = await videosRes.json();
-      const tagsData = await tagsRes.json();
-      
-      // Get video categories
-      const categoriesResponse = await fetch('/api/admin/library/categories');
-      let categoriesData = { categories: [] };
-      if (categoriesResponse.ok) {
-        categoriesData = await categoriesResponse.json();
-      }
-
-      setVideos(videosData.videos || []);
-      setVideoCategories(categoriesData.categories || []);
-      setTags(tagsData.tags || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -49,15 +77,31 @@ export function VideoLibraryContent() {
     fetchData();
   }, []);
 
-  const handleEditVideo = (video: any) => {
-    setEditingVideo(video);
-    setActiveSubTab('upload');
+  const handleEditVideo = async (video: any) => {
+    // Fetch full video details when editing
+    try {
+      const response = await fetch(`/api/admin/library/videos/${video.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setEditingVideo(data.video);
+        setActiveSubTab('upload');
+      } else {
+        // Fallback to lightweight data if fetch fails
+        setEditingVideo(video);
+        setActiveSubTab('upload');
+      }
+    } catch (error) {
+      console.error('Error fetching video details:', error);
+      // Fallback to lightweight data
+      setEditingVideo(video);
+      setActiveSubTab('upload');
+    }
   };
 
   const handleUploadSuccess = () => {
     setEditingVideo(null);
     setActiveSubTab('videos');
-    fetchData();
+    fetchVideos(pagination.page, searchQuery);
   };
 
   const handleDeleteVideo = (videoId: string) => {
@@ -134,7 +178,18 @@ export function VideoLibraryContent() {
           videos={videos}
           onEdit={handleEditVideo}
           onDelete={handleDeleteVideo}
-          onRefresh={fetchData}
+          onRefresh={() => fetchVideos(pagination.page, searchQuery)}
+          pagination={pagination}
+          onPageChange={(page) => {
+            fetchVideos(page, searchQuery);
+            setLoading(true);
+          }}
+          searchQuery={searchQuery}
+          onSearchChange={(query) => {
+            setSearchQuery(query);
+            fetchVideos(1, query);
+            setLoading(true);
+          }}
         />
       )}
 

@@ -24,103 +24,142 @@ export default async function VideoLibraryPage() {
       orderBy: { order: 'asc' }
     });
 
-    // Fetch all active videos
+    // Fetch minimal video data for list view (optimized payload)
     const videos = await prisma.videoClip.findMany({
-    where: {
-      isActive: true,
-    },
-    include: {
-      videoCategory: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          order: true
-        }
+      where: {
+        isActive: true,
       },
-      tags: {
-        include: {
-          tag: {
-            include: {
-              category: true
+      select: {
+        id: true,
+        title: true,
+        thumbnailUrl: true,
+        duration: true,
+        viewCount: true,
+        lawNumbers: true,
+        sanctionType: true,
+        restartType: true,
+        isFeatured: true,
+        videoCategory: {
+          select: {
+            rapCategoryCode: true,
+          },
+        },
+        tags: {
+          select: {
+            tag: {
+              select: {
+                id: true,
+                slug: true,
+                name: true,
+                rapCategory: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    canBeCorrectAnswer: true,
+                  },
+                },
+              },
+            },
+            isCorrectDecision: true,
+            decisionOrder: true,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: 'desc' }
+      ],
+    });
+
+    // Format videos for client (minimal payload)
+    const formattedVideos = videos.map(video => ({
+      id: video.id,
+      title: video.title,
+      thumbnailUrl: video.thumbnailUrl || undefined,
+      duration: video.duration || undefined,
+      viewCount: video.viewCount,
+      lawNumbers: video.lawNumbers,
+      sanctionType: video.sanctionType || undefined,
+      restartType: video.restartType || undefined,
+      isFeatured: video.isFeatured,
+      rapCategoryCode: video.videoCategory?.rapCategoryCode || null,
+      tags: video.tags.map(vt => ({
+        id: vt.tag.id,
+        slug: vt.tag.slug,
+        name: vt.tag.name,
+        category: vt.tag.category
+          ? {
+              id: vt.tag.category.id,
+              name: vt.tag.category.name,
+              slug: vt.tag.category.slug,
+              canBeCorrectAnswer: vt.tag.category.canBeCorrectAnswer,
             }
-          }
-        }
-      }
-    },
-    orderBy: [
-      { createdAt: 'desc' }
-    ],
-  });
+          : null,
+        rapCategory: vt.tag.rapCategory,
+        isCorrectDecision: vt.isCorrectDecision,
+        decisionOrder: vt.decisionOrder,
+      })),
+    }));
 
-  // Format videos for client
-  const formattedVideos = videos.map(video => ({
-    id: video.id,
-    title: video.title,
-    description: video.description || undefined,
-    fileUrl: video.fileUrl,
-    thumbnailUrl: video.thumbnailUrl || undefined,
-    duration: video.duration || undefined,
-    viewCount: video.viewCount,
-    lawNumbers: video.lawNumbers,
-    playOn: video.playOn,
-    noOffence: video.noOffence,
-    sanctionType: video.sanctionType || undefined,
-    restartType: video.restartType || undefined,
-    offsideReason: video.offsideReason || undefined,
-    correctDecision: video.correctDecision || undefined,
-    decisionExplanation: video.decisionExplanation || undefined,
-    keyPoints: video.keyPoints,
-    commonMistakes: video.commonMistakes,
-    varNotes: video.varNotes || undefined,
-    isEducational: video.isEducational,
-    isFeatured: video.isFeatured,
-    rapCategoryCode: video.videoCategory?.rapCategoryCode || null,
-    videoType: video.videoType || undefined,
-    tags: video.tags.map(vt => ({
-      id: vt.tag.id,
-      slug: vt.tag.slug,
-      name: vt.tag.name,
-      category: vt.tag.category
-        ? {
-            id: vt.tag.category.id,
-            name: vt.tag.category.name,
-            slug: vt.tag.category.slug,
-            canBeCorrectAnswer: vt.tag.category.canBeCorrectAnswer,
-          }
-        : null,
-      rapCategory: vt.tag.rapCategory,
-      isCorrectDecision: vt.isCorrectDecision,
-      decisionOrder: vt.decisionOrder,
-    })),
-  }));
+    // Calculate video counts by RAP category using aggregated queries
+    const [allCount, decisionMakingCount, managementCount, offsideCount, teamworkCount, lawsCount] = await Promise.all([
+      prisma.videoClip.count({ where: { isActive: true } }),
+      prisma.videoClip.count({
+        where: {
+          isActive: true,
+          OR: [
+            { videoCategory: { rapCategoryCode: 'A' } },
+            { tags: { some: { tag: { rapCategory: 'A' } } } },
+          ],
+        },
+      }),
+      prisma.videoClip.count({
+        where: {
+          isActive: true,
+          OR: [
+            { videoCategory: { rapCategoryCode: 'B' } },
+            { tags: { some: { tag: { rapCategory: 'B' } } } },
+          ],
+        },
+      }),
+      prisma.videoClip.count({
+        where: {
+          isActive: true,
+          OR: [
+            { videoCategory: { rapCategoryCode: 'C' } },
+            { tags: { some: { tag: { rapCategory: 'C' } } } },
+          ],
+        },
+      }),
+      prisma.videoClip.count({
+        where: {
+          isActive: true,
+          OR: [
+            { videoCategory: { rapCategoryCode: 'D' } },
+            { tags: { some: { tag: { rapCategory: 'D' } } } },
+          ],
+        },
+      }),
+      prisma.videoClip.count({
+        where: {
+          isActive: true,
+          OR: [
+            { videoCategory: { rapCategoryCode: 'L' } },
+            { tags: { some: { tag: { rapCategory: 'L' } } } },
+          ],
+        },
+      }),
+    ]);
 
-  // Calculate video counts by RAP category
-  const videoCounts = {
-    all: videos.length,
-    'decision-making': videos.filter(v => {
-      // Check videoCategory rapCode OR if any video tags have rapCategory 'A'
-      return v.videoCategory?.rapCategoryCode === 'A' || 
-             v.tags.some(vt => vt.tag.rapCategory === 'A');
-    }).length,
-    'management': videos.filter(v => {
-      return v.videoCategory?.rapCategoryCode === 'B' || 
-             v.tags.some(vt => vt.tag.rapCategory === 'B');
-    }).length,
-    'offside': videos.filter(v => {
-      return v.videoCategory?.rapCategoryCode === 'C' || 
-             v.tags.some(vt => vt.tag.rapCategory === 'C');
-    }).length,
-    'teamwork': videos.filter(v => {
-      return v.videoCategory?.rapCategoryCode === 'D' || 
-             v.tags.some(vt => vt.tag.rapCategory === 'D');
-    }).length,
-    'laws-of-the-game': videos.filter(v => {
-      return v.videoCategory?.rapCategoryCode === 'L' || 
-             v.tags.some(vt => vt.tag.rapCategory === 'L');
-    }).length,
-  };
+    const videoCounts = {
+      all: allCount,
+      'decision-making': decisionMakingCount,
+      'management': managementCount,
+      'offside': offsideCount,
+      'teamwork': teamworkCount,
+      'laws-of-the-game': lawsCount,
+    };
 
     return (
       <VideoLibraryView 

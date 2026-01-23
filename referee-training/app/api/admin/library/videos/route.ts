@@ -22,6 +22,11 @@ export async function GET(request: Request) {
     const videoCategoryId = searchParams.get('videoCategoryId');
     const isActive = searchParams.get('isActive');
     const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
+    
+    // Pagination parameters
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const skip = (page - 1) * limit;
 
     const where: any = {};
 
@@ -40,7 +45,7 @@ export async function GET(request: Request) {
       where.videoCategoryId = videoCategoryId;
     }
 
-    if (isActive !== null) {
+    if (isActive !== null && isActive !== '') {
       where.isActive = isActive === 'true';
     }
 
@@ -52,21 +57,34 @@ export async function GET(request: Request) {
       };
     }
 
+    // Get total count for pagination
+    const total = await prisma.videoClip.count({ where });
+
+    // Fetch lightweight list data (no heavy relations)
     const videos = await prisma.videoClip.findMany({
       where,
-      include: {
-        category: true,
-        videoCategory: true,
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        uploadedBy: {
+      select: {
+        id: true,
+        title: true,
+        thumbnailUrl: true,
+        duration: true,
+        viewCount: true,
+        lawNumbers: true,
+        isActive: true,
+        isFeatured: true,
+        createdAt: true,
+        videoCategory: {
           select: {
             id: true,
             name: true,
-            email: true,
+            slug: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
           },
         },
       },
@@ -74,9 +92,19 @@ export async function GET(request: Request) {
         { isFeatured: 'desc' },
         { createdAt: 'desc' },
       ],
+      skip,
+      take: limit,
     });
 
-    return NextResponse.json({ videos });
+    return NextResponse.json({ 
+      videos,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Error fetching videos:', error);
     return NextResponse.json(

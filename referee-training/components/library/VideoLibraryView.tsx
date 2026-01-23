@@ -74,6 +74,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   });
   const [activeCategory, setActiveCategory] = useState<RAPCategory>("all");
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [expandedVideoDetails, setExpandedVideoDetails] = useState<Video | null>(null);
+  const [loadingVideoDetails, setLoadingVideoDetails] = useState(false);
   const [closingVideoId, setClosingVideoId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
@@ -189,9 +191,45 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     return 0;
   });
 
-  const expandedVideo = expandedVideoId 
+  // Fetch full video details when a video is opened
+  useEffect(() => {
+    if (!expandedVideoId) {
+      setExpandedVideoDetails(null);
+      return;
+    }
+
+    // Check if we already have minimal data for this video
+    const minimalVideo = videos.find(v => v.id === expandedVideoId);
+    if (!minimalVideo) return;
+
+    // If we already have full details cached, use them
+    if (expandedVideoDetails?.id === expandedVideoId && expandedVideoDetails.fileUrl) {
+      return;
+    }
+
+    // Fetch full details
+    setLoadingVideoDetails(true);
+    fetch(`/api/library/videos/${expandedVideoId}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch video details');
+        return res.json();
+      })
+      .then(data => {
+        setExpandedVideoDetails(data.video);
+      })
+      .catch(error => {
+        console.error('Error fetching video details:', error);
+        // Fallback to minimal data if fetch fails
+        setExpandedVideoDetails(minimalVideo as Video);
+      })
+      .finally(() => {
+        setLoadingVideoDetails(false);
+      });
+  }, [expandedVideoId, videos, expandedVideoDetails]);
+
+  const expandedVideo = expandedVideoDetails || (expandedVideoId 
     ? videos.find(v => v.id === expandedVideoId) 
-    : null;
+    : null);
 
   const handleVideoClick = useCallback((videoId: string) => {
     setExpandedVideoId(videoId);
@@ -381,10 +419,10 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
         </div>
 
         {/* Inline Video Player (Full screen overlay) */}
-        {expandedVideo && (
+        {expandedVideo && expandedVideo.fileUrl && (
           <InlineVideoPlayer
             video={expandedVideo}
-            isExpanded={!!expandedVideoId}
+            isExpanded={!!expandedVideoId && !loadingVideoDetails}
             isAnswerOpen={showDecision}
             onClose={handleClose}
             onDecisionReveal={handleDecisionReveal}
@@ -393,6 +431,13 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
             hasNext={hasNext}
             hasPrev={hasPrev}
           />
+        )}
+        
+        {/* Loading indicator while fetching video details */}
+        {expandedVideoId && loadingVideoDetails && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+          </div>
         )}
 
         {/* Decision Reveal Overlay */}
