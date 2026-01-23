@@ -104,6 +104,7 @@ const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
 
 // Map known tag category slugs to their colors
 const GROUP_COLORS: Record<string, string> = {
+  laws: '#9B72CB',     // Purple - Laws of the Game
   category: '#FF6B6B',
   restarts: '#4A90E2',
   criteria: '#FFD93D',

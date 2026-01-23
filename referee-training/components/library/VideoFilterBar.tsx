@@ -417,7 +417,8 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
         customSlug: slug,
       };
     }
-    return FILTER_CONFIG[type];
+    // Return the config if it exists, otherwise return null for deprecated types
+    return FILTER_CONFIG[type as keyof typeof FILTER_CONFIG] || null;
   };
 
   const shouldShow = isHovered;
@@ -461,22 +462,26 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
           {/* Filter Controls */}
           <div className="flex items-start gap-3 flex-wrap">
-            {orderedVisibleFilters.map(type => (
-              <FilterDropdown
-                key={type}
-                type={type}
-                config={getFilterConfig(type)}
-                tagCategoryMap={tagCategoryMap}
-                filters={filters}
-                isLoading={isLoading}
-                onAdd={addFilter}
-                onRemove={removeFilter}
-                filteredCriteriaTags={filteredCriteriaTags}
-                isOpen={activeDropdown === type}
-                onToggle={() => setActiveDropdown(activeDropdown === type ? null : type)}
-                onClose={() => setActiveDropdown(null)}
-              />
-            ))}
+            {orderedVisibleFilters.map(type => {
+              const config = getFilterConfig(type);
+              if (!config) return null; // Skip invalid filter types
+              return (
+                <FilterDropdown
+                  key={type}
+                  type={type}
+                  config={config}
+                  tagCategoryMap={tagCategoryMap}
+                  filters={filters}
+                  isLoading={isLoading}
+                  onAdd={addFilter}
+                  onRemove={removeFilter}
+                  filteredCriteriaTags={filteredCriteriaTags}
+                  isOpen={activeDropdown === type}
+                  onToggle={() => setActiveDropdown(activeDropdown === type ? null : type)}
+                  onClose={() => setActiveDropdown(null)}
+                />
+              );
+            })}
 
             {/* Settings Gear */}
             <div className="relative" ref={settingsRef}>
@@ -499,6 +504,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
                   <div className="space-y-2">
                     {filterOrder.map(type => {
                       const config = getFilterConfig(type);
+                      if (!config) return null; // Skip invalid filter types
                       return (
                       <div
                         key={type}
