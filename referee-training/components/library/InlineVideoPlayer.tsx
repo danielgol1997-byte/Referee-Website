@@ -629,12 +629,19 @@ export function InlineVideoPlayer({
         }
       }
 
-      // Show answer with 'i'
-      if ((e.key === "i" || e.key === "I") && hasAnswer && !isAnswerOpen) {
+      // Show answer with 'i' (only if keyboard help is not open)
+      if ((e.key === "i" || e.key === "I") && hasAnswer && !isAnswerOpen && !showKeyboardHelp) {
         if (videoRef.current && !videoRef.current.paused) {
           videoRef.current.pause();
         }
         onDecisionReveal?.();
+        return;
+      }
+
+      // Close keyboard help if 'i' pressed while it's open
+      if ((e.key === "i" || e.key === "I") && showKeyboardHelp) {
+        e.preventDefault();
+        setShowKeyboardHelp(false);
         return;
       }
 
@@ -650,10 +657,16 @@ export function InlineVideoPlayer({
         return;
       }
 
-      // Toggle keyboard shortcuts help with '?' or '/'
-      if (e.key === "?" || e.key === "/") {
+      // Toggle keyboard shortcuts help with '?' or '/' (only if answer is not open)
+      if ((e.key === "?" || e.key === "/") && !isAnswerOpen) {
         e.preventDefault();
         setShowKeyboardHelp(!showKeyboardHelp);
+        return;
+      }
+
+      // Close answer if '?' or '/' pressed while it's open
+      if ((e.key === "?" || e.key === "/") && isAnswerOpen) {
+        e.preventDefault();
         return;
       }
     };
@@ -667,7 +680,7 @@ export function InlineVideoPlayer({
     };
   }, [
     isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal,
-    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay, toggleFullscreen
+    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay, toggleFullscreen, showKeyboardHelp
   ]);
 
   const handleVideoPlay = () => {
@@ -687,9 +700,10 @@ export function InlineVideoPlayer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={cn(
-              "fixed inset-0 bg-black/80 z-[9000] backdrop-blur-sm",
+              "fixed inset-0 bg-black/80 backdrop-blur-sm",
               "transition-opacity duration-300"
             )}
+            style={{ zIndex: 99998 }}
             onClick={(e) => {
               e.stopPropagation();
               handleClose();
@@ -701,11 +715,12 @@ export function InlineVideoPlayer({
             key="player-container"
             ref={playerWrapperRef}
             className={cn(
-              "fixed inset-0 z-[9001] flex flex-col items-center justify-center pointer-events-none",
+              "fixed inset-0 flex flex-col items-center justify-center pointer-events-none",
               // Responsive padding - less on small screens
               isFullscreen ? "p-0" : "pt-[88px] sm:pt-[100px] pb-4 sm:pb-6 px-2 sm:px-4 md:px-12",
               className
             )}
+            style={{ zIndex: 99999 }}
             initial={{ opacity: 1 }}
             exit={{ opacity: 1, transition: { duration: 0.1 } }} // Keep container alive during exit
           >
@@ -722,19 +737,20 @@ export function InlineVideoPlayer({
               onMouseEnter={() => setShowControls(true)}
               onMouseLeave={() => setShowControls(false)}
               transition={isSharedLayoutEnabled ? { type: "spring", stiffness: 250, damping: 25 } : { duration: 0 }}
-              style={{ borderRadius: isFullscreen ? "0" : "16px", zIndex: 9002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
+              style={{ borderRadius: isFullscreen ? "0" : "16px", zIndex: 100000 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
             >
               {/* Close Button */}
               <button
                 onClick={(e) => handleClose(e)}
                 className={cn(
-                  "absolute top-4 right-4 z-[9003] w-10 h-10",
+                  "absolute top-4 right-4 w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
                   "text-white hover:text-accent focus:outline-none",
                   showControls ? "opacity-100" : "opacity-0"
                 )}
+                style={{ zIndex: 100001 }}
                 aria-label="Close video"
               >
                 <svg
@@ -759,8 +775,9 @@ export function InlineVideoPlayer({
                   e.stopPropagation();
                   setShowKeyboardHelp(true);
                 }}
+                style={{ zIndex: 100001 }}
                 className={cn(
-                  "absolute top-4 right-16 z-[9003] w-10 h-10",
+                  "absolute top-4 right-16 w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
@@ -780,8 +797,9 @@ export function InlineVideoPlayer({
                     e.stopPropagation();
                     onPrev?.();
                   }}
+                  style={{ zIndex: 100001 }}
                   className={cn(
-                    "absolute top-1/2 left-4 -translate-y-1/2 z-[9103] w-12 h-12",
+                    "absolute top-1/2 left-4 -translate-y-1/2 w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -802,8 +820,9 @@ export function InlineVideoPlayer({
                     e.stopPropagation();
                     onNext?.();
                   }}
+                  style={{ zIndex: 100001 }}
                   className={cn(
-                    "absolute top-1/2 right-4 -translate-y-1/2 z-[9103] w-12 h-12",
+                    "absolute top-1/2 right-4 -translate-y-1/2 w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -1191,116 +1210,160 @@ export function InlineVideoPlayer({
               {/* Keyboard Shortcuts Help Overlay */}
               <AnimatePresence>
                 {showKeyboardHelp && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-[9004] bg-black/95 backdrop-blur-sm flex items-center justify-center p-8"
-                    onClick={() => setShowKeyboardHelp(false)}
-                  >
-                    <div className="max-w-2xl w-full bg-dark-800 rounded-xl p-6 border border-white/10" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-white">Keyboard Shortcuts</h3>
-                        <button
-                          onClick={() => setShowKeyboardHelp(false)}
-                          className="text-white/50 hover:text-white transition-colors"
-                        >
-                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Play/Pause</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Space</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Replay from start</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">R</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Close video</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Esc</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Previous frame</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">,</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Next frame</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">.</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Jump back 5s</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Shift + ←</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Jump forward 5s</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Shift + →</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Rewind</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">J</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Fast forward</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">L</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Set loop start (drag marker)</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">A</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Set loop end (drag marker)</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">B</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Toggle loop</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">Shift + L</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Reset loop markers</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">C</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Slower speed</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">[</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Faster speed</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">]</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Reset speed to 1x</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">1</kbd>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Mute/Unmute</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">M</kbd>
-                        </div>
-                        {hasAnswer && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-white/70">Show answer</span>
-                            <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">I</kbd>
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="absolute inset-0 bg-black/90 transition-opacity duration-300"
+                      style={{ zIndex: 100002 }}
+                      onClick={() => setShowKeyboardHelp(false)}
+                    />
+                    
+                    {/* Modal */}
+                    <div className="absolute inset-0 flex items-center justify-center p-6" style={{ zIndex: 100003 }}>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full max-w-xl max-h-[60vh] overflow-y-auto bg-gradient-to-br from-dark-800 to-dark-900 rounded-xl p-5 border border-white/10 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-between items-center mb-4">
+                          <div>
+                            <h3 className="text-xl font-bold text-white">Keyboard Shortcuts</h3>
                           </div>
-                        )}
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Fullscreen</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">F</kbd>
+                          <button
+                            onClick={() => setShowKeyboardHelp(false)}
+                            className="text-white/50 hover:text-white transition-colors"
+                          >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Show shortcuts</span>
-                          <kbd className="px-2 py-1 bg-white/10 rounded text-white font-mono text-xs">? or /</kbd>
+
+                        <div className="space-y-3">
+                        {/* Playback Controls - Blue */}
+                        <div>
+                          <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-1.5">Playback</h4>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Play / Pause</span>
+                              <kbd className="px-2.5 py-1 bg-blue-500/30 border border-blue-500/50 rounded text-blue-300 font-mono text-xs font-semibold">Space</kbd>
+                            </div>
+                            <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Replay from start</span>
+                              <kbd className="px-2.5 py-1 bg-blue-500/30 border border-blue-500/50 rounded text-blue-300 font-mono text-xs font-semibold">R</kbd>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Navigation - Green */}
+                        <div>
+                          <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-1.5">Navigation</h4>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Frame by frame</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">,</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">.</kbd>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Rewind / Forward (0.5s)</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">J</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">L</kbd>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Jump 5 seconds</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">Shift+←</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-green-500/30 border border-green-500/50 rounded text-green-300 font-mono text-xs font-semibold">Shift+→</kbd>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Loop Controls - Orange */}
+                        <div>
+                          <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1.5">Loop Controls</h4>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-orange-500/10 border border-orange-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Set loop markers</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-orange-500/30 border border-orange-500/50 rounded text-orange-300 font-mono text-xs font-semibold">A</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-orange-500/30 border border-orange-500/50 rounded text-orange-300 font-mono text-xs font-semibold">B</kbd>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between bg-orange-500/10 border border-orange-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Toggle loop / Reset</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-orange-500/30 border border-orange-500/50 rounded text-orange-300 font-mono text-xs font-semibold">Shift+L</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-orange-500/30 border border-orange-500/50 rounded text-orange-300 font-mono text-xs font-semibold">C</kbd>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Speed & Other - Cyan */}
+                        <div>
+                          <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1.5">Speed & Other</h4>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Adjust speed</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">[</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">]</kbd>
+                                <span className="text-white/40 text-xs mx-0.5">or</span>
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">1</kbd>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 rounded px-3 py-1.5">
+                              <span className="text-white/80 text-sm">Mute / Fullscreen</span>
+                              <div className="flex gap-1.5 items-center">
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">M</kbd>
+                                <span className="text-white/30 text-xs">/</span>
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">F</kbd>
+                              </div>
+                            </div>
+                            {hasAnswer && (
+                              <div className="flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 rounded px-3 py-1.5">
+                                <span className="text-white/80 text-sm">Show answer / Close</span>
+                                <div className="flex gap-1.5 items-center">
+                                  <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">I</kbd>
+                                  <span className="text-white/30 text-xs">/</span>
+                                  <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">Esc</kbd>
+                                </div>
+                              </div>
+                            )}
+                            {!hasAnswer && (
+                              <div className="flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 rounded px-3 py-1.5">
+                                <span className="text-white/80 text-sm">Close video</span>
+                                <kbd className="px-2.5 py-1 bg-cyan-500/30 border border-cyan-500/50 rounded text-cyan-300 font-mono text-xs font-semibold">Esc</kbd>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 pt-4 border-t border-white/10 text-xs text-white/50 text-center">
-                        Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono">?</kbd> or <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono">/</kbd> anytime to toggle this help
-                      </div>
+                        <div className="mt-3 pt-3 border-t border-white/10 text-center">
+                          <span className="text-xs text-white/50">Press </span>
+                          <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-white/70 text-xs">?</kbd>
+                          <span className="text-xs text-white/50"> or </span>
+                          <kbd className="px-1.5 py-0.5 bg-white/10 rounded font-mono text-white/70 text-xs">/</kbd>
+                          <span className="text-xs text-white/50"> to toggle</span>
+                        </div>
+                      </motion.div>
                     </div>
-                  </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </motion.div>

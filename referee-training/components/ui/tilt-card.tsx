@@ -110,18 +110,6 @@ export function CategoryCard({ href, title, gif, index, backgroundImage }: Categ
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -skew-x-12 translate-x-[-100%] group-hover:animate-shimmer" />
         </div>
 
-        {/* Floating Arrow (Absolute Top Right) */}
-        <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-          <svg 
-            className="w-6 h-6 text-accent" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </div>
-
         {/* Large Centered Icon */}
         <div className={cn(
           "relative w-32 h-32 mb-8 rounded-2xl flex items-center justify-center overflow-hidden transition-all duration-500",

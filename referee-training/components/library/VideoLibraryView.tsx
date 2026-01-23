@@ -80,6 +80,17 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
   const [disableSharedLayout, setDisableSharedLayout] = useState(false);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRefs = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // Calculate columns per row based on window width
+  const getColumnsPerRow = useCallback(() => {
+    if (typeof window === 'undefined') return 4;
+    const width = window.innerWidth;
+    if (width >= 1280) return 4; // xl
+    if (width >= 1024) return 3; // lg
+    if (width >= 768) return 2;  // md
+    return 1; // mobile
+  }, []);
 
   // Sync RAP category with tabs
   const effectiveRAPCategory = filters.rapCategory || activeCategory;
@@ -322,6 +333,20 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     };
   }, []);
 
+  // Auto-scroll to focused video
+  useEffect(() => {
+    if (focusedVideoIndex >= 0 && videoRefs.current[focusedVideoIndex]) {
+      const element = videoRefs.current[focusedVideoIndex];
+      if (element) {
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'center'
+        });
+      }
+    }
+  }, [focusedVideoIndex]);
+
   // Keyboard navigation for video grid
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -344,15 +369,16 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
         e.preventDefault();
         setFocusedVideoIndex((prev) => {
           if (prev === -1) return 0;
-          // Move down one row (assuming 4 columns on XL screens, 3 on LG, 2 on MD, 1 on mobile)
-          // Using 4 as default for keyboard navigation
-          return Math.min(prev + 4, filteredVideos.length - 1);
+          // Move down one row based on current columns per row
+          const cols = getColumnsPerRow();
+          return Math.min(prev + cols, filteredVideos.length - 1);
         });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setFocusedVideoIndex((prev) => {
           if (prev === -1) return 0;
-          return Math.max(prev - 4, 0);
+          const cols = getColumnsPerRow();
+          return Math.max(prev - cols, 0);
         });
       } else if (e.key === "Enter" && focusedVideoIndex >= 0) {
         e.preventDefault();
@@ -365,7 +391,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [expandedVideoId, filteredVideos, focusedVideoIndex, handleVideoClick]);
+  }, [expandedVideoId, filteredVideos, focusedVideoIndex, handleVideoClick, getColumnsPerRow]);
 
   const handleClearFilters = () => {
     setFilters({
@@ -418,6 +444,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
                 return (
                   <div 
                     key={video.id} 
+                    ref={(el) => (videoRefs.current[index] = el)}
                     className="relative"
                     style={{ zIndex: isClosing ? 10 : 0 }}
                   >
