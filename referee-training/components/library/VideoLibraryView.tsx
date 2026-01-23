@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { RAPCategoryTabs, RAPCategory } from "./RAPCategoryTabs";
 import { VideoCard3D } from "./VideoCard3D";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
@@ -79,6 +79,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   const [closingVideoId, setClosingVideoId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
+  const [disableSharedLayout, setDisableSharedLayout] = useState(false);
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync RAP category with tabs
   const effectiveRAPCategory = filters.rapCategory || activeCategory;
@@ -194,7 +196,9 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   // Fetch full video details when a video is opened
   useEffect(() => {
     if (!expandedVideoId) {
-      setExpandedVideoDetails(null);
+      if (!closingVideoId) {
+        setExpandedVideoDetails(null);
+      }
       return;
     }
 
@@ -208,8 +212,9 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     }
 
     // Fetch full details
+    const controller = new AbortController();
     setLoadingVideoDetails(true);
-    fetch(`/api/library/videos/${expandedVideoId}`)
+    fetch(`/api/library/videos/${expandedVideoId}`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch video details');
         return res.json();
@@ -218,26 +223,41 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
         setExpandedVideoDetails(data.video);
       })
       .catch(error => {
+        if (controller.signal.aborted) return;
         console.error('Error fetching video details:', error);
         // Fallback to minimal data if fetch fails
         setExpandedVideoDetails(minimalVideo as Video);
       })
       .finally(() => {
-        setLoadingVideoDetails(false);
+        if (!controller.signal.aborted) {
+          setLoadingVideoDetails(false);
+        }
       });
-  }, [expandedVideoId, videos, expandedVideoDetails]);
+    return () => controller.abort();
+  }, [expandedVideoId, videos, expandedVideoDetails, closingVideoId]);
 
-  const expandedVideo = expandedVideoDetails || (expandedVideoId 
-    ? videos.find(v => v.id === expandedVideoId) 
-    : null);
+  const activeVideoId = expandedVideoId ?? closingVideoId;
+  const expandedVideo = activeVideoId
+    ? expandedVideoDetails?.id === activeVideoId
+      ? expandedVideoDetails
+      : videos.find(v => v.id === activeVideoId)
+    : null;
 
   const handleVideoClick = useCallback((videoId: string) => {
+    setDisableSharedLayout(false);
     setExpandedVideoId(videoId);
     setShowDecision(false);
     setFocusedVideoIndex(-1); // Clear focus when opening a video
   }, []);
 
   const handleClose = () => {
+    // Clear any pending navigation timeout to ensure shared layout is enabled
+    if (navTimeoutRef.current) {
+      clearTimeout(navTimeoutRef.current);
+      navTimeoutRef.current = null;
+    }
+    
+    setDisableSharedLayout(false);
     setClosingVideoId(expandedVideoId);
     
     // Set focus to the video that was just closed, so keyboard nav continues from there
@@ -251,7 +271,10 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     setExpandedVideoId(null);
     setShowDecision(false);
     // Clear closing video after animation completes
-    setTimeout(() => setClosingVideoId(null), 500);
+    setTimeout(() => {
+      setClosingVideoId(null);
+      setExpandedVideoDetails(null);
+    }, 500);
   };
 
   const handleDecisionReveal = () => {
@@ -265,19 +288,40 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   const hasNext = currentIndex !== -1 && currentIndex < filteredVideos.length - 1;
   const hasPrev = currentIndex > 0;
 
+  const scheduleSharedLayoutResume = useCallback(() => {
+    if (navTimeoutRef.current) {
+      clearTimeout(navTimeoutRef.current);
+    }
+    navTimeoutRef.current = setTimeout(() => {
+      setDisableSharedLayout(false);
+    }, 300);
+  }, []);
+
   const handleNext = () => {
     if (hasNext) {
+      setDisableSharedLayout(true);
       setExpandedVideoId(filteredVideos[currentIndex + 1].id);
       setShowDecision(false);
+      scheduleSharedLayoutResume();
     }
   };
 
   const handlePrev = () => {
     if (hasPrev) {
+      setDisableSharedLayout(true);
       setExpandedVideoId(filteredVideos[currentIndex - 1].id);
       setShowDecision(false);
+      scheduleSharedLayoutResume();
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) {
+        clearTimeout(navTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Keyboard navigation for video grid
   useEffect(() => {
@@ -336,6 +380,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     setActiveCategory("all");
   };
 
+  const sharedLayoutEnabled = !disableSharedLayout || closingVideoId !== null;
+
   return (
     <LayoutGroup>
       <div className="relative min-h-screen">
@@ -367,20 +413,22 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
               {filteredVideos.map((video, index) => {
                 const isClosing = closingVideoId === video.id;
                 const isFocused = focusedVideoIndex === index;
+                const isExpanding = expandedVideoId === video.id;
+                const shouldHaveLayoutId = !expandedVideoId || expandedVideoId === video.id || closingVideoId === video.id;
                 
                 return (
                   <div 
                     key={video.id} 
                     className="relative"
-                    style={{ zIndex: isClosing ? 300 : 0 }}
+                    style={{ zIndex: isClosing ? 10 : 0 }}
                   >
                     <motion.div
-                      layoutId={`video-${video.id}`}
+                      layoutId={shouldHaveLayoutId ? `video-${video.id}` : undefined}
                       onClick={() => handleVideoClick(video.id)}
                       className="w-full rounded-2xl cursor-pointer focus:outline-none"
-                      style={{ position: "relative", zIndex: isClosing ? 300 : 1 }}
+                      style={{ position: "relative", zIndex: isClosing ? 10 : 1 }}
                       tabIndex={-1}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={isExpanding || isClosing ? { type: "spring", stiffness: 250, damping: 25 } : { duration: 0 }}
                     >
                       <VideoCard3D
                         id={video.id}
@@ -393,6 +441,7 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
                         restartType={video.restartType}
                         size="medium"
                         forceHover={isFocused}
+                        isStatic={expandedVideoId === video.id || closingVideoId === video.id}
                       />
                     </motion.div>
                   </div>
@@ -422,7 +471,10 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
         {expandedVideo && expandedVideo.fileUrl && (
           <InlineVideoPlayer
             video={expandedVideo}
-            isExpanded={!!expandedVideoId && !loadingVideoDetails}
+            isExpanded={!!expandedVideoId}
+            isLoadingDetails={loadingVideoDetails}
+            isSharedLayoutEnabled={sharedLayoutEnabled}
+            suppressPoster={!sharedLayoutEnabled}
             isAnswerOpen={showDecision}
             onClose={handleClose}
             onDecisionReveal={handleDecisionReveal}
@@ -431,13 +483,6 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
             hasNext={hasNext}
             hasPrev={hasPrev}
           />
-        )}
-        
-        {/* Loading indicator while fetching video details */}
-        {expandedVideoId && loadingVideoDetails && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-          </div>
         )}
 
         {/* Decision Reveal Overlay */}

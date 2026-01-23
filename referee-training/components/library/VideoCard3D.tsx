@@ -16,6 +16,7 @@ interface VideoCard3DProps {
   size?: 'small' | 'medium' | 'large';
   showDecisionButton?: boolean;
   forceHover?: boolean;
+  isStatic?: boolean;
 }
 
 export const VideoCard3D = memo(function VideoCard3D({ 
@@ -29,7 +30,8 @@ export const VideoCard3D = memo(function VideoCard3D({
   restartType,
   size = 'medium',
   showDecisionButton = true,
-  forceHover = false
+  forceHover = false,
+  isStatic = false
 }: VideoCard3DProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -37,10 +39,10 @@ export const VideoCard3D = memo(function VideoCard3D({
   const lastUpdateRef = useRef<number>(0);
   
   // Combine hover state with forceHover prop
-  const effectiveHover = isHovered || forceHover;
+  const effectiveHover = (isHovered || forceHover) && !isStatic;
 
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || isStatic) return;
 
     // Throttle to ~60fps
     const now = Date.now();
@@ -70,13 +72,13 @@ export const VideoCard3D = memo(function VideoCard3D({
     setIsHovered(true);
   };
 
-  // Reset rotation when forceHover changes
+  // Reset rotation when forceHover changes or isStatic is true
   useEffect(() => {
-    if (forceHover && !isHovered) {
+    if ((forceHover && !isHovered) || isStatic) {
       // Apply slight rotation for keyboard focus
       setRotation({ x: 0, y: 0 });
     }
-  }, [forceHover, isHovered]);
+  }, [forceHover, isHovered, isStatic]);
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return "0:00";

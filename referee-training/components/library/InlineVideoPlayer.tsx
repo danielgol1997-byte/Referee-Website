@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,6 +49,9 @@ interface Video {
 interface InlineVideoPlayerProps {
   video: Video;
   isExpanded: boolean;
+  isLoadingDetails?: boolean;
+  isSharedLayoutEnabled?: boolean;
+  suppressPoster?: boolean;
   isAnswerOpen?: boolean;
   onClose: () => void;
   onDecisionReveal?: () => void;
@@ -94,6 +98,9 @@ interface InlineVideoPlayerProps {
 export function InlineVideoPlayer({
   video,
   isExpanded,
+  isLoadingDetails = false,
+  isSharedLayoutEnabled = true,
+  suppressPoster = false,
   isAnswerOpen = false,
   onClose,
   onDecisionReveal,
@@ -117,10 +124,24 @@ export function InlineVideoPlayer({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
+
+  const safePlay = useCallback(() => {
+    if (!videoRef.current) return;
+    const playPromise = videoRef.current.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch((err) => {
+        if (err?.name === "AbortError") return;
+        console.error("Play failed:", err);
+        setIsPlaying(false);
+      });
+    }
+  }, []);
 
   // Determine if we should show the "Show Answer" button
   // Show if ANY tags are marked with isCorrectDecision: true or explanation-only has text
@@ -206,10 +227,10 @@ export function InlineVideoPlayer({
   const handleScrubEnd = useCallback(() => {
     setIsScrubbing(false);
     if (wasPlayingBeforeScrub) {
-      videoRef.current?.play();
+      safePlay();
       setIsPlaying(true);
     }
-  }, [wasPlayingBeforeScrub]);
+  }, [wasPlayingBeforeScrub, safePlay]);
 
   // Marker dragging handlers
   const handleMarkerDragStart = useCallback((e: React.MouseEvent, marker: 'A' | 'B') => {
@@ -246,6 +267,8 @@ export function InlineVideoPlayer({
     setLoopMarkerA(0);
     setLoopMarkerB(0);
     setPlaybackRate(1);
+    setIsVideoReady(false);
+    setHasStartedPlayback(false);
     
     // Reset video element time and playback rate
     if (videoRef.current) {
@@ -322,9 +345,7 @@ export function InlineVideoPlayer({
   // Auto-play when expanded
   useEffect(() => {
     if (isExpanded && videoRef.current) {
-      videoRef.current.play().catch((err) => {
-        console.error("Autoplay failed:", err);
-      });
+      safePlay();
       setIsPlaying(true);
     } else if (!isExpanded && videoRef.current) {
       videoRef.current.pause();
@@ -332,7 +353,7 @@ export function InlineVideoPlayer({
       setIsPlaying(false);
       setCurrentTime(0);
     }
-  }, [isExpanded, video.id]);
+  }, [isExpanded, video.id, safePlay]);
 
   // Global mouse event handlers for scrubbing
   useEffect(() => {
@@ -376,7 +397,7 @@ export function InlineVideoPlayer({
         e.preventDefault();
         if (videoRef.current) {
           if (videoRef.current.paused) {
-            videoRef.current.play();
+            safePlay();
             setIsPlaying(true);
           } else {
             videoRef.current.pause();
@@ -434,7 +455,7 @@ export function InlineVideoPlayer({
       if (e.key === "k") {
         e.preventDefault();
         if (videoRef.current?.paused) {
-          videoRef.current.play();
+          safePlay();
           setIsPlaying(true);
         } else {
           videoRef.current?.pause();
@@ -554,7 +575,7 @@ export function InlineVideoPlayer({
         if (videoRef.current) {
           videoRef.current.currentTime = 0;
           setCurrentTime(0);
-          videoRef.current.play();
+          safePlay();
           setIsPlaying(true);
         }
         return;
@@ -579,10 +600,13 @@ export function InlineVideoPlayer({
     };
   }, [
     isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal,
-    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled
+    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay
   ]);
 
-  const handleVideoPlay = () => setIsPlaying(true);
+  const handleVideoPlay = () => {
+    setIsPlaying(true);
+    setHasStartedPlayback(true);
+  };
   const handleVideoPause = () => setIsPlaying(false);
   const handleVideoEnded = () => setIsPlaying(false);
 
@@ -596,7 +620,7 @@ export function InlineVideoPlayer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={cn(
-              "fixed inset-0 bg-black/80 z-[200] backdrop-blur-sm",
+              "fixed inset-0 bg-black/80 z-[2000] backdrop-blur-sm",
               "transition-opacity duration-300"
             )}
             onClick={(e) => {
@@ -606,28 +630,31 @@ export function InlineVideoPlayer({
           />
 
           {/* Expanded Video Container */}
-          <div
+          <motion.div
+            key="player-container"
             className={cn(
-              "fixed inset-0 z-[201] flex flex-col items-center justify-center pointer-events-none",
+              "fixed inset-0 z-[2001] flex flex-col items-center justify-center pointer-events-none",
               // Top padding to separate from header (header is 88px)
               "pt-[100px] pb-6 px-4 md:px-12", 
               className
             )}
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 1, transition: { duration: 0.1 } }} // Keep container alive during exit
           >
             <motion.div
               key={`player-${video.id}`}
               layoutId={`video-${video.id}`}
-              className="relative w-full max-w-6xl flex flex-col bg-dark-800 rounded-xl overflow-hidden shadow-2xl pointer-events-auto"
+              className="relative w-full max-w-6xl flex flex-col bg-dark-900 border border-dark-600 rounded-xl overflow-hidden shadow-2xl pointer-events-auto"
               onMouseEnter={() => setShowControls(true)}
               onMouseLeave={() => setShowControls(false)}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              style={{ borderRadius: "12px", zIndex: 202 }} // Enforce border radius and z-index during animation
+              transition={isSharedLayoutEnabled ? { type: "spring", stiffness: 250, damping: 25 } : { duration: 0 }}
+              style={{ borderRadius: "16px", zIndex: 2002 }} // Match VideoCard3D border-radius (rounded-2xl = 16px)
             >
               {/* Close Button */}
               <button
                 onClick={(e) => handleClose(e)}
                 className={cn(
-                  "absolute top-4 right-4 z-[203] w-10 h-10",
+                  "absolute top-4 right-4 z-[2003] w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
@@ -659,7 +686,7 @@ export function InlineVideoPlayer({
                   setShowKeyboardHelp(true);
                 }}
                 className={cn(
-                  "absolute top-4 right-16 z-[203] w-10 h-10",
+                  "absolute top-4 right-16 z-[2003] w-10 h-10",
                   "bg-black/60 hover:bg-black/80 rounded-full",
                   "flex items-center justify-center",
                   "transition-all duration-200",
@@ -680,7 +707,7 @@ export function InlineVideoPlayer({
                     onPrev?.();
                   }}
                   className={cn(
-                    "absolute top-1/2 left-4 -translate-y-1/2 z-[103] w-12 h-12",
+                    "absolute top-1/2 left-4 -translate-y-1/2 z-[2103] w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -702,7 +729,7 @@ export function InlineVideoPlayer({
                     onNext?.();
                   }}
                   className={cn(
-                    "absolute top-1/2 right-4 -translate-y-1/2 z-[103] w-12 h-12",
+                    "absolute top-1/2 right-4 -translate-y-1/2 z-[2103] w-12 h-12",
                     "bg-black/40 hover:bg-black/70 rounded-full",
                     "flex items-center justify-center",
                     "transition-all duration-200",
@@ -722,14 +749,36 @@ export function InlineVideoPlayer({
                 <video
                   ref={videoRef}
                   src={video.fileUrl}
-                  poster={video.thumbnailUrl}
-                  className="w-full h-full object-contain"
+                  className={cn(
+                    "w-full h-full object-contain transition-opacity duration-200",
+                    isVideoReady ? "opacity-100" : "opacity-0"
+                  )}
+                  preload="metadata"
                   onPlay={handleVideoPlay}
                   onPause={handleVideoPause}
                   onEnded={handleVideoEnded}
+                  onLoadedData={() => setIsVideoReady(true)}
                 >
                   Your browser does not support the video tag.
                 </video>
+
+                {/* Thumbnail Overlay - Matches VideoCard3D for smooth transition */}
+                {video.thumbnailUrl && !hasStartedPlayback && (
+                  <div className="absolute inset-0 z-10 pointer-events-none">
+                    <Image
+                      src={video.thumbnailUrl}
+                      alt={video.title}
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-dark-900/20" /> {/* Match card overlay */}
+                  </div>
+                )}
+
+                {!hasStartedPlayback && !video.thumbnailUrl && (
+                  <div className="absolute inset-0 bg-black transition-opacity duration-200" />
+                )}
 
                 {/* Custom Controls Overlay */}
                 <div className={cn(
@@ -832,7 +881,7 @@ export function InlineVideoPlayer({
                       <button
                         onClick={() => {
                           if (videoRef.current?.paused) {
-                            videoRef.current.play();
+                            safePlay();
                             setIsPlaying(true);
                           } else {
                             videoRef.current?.pause();
@@ -1048,7 +1097,7 @@ export function InlineVideoPlayer({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-[204] bg-black/95 backdrop-blur-sm flex items-center justify-center p-8"
+                    className="absolute inset-0 z-[2004] bg-black/95 backdrop-blur-sm flex items-center justify-center p-8"
                     onClick={() => setShowKeyboardHelp(false)}
                   >
                     <div className="max-w-2xl w-full bg-dark-800 rounded-xl p-6 border border-white/10" onClick={(e) => e.stopPropagation()}>
@@ -1153,7 +1202,7 @@ export function InlineVideoPlayer({
                 )}
               </AnimatePresence>
             </motion.div>
-          </div>
+          </motion.div>
         </>
       )}
     </AnimatePresence>
