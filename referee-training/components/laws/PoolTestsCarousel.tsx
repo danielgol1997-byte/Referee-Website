@@ -349,6 +349,7 @@ export function PoolTestsCarousel() {
                       onDelete={offset === 0 && activeTab === "user-generated" ? deleteUserTest : undefined}
                       isStarting={startingTestId === test.id}
                       showActions={offset === 0}
+                      getLawLabel={getLawLabel}
                     />
                   </div>
                 );
@@ -497,7 +498,8 @@ function TestCard({
   onEdit,
   onDelete,
   isStarting, 
-  showActions 
+  showActions,
+  getLawLabel
 }: { 
   test: PoolTest; 
   onStart: (test: PoolTest) => void;
@@ -505,6 +507,7 @@ function TestCard({
   onDelete?: (testId: string) => void;
   isStarting: boolean;
   showActions: boolean;
+  getLawLabel: (lawNumber: number) => string;
 }) {
   return (
     <div
