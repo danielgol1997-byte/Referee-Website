@@ -80,35 +80,37 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(DEFAULT_VISIBLE_FILTERS);
-  const [filterOrder, setFilterOrder] = useState<FilterType[]>(DEFAULT_FILTER_ORDER);
+  const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(() => {
+    if (typeof window !== 'undefined') {
+      const savedVisible = localStorage.getItem('videoFilterPreferences');
+      if (savedVisible) {
+        try {
+          return JSON.parse(savedVisible);
+        } catch (e) {
+          console.error('Failed to load filter preferences');
+        }
+      }
+    }
+    return DEFAULT_VISIBLE_FILTERS;
+  });
+  const [filterOrder, setFilterOrder] = useState<FilterType[]>(() => {
+    if (typeof window !== 'undefined') {
+      const savedOrder = localStorage.getItem('videoFilterOrder');
+      if (savedOrder) {
+        try {
+          return JSON.parse(savedOrder);
+        } catch (e) {
+          console.error('Failed to load filter order');
+        }
+      }
+    }
+    return DEFAULT_FILTER_ORDER;
+  });
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
-
-  // Load saved filter preferences and order
-  useEffect(() => {
-    const savedVisible = localStorage.getItem('videoFilterPreferences');
-    const savedOrder = localStorage.getItem('videoFilterOrder');
-    
-    if (savedVisible) {
-      try {
-        setVisibleFilters(JSON.parse(savedVisible));
-      } catch (e) {
-        console.error('Failed to load filter preferences');
-      }
-    }
-    
-    if (savedOrder) {
-      try {
-        setFilterOrder(JSON.parse(savedOrder));
-      } catch (e) {
-        console.error('Failed to load filter order');
-      }
-    }
-  }, []);
 
   // Fetch tags on mount
   useEffect(() => {
@@ -173,6 +175,10 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
           changed = true;
         }
       });
+      // Save the updated order to localStorage so we can track which filters existed
+      if (changed) {
+        localStorage.setItem('videoFilterOrder', JSON.stringify(next));
+      }
       return changed ? next : prev;
     });
 
@@ -189,6 +195,10 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
             changed = true;
           }
         });
+        // Save initial visible filters
+        if (changed) {
+          localStorage.setItem('videoFilterPreferences', JSON.stringify(next));
+        }
         return changed ? next : prev;
       }
       
@@ -205,6 +215,10 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
               changed = true;
             }
           });
+          // Save updated visible filters if new ones were added
+          if (changed) {
+            localStorage.setItem('videoFilterPreferences', JSON.stringify(next));
+          }
           return changed ? next : prev;
         } catch (e) {
           console.error('Failed to parse saved filter order');
