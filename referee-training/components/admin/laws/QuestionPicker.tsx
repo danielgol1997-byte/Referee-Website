@@ -1,14 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
-
-const LAW_FILTER_OPTIONS = [
-  { value: "", label: "All Laws" },
-  ...LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) })),
-];
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 const QUESTIONS_PER_PAGE = 20;
 
@@ -33,6 +28,15 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
   const [isOpen, setIsOpen] = useState(false);
   const [isSelectedCollapsed, setIsSelectedCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const { lawTags, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
+
+  const lawFilterOptions = useMemo(
+    () => [
+      { value: "", label: isLoadingLawTags ? "Loading laws..." : "All Laws" },
+      ...lawTags.map((tag) => ({ value: tag.number, label: tag.name })),
+    ],
+    [lawTags, isLoadingLawTags]
+  );
 
   const fetchSelectedQuestions = useCallback(async () => {
     if (selectedQuestionIds.length === 0) {
@@ -168,8 +172,8 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                       {question.lawNumbers && question.lawNumbers.length > 0 && (
                         <span className="text-xs text-accent font-medium mr-2">
                           {question.lawNumbers.length === 1 
-                            ? formatLawLabel(question.lawNumbers[0])
-                            : `Laws ${question.lawNumbers.map((num) => formatLawLabel(num)).join(", ")}`
+                            ? getLawLabel(question.lawNumbers[0])
+                            : question.lawNumbers.map((num) => getLawLabel(num)).join(", ")
                           }
                         </span>
                       )}
@@ -235,7 +239,7 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
             <Select
               value={lawFilter}
               onChange={(val) => setLawFilter(val === "" ? "" : Number(val))}
-              options={LAW_FILTER_OPTIONS}
+              options={lawFilterOptions}
               className="w-40"
             />
             <Input
@@ -287,8 +291,8 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
                         {question.lawNumbers && question.lawNumbers.length > 0 && (
                           <span className="text-xs text-accent font-medium mr-2">
                             {question.lawNumbers.length === 1 
-                            ? formatLawLabel(question.lawNumbers[0])
-                            : `Laws ${question.lawNumbers.map((num) => formatLawLabel(num)).join(", ")}`
+                            ? getLawLabel(question.lawNumbers[0])
+                            : question.lawNumbers.map((num) => getLawLabel(num)).join(", ")
                             }
                           </span>
                         )}

@@ -31,8 +31,21 @@ export async function PATCH(
     if (body.parentCategory !== undefined) updateData.parentCategory = body.parentCategory;
     if (body.color !== undefined) updateData.color = body.color;
     if (body.description !== undefined) updateData.description = body.description;
+    if (body.linkUrl !== undefined) updateData.linkUrl = body.linkUrl;
     if (body.order !== undefined) updateData.order = body.order;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
+
+    const targetCategoryId = updateData.categoryId || (await prisma.tag.findUnique({ where: { id }, select: { categoryId: true } }))?.categoryId;
+    const category = targetCategoryId
+      ? await prisma.tagCategory.findUnique({
+          where: { id: targetCategoryId },
+          select: { allowLinks: true },
+        })
+      : null;
+
+    if (!category?.allowLinks) {
+      updateData.linkUrl = null;
+    }
 
     const tag = await prisma.tag.update({
       where: { id },
@@ -74,7 +87,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, categoryId, parentCategory, color, description, order, isActive } = body;
+    const { name, slug, categoryId, parentCategory, color, description, order, isActive, linkUrl } = body;
 
     // Get current tag to check if name changed
     const currentTag = await prisma.tag.findUnique({
@@ -156,6 +169,13 @@ export async function PUT(
       }
     }
 
+    const category = categoryId
+      ? await prisma.tagCategory.findUnique({
+          where: { id: categoryId },
+          select: { allowLinks: true },
+        })
+      : null;
+
     const tag = await prisma.tag.update({
       where: { id },
       data: {
@@ -167,6 +187,7 @@ export async function PUT(
         description,
         order,
         isActive,
+        linkUrl: category?.allowLinks ? linkUrl : null,
         // Preserve rapCategory if not explicitly updated
         ...(body.rapCategory !== undefined && { rapCategory: body.rapCategory }),
       },

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { DecisionReveal } from "./DecisionReveal";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 interface LoopMarker {
   time: number;
@@ -137,6 +138,7 @@ export function InlineVideoPlayer({
   const progressBarRef = useRef<HTMLDivElement>(null);
   const playerWrapperRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
+  const { lawTagMap, getLawLabel } = useLawTags();
 
   const safePlay = useCallback(() => {
     if (!videoRef.current) return;
@@ -1179,9 +1181,33 @@ export function InlineVideoPlayer({
                 </div>
                 <div className="flex items-center gap-4">
                   {video.lawNumbers && video.lawNumbers.length > 0 && (
-                    <span className="px-2 py-1 rounded bg-dark-800 border border-white/5 text-xs text-text-muted font-mono">
-                      Law {video.lawNumbers.join(", ")}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {video.lawNumbers.map((lawNum) => {
+                        const lawTag = lawTagMap.get(lawNum);
+                        const label = getLawLabel(lawNum);
+                        return lawTag?.linkUrl ? (
+                          <a
+                            key={lawNum}
+                            href={lawTag.linkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-1 rounded bg-dark-800 border border-white/10 text-xs text-cyan-300 hover:border-cyan-400/60 hover:text-cyan-200 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                            title={label}
+                          >
+                            {label}
+                          </a>
+                        ) : (
+                          <span
+                            key={lawNum}
+                            className="px-2 py-1 rounded bg-dark-800 border border-white/5 text-xs text-text-muted"
+                            title={label}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
+                    </div>
                   )}
                   {/* Show Answer Button */}
                   {hasAnswer && (

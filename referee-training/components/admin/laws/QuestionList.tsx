@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import React from "react";
 import { Question } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
-
-const LAW_FILTER_OPTIONS = [
-  { value: "", label: "All" },
-  { value: "unassigned", label: "No Law Assigned" },
-  ...LAW_NUMBERS.map((num) => ({ value: num, label: formatLawLabel(num) })),
-];
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 const DIFFICULTY_OPTIONS = [
   { value: 1, label: "Easy" },
@@ -82,12 +76,22 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [isEditLawDropdownOpen, setIsEditLawDropdownOpen] = useState(false);
   const editLawDropdownRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const { lawTags, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
 
   const PER_PAGE_OPTIONS = [
     { value: 10, label: "10" },
     { value: 20, label: "20" },
     { value: 50, label: "50" },
   ];
+
+  const lawFilterOptions = useMemo(
+    () => [
+      { value: "", label: isLoadingLawTags ? "Loading laws..." : "All" },
+      { value: "unassigned", label: "No Law Assigned" },
+      ...lawTags.map((tag) => ({ value: tag.number, label: tag.name })),
+    ],
+    [lawTags, isLoadingLawTags]
+  );
 
   const fetchQuestions = async () => {
     setLoading(true);
@@ -331,7 +335,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                   setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
                   setLawSortOrder(null); // Reset sort order when manually changing filter
                 }}
-                options={LAW_FILTER_OPTIONS}
+                options={lawFilterOptions}
                 className="w-48"
               />
               <Select
@@ -439,7 +443,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                                       {editForm.lawNumbers.length === 0 
                                         ? "No laws selected" 
                                         : editForm.lawNumbers.length === 1
-                                        ? formatLawLabel(editForm.lawNumbers[0])
+                                        ? getLawLabel(editForm.lawNumbers[0])
                                         : `${editForm.lawNumbers.length} laws selected`
                                       }
                                     </span>
@@ -469,29 +473,35 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                                           </button>
                                         )}
                                         
-                                        {LAW_NUMBERS.map((num) => {
-                                          const isSelected = editForm.lawNumbers.includes(num);
-                                          return (
-                                            <button
-                                              key={num}
-                                              type="button"
-                                              onClick={() => toggleEditLaw(num)}
-                                              className={cn(
-                                                "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
-                                                isSelected 
-                                                  ? "bg-accent/10 text-accent hover:bg-accent/20" 
-                                                  : "text-text-secondary hover:text-white hover:bg-dark-700"
-                                              )}
-                                            >
-                                              <span>{formatLawLabel(num)}</span>
-                                              {isSelected && (
-                                                <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                              )}
-                                            </button>
-                                          );
-                                        })}
+                                        {lawTags.length > 0 ? (
+                                          lawTags.map((tag) => {
+                                            const isSelected = editForm.lawNumbers.includes(tag.number);
+                                            return (
+                                              <button
+                                                key={tag.id}
+                                                type="button"
+                                                onClick={() => toggleEditLaw(tag.number)}
+                                                className={cn(
+                                                  "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                                                  isSelected 
+                                                    ? "bg-accent/10 text-accent hover:bg-accent/20" 
+                                                    : "text-text-secondary hover:text-white hover:bg-dark-700"
+                                                )}
+                                              >
+                                                <span>{tag.name}</span>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            );
+                                          })
+                                        ) : (
+                                          <div className="px-3 py-2 text-sm text-text-muted">
+                                            {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )}
@@ -590,7 +600,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                     >
                       <td className="px-4 py-3 text-sm text-white whitespace-nowrap">
                         {(q as any).lawNumbers?.length > 0 
-                          ? (q as any).lawNumbers.join(", ") 
+                          ? (q as any).lawNumbers.map((num: number) => getLawLabel(num)).join(", ")
                           : "—"
                         }
                       </td>
@@ -765,8 +775,8 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                     {(viewingQuestion as any).lawNumbers?.length > 0 && (
                       <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">
                         {(viewingQuestion as any).lawNumbers.length === 1
-                          ? `Law ${(viewingQuestion as any).lawNumbers[0]}`
-                          : `Laws ${(viewingQuestion as any).lawNumbers.join(", ")}`
+                          ? getLawLabel((viewingQuestion as any).lawNumbers[0])
+                          : (viewingQuestion as any).lawNumbers.map((num: number) => getLawLabel(num)).join(", ")
                         }
                       </span>
                     )}

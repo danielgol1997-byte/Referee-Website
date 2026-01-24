@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
-
-const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
-  value: num, 
-  label: formatLawLabel(num) 
-}));
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 type MandatoryTest = {
   id: string;
@@ -40,6 +35,8 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({});
   const [backfillSuccess, setBackfillSuccess] = useState<string | null>(null);
+  const { lawOptions, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
+  const lawOptionsMemo = useMemo(() => lawOptions, [lawOptions]);
 
   const fetchTests = async () => {
     setLoading(true);
@@ -371,9 +368,14 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                                 <MultiSelect
                                   value={editForm.lawNumbers || []}
                                   onChange={(val) => setEditForm({ ...editForm, lawNumbers: val as number[] })}
-                                  options={LAW_OPTIONS}
+                                  options={lawOptionsMemo}
                                   placeholder="Add Law"
                                 />
+                                {lawOptionsMemo.length === 0 && (
+                                  <p className="text-xs text-text-muted">
+                                    {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+                                  </p>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-4">
@@ -464,7 +466,7 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                       <div className="flex flex-wrap gap-1">
                         {test.lawNumbers.map((num) => (
                           <span key={num} className="rounded-full bg-dark-700 px-2 py-1 text-xs text-text-secondary">
-                            {num}
+                            {getLawLabel(num)}
                           </span>
                         ))}
                       </div>

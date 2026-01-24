@@ -28,6 +28,7 @@ export async function PATCH(
     if (body.slug !== undefined) updateData.slug = body.slug;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.canBeCorrectAnswer !== undefined) updateData.canBeCorrectAnswer = body.canBeCorrectAnswer;
+    if (body.allowLinks !== undefined) updateData.allowLinks = body.allowLinks;
     if (body.order !== undefined) updateData.order = body.order;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
@@ -68,7 +69,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, description, canBeCorrectAnswer, order, isActive } = body;
+    const { name, slug, description, canBeCorrectAnswer, allowLinks, order, isActive } = body;
 
     // Get current tag category
     const currentCategory = await prisma.tagCategory.findUnique({
@@ -103,6 +104,7 @@ export async function PUT(
         slug,
         description,
         canBeCorrectAnswer,
+        allowLinks,
         order,
         isActive,
       },

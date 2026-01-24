@@ -24,6 +24,7 @@ export async function GET(request: Request) {
             name: true,
             slug: true,
             canBeCorrectAnswer: true,
+            allowLinks: true,
             order: true,
           }
         },
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, slug, categoryId, parentCategory, color, description, order, isActive } = body;
+    const { name, slug, categoryId, parentCategory, color, description, order, isActive, linkUrl } = body;
 
     // Validation
     if (!name) {
@@ -129,6 +130,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const category = await prisma.tagCategory.findUnique({
+      where: { id: categoryId },
+      select: { allowLinks: true },
+    });
+
     // Create tag
     const tag = await prisma.tag.create({
       data: {
@@ -140,6 +146,7 @@ export async function POST(request: Request) {
         description,
         order: order || 0,
         isActive: isActive !== undefined ? isActive : true,
+        linkUrl: category?.allowLinks ? linkUrl : null,
       },
       include: {
         category: true,

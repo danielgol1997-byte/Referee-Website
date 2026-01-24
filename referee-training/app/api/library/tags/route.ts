@@ -30,6 +30,7 @@ export async function GET() {
         name: category.name,
         slug: category.slug,
         canBeCorrectAnswer: category.canBeCorrectAnswer,
+        allowLinks: category.allowLinks,
         order: category.order,
         tags: category.tags.map(tag => ({
           id: tag.id,
@@ -38,6 +39,7 @@ export async function GET() {
           parentCategory: tag.parentCategory,
           color: tag.color,
           order: tag.order,
+          linkUrl: tag.linkUrl,
         })),
       })),
     });

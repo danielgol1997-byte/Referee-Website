@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
-
-const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
-  value: num, 
-  label: formatLawLabel(num) 
-}));
+import { useLawTags } from "@/components/hooks/useLawTags";
 const MIN_QUESTIONS = 5;
 const MAX_QUESTIONS = 20;
 
@@ -26,6 +21,8 @@ export function TestConfiguration() {
   const [testName, setTestName] = useState("");
   const [existingTestNames, setExistingTestNames] = useState<string[]>([]);
   const [nameError, setNameError] = useState<string | null>(null);
+  const { lawOptions, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
+  const lawOptionsMemo = useMemo(() => lawOptions, [lawOptions]);
 
   // Fetch existing user test names for duplicate checking
   useEffect(() => {
@@ -50,8 +47,12 @@ export function TestConfiguration() {
     const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
     if (selectedLaws.length > 0) {
       const lawsStr = selectedLaws.length === 1 
-        ? `Law ${selectedLaws[0]}`
-        : `Laws ${selectedLaws.sort((a, b) => a - b).join(", ")}`;
+        ? getLawLabel(selectedLaws[0])
+        : selectedLaws
+            .slice()
+            .sort((a, b) => a - b)
+            .map((num) => getLawLabel(num))
+            .join(", ");
       return `${lawsStr} Practice - ${dateStr}`;
     }
     return `Practice Test - ${dateStr}`;
@@ -112,7 +113,7 @@ export function TestConfiguration() {
               body: JSON.stringify({
                 title: uniqueName,
                 description: selectedLaws.length > 0 
-                  ? `Laws: ${selectedLaws.join(", ")}`
+                  ? `Laws: ${selectedLaws.map((num) => getLawLabel(num)).join(", ")}`
                   : "All laws",
                 categorySlug: "laws-of-the-game",
                 lawNumbers: selectedLaws,
@@ -156,7 +157,7 @@ export function TestConfiguration() {
           body: JSON.stringify({
             title: finalName,
             description: selectedLaws.length > 0 
-              ? `Laws: ${selectedLaws.join(", ")}`
+              ? `Laws: ${selectedLaws.map((num) => getLawLabel(num)).join(", ")}`
               : "All laws",
             categorySlug: "laws-of-the-game",
             lawNumbers: selectedLaws,
@@ -212,9 +213,14 @@ export function TestConfiguration() {
         <MultiSelect
           value={selectedLaws}
           onChange={(values) => setSelectedLaws(values.map((v) => Number(v)).filter((n) => Number.isFinite(n)))}
-          options={LAW_OPTIONS}
+          options={lawOptionsMemo}
           placeholder="Select laws (or leave empty for all)"
         />
+        {lawOptionsMemo.length === 0 && (
+          <p className="text-xs text-text-muted">
+            {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+          </p>
+        )}
         <p className="text-xs text-text-secondary">
           Leave empty to draw from all Laws of the Game questions
         </p>

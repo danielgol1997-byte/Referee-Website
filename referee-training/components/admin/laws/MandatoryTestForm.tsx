@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
-
-const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
-  value: num, 
-  label: formatLawLabel(num) 
-}));
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   const [title, setTitle] = useState("");
@@ -29,6 +24,11 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   // New: Question selection mode
   const [selectionMode, setSelectionMode] = useState<"random" | "specific">("random");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const { lawOptions, isLoading: isLoadingLawTags } = useLawTags();
+  const lawOptionsWithAll = useMemo(
+    () => lawOptions,
+    [lawOptions]
+  );
   
   // Flash effect for passing score when mandatory is enabled
   const [showPassingScoreFlash, setShowPassingScoreFlash] = useState(false);
@@ -252,9 +252,14 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
             <MultiSelect
               value={lawNumbers}
               onChange={(values) => setLawNumbers(values.map((v) => Number(v)).filter((n) => Number.isFinite(n)))}
-              options={LAW_OPTIONS}
+              options={lawOptionsWithAll}
               placeholder="Select laws (or leave empty for all)"
             />
+            {lawOptionsWithAll.length === 0 && (
+              <p className="text-xs text-text-muted">
+                {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

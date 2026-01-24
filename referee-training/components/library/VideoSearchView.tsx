@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
 import { DecisionReveal } from "./DecisionReveal";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
-const LAWS = LAW_NUMBERS;
 const SANCTIONS = [
   { value: 'YELLOW_CARD', label: 'Yellow Card' },
   { value: 'SECOND_YELLOW', label: 'Second Yellow' },
@@ -60,6 +59,8 @@ export function VideoSearchView() {
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
+  const { lawOptions, isLoading: isLoadingLawTags } = useLawTags();
+  const lawOptionsMemo = useMemo(() => lawOptions, [lawOptions]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -172,12 +173,17 @@ export function VideoSearchView() {
                 className="w-full px-4 py-2 bg-dark-800 border border-dark-600 rounded text-text-primary focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="">All Laws</option>
-                {LAWS.map((law) => (
-                  <option key={law} value={law}>
-                    {formatLawLabel(law)}
+                {lawOptionsMemo.map((law) => (
+                  <option key={law.value} value={law.value}>
+                    {law.label}
                   </option>
                 ))}
               </select>
+              {lawOptionsMemo.length === 0 && (
+                <p className="text-xs text-text-muted mt-2">
+                  {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+                </p>
+              )}
             </div>
 
             {/* Sanction Filter */}

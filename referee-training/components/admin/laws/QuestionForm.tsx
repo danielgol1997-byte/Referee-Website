@@ -5,7 +5,7 @@ import { QuestionType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 type AnswerOption = { label: string; isCorrect: boolean };
 
@@ -15,6 +15,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
   const lawDropdownRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
   const [explanation, setExplanation] = useState("");
+  const { lawTags, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
   const [answers, setAnswers] = useState<AnswerOption[]>([
     { label: "", isCorrect: true },
     { label: "", isCorrect: false },
@@ -109,7 +110,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="space-y-1">
-        <label className="text-sm font-medium text-white">Law numbers (select multiple)</label>
+        <label className="text-sm font-medium text-white">Law tags (select multiple)</label>
         <div className="relative" ref={lawDropdownRef}>
           <button
             type="button"
@@ -118,9 +119,9 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
           >
             <span className={lawNumbers.length === 0 ? "text-text-muted" : ""}>
               {lawNumbers.length === 0 
-                ? "No laws selected" 
+                ? isLoadingLawTags ? "Loading laws..." : "No laws selected"
                 : lawNumbers.length === 1
-                ? formatLawLabel(lawNumbers[0])
+                ? getLawLabel(lawNumbers[0])
                 : `${lawNumbers.length} laws selected`
               }
             </span>
@@ -152,29 +153,35 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
                   </>
                 )}
                 
-                {LAW_NUMBERS.map((num) => {
-                  const isSelected = lawNumbers.includes(num);
-                  return (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => toggleLaw(num)}
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
-                        isSelected 
-                          ? "bg-accent/10 text-accent hover:bg-accent/20" 
-                          : "text-text-secondary hover:text-white hover:bg-dark-700"
-                      )}
-                    >
-                      <span>{formatLawLabel(num)}</span>
-                      {isSelected && (
-                        <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  );
-                })}
+                {lawTags.length > 0 ? (
+                  lawTags.map((tag) => {
+                    const isSelected = lawNumbers.includes(tag.number);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleLaw(tag.number)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                          isSelected 
+                            ? "bg-accent/10 text-accent hover:bg-accent/20" 
+                            : "text-text-secondary hover:text-white hover:bg-dark-700"
+                        )}
+                      >
+                        <span>{tag.name}</span>
+                        {isSelected && (
+                          <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-2 text-sm text-text-muted">
+                    {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+                  </div>
+                )}
               </div>
             </div>
           )}

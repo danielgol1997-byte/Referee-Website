@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
-import { LAW_NUMBERS, formatLawLabel } from "@/lib/laws";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 type PoolTest = {
   id: string;
@@ -19,11 +19,6 @@ type PoolTest = {
 };
 
 type CarouselTab = "public" | "user-generated";
-
-const LAW_OPTIONS = LAW_NUMBERS.map((num) => ({ 
-  value: num, 
-  label: formatLawLabel(num) 
-}));
 
 export function PoolTestsCarousel() {
   const router = useRouter();
@@ -40,6 +35,8 @@ export function PoolTestsCarousel() {
     lawNumbers: [] as number[],
     totalQuestions: 10,
   });
+  const { lawOptions, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
+  const lawOptionsMemo = useMemo(() => lawOptions, [lawOptions]);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
@@ -456,9 +453,14 @@ export function PoolTestsCarousel() {
                 <MultiSelect
                   value={editForm.lawNumbers}
                   onChange={(vals) => setEditForm({ ...editForm, lawNumbers: vals as number[] })}
-                  options={LAW_OPTIONS}
+                  options={lawOptionsMemo}
                   placeholder="Add Law"
                 />
+                {lawOptionsMemo.length === 0 && (
+                  <p className="text-xs text-text-muted">
+                    {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
+                  </p>
+                )}
                 <p className="text-xs text-text-secondary">Leave empty to draw from all laws</p>
               </div>
 
@@ -574,7 +576,7 @@ function TestCard({
                     key={num}
                     className="px-3 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-semibold"
                   >
-                    Law {num}
+                    {getLawLabel(num)}
                   </span>
                 ))}
               </div>

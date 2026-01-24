@@ -8,6 +8,7 @@ interface TagCategory {
   name: string;
   slug: string;
   canBeCorrectAnswer: boolean;
+  allowLinks: boolean;
   order: number;
   isActive?: boolean;
   description?: string | null;
@@ -22,6 +23,7 @@ interface Tag {
   categoryId?: string;
   parentCategory?: string | null;
   color?: string;
+  linkUrl?: string | null;
   description?: string;
   isActive: boolean;
   order: number;
@@ -159,6 +161,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     name: '',
     description: '',
     canBeCorrectAnswer: false,
+    allowLinks: false,
     order: 0,
     isActive: true,
   });
@@ -171,6 +174,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     categoryId: '',
     parentCategory: '',
     color: '#00E8F8',
+    linkUrl: '',
     description: '',
     isActive: true,
   });
@@ -296,6 +300,12 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     }
   }, [selectedTagCategorySlug, isCreating, editingTag, formData.color]);
 
+  useEffect(() => {
+    if (selectedTagCategory && !selectedTagCategory.allowLinks && formData.linkUrl) {
+      setFormData(prev => ({ ...prev, linkUrl: '' }));
+    }
+  }, [selectedTagCategory, formData.linkUrl]);
+
   const toggleTab = (category: string) => {
     setExpandedTabs(prev => ({ ...prev, [category]: !prev[category] }));
   };
@@ -336,6 +346,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       categoryId: defaultCategory?.id || '',
       parentCategory: '',
       color: '#00E8F8',
+      linkUrl: '',
       description: '',
       isActive: true,
     });
@@ -349,6 +360,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       name: '',
       description: '',
       canBeCorrectAnswer: false,
+      allowLinks: false,
       order: 0,
       isActive: true,
     });
@@ -362,6 +374,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       name: category.name,
       description: category.description || '',
       canBeCorrectAnswer: category.canBeCorrectAnswer,
+      allowLinks: category.allowLinks,
       order: category.order || 0,
       isActive: category.isActive !== undefined ? category.isActive : true,
     });
@@ -409,6 +422,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       categoryId: tag.category?.id || '',
       parentCategory: tag.parentCategory || '',
       color: tagColor,
+      linkUrl: tag.linkUrl || '',
       description: tag.description || '',
       isActive: tag.isActive,
     });
@@ -435,6 +449,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
           selectedTagCategorySlug === CRITERIA_TAG_CATEGORY_SLUG && formData.parentCategory
             ? formData.parentCategory
             : null,
+        linkUrl: selectedTagCategory?.allowLinks ? (formData.linkUrl || null) : null,
         // SANCTION tags always use the same color
         color:
           selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
@@ -703,6 +718,15 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
               <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
                 <input
                   type="checkbox"
+                  checked={tagCategoryFormData.allowLinks}
+                  onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, allowLinks: e.target.checked })}
+                  className="rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
+                />
+                Allow optional links on tags
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                <input
+                  type="checkbox"
                   checked={tagCategoryFormData.isActive}
                   onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, isActive: e.target.checked })}
                   className="rounded border-dark-600 bg-dark-900 text-cyan-500 focus:ring-cyan-500"
@@ -751,6 +775,7 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                   </div>
                   <div className="text-xs text-text-muted">
                     {category.canBeCorrectAnswer ? 'Correct answer + filter' : 'Filter only'}
+                    {category.allowLinks ? ' • Links enabled' : ''}
                     {category._count?.tags !== undefined && (
                       <span> • {category._count.tags} tag{category._count.tags !== 1 ? 's' : ''}</span>
                     )}
@@ -1006,6 +1031,24 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                 </>
               )}
             </div>
+
+            {selectedTagCategory?.allowLinks && (
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Optional Link URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.linkUrl}
+                  onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                  placeholder="https://example.com"
+                />
+                <p className="text-xs text-text-muted mt-1">
+                  Only tags in this category can have links.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">

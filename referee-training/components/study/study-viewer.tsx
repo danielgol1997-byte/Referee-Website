@@ -3,31 +3,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Select } from "@/components/ui/select";
 import Link from "next/link";
-import { formatLawLabel, getLawName } from "@/lib/laws";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
-// Map law numbers to IFAB URLs (same as carousel)
-const getLawUrl = (lawNumber: number): string => {
-  const lawUrls: Record<number, string> = {
-    1: "https://www.theifab.com/laws/latest/the-field-of-play/",
-    2: "https://www.theifab.com/laws/latest/the-ball/",
-    3: "https://www.theifab.com/laws/latest/the-players/",
-    4: "https://www.theifab.com/laws/latest/the-players-equipment/",
-    5: "https://www.theifab.com/laws/latest/the-referee/",
-    6: "https://www.theifab.com/laws/latest/the-other-match-officials/",
-    7: "https://www.theifab.com/laws/latest/the-duration-of-the-match/",
-    8: "https://www.theifab.com/laws/latest/the-start-and-restart-of-play/",
-    9: "https://www.theifab.com/laws/latest/the-ball-in-and-out-of-play/",
-    10: "https://www.theifab.com/laws/latest/determining-the-outcome-of-a-match/",
-    11: "https://www.theifab.com/laws/latest/offside/",
-    12: "https://www.theifab.com/laws/latest/fouls-and-misconduct/",
-    13: "https://www.theifab.com/laws/latest/free-kicks/",
-    14: "https://www.theifab.com/laws/latest/the-penalty-kick/",
-    15: "https://www.theifab.com/laws/latest/the-throw-in/",
-    16: "https://www.theifab.com/laws/latest/the-goal-kick/",
-    17: "https://www.theifab.com/laws/latest/the-corner-kick/",
-  };
-  return lawUrls[lawNumber] || "#";
-};
+ 
 
 type Question = {
   id: string;
@@ -48,13 +26,18 @@ const normalizeSearchText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const getQuestionSearchScore = (question: Question, normalizedQuery: string, tokens: string[]) => {
+const getQuestionSearchScore = (
+  question: Question,
+  normalizedQuery: string,
+  tokens: string[],
+  getLawLabel: (lawNumber: number) => string
+) => {
   if (!normalizedQuery) return 1;
 
   const text = normalizeSearchText(question.text || "");
   const explanation = normalizeSearchText(question.explanation || "");
   const lawLabels = normalizeSearchText(
-    (question.lawNumbers || []).map((lawNum) => formatLawLabel(lawNum)).join(" ")
+    (question.lawNumbers || []).map((lawNum) => getLawLabel(lawNum)).join(" ")
   );
   const combined = `${text} ${explanation} ${lawLabels}`.trim();
 
@@ -114,6 +97,7 @@ export function StudyViewer() {
   const tempPositionRef = useRef(0); // Use ref to avoid effect re-runs
   const carouselRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null); // Track fetch requests
+  const { lawTagMap, getLawLabel } = useLawTags();
 
   // Fetch all law numbers once on mount (for filter dropdown) - using lightweight endpoint
   useEffect(() => {
@@ -262,7 +246,7 @@ export function StudyViewer() {
     const scored = filtered
       .map((question) => ({
         question,
-        score: getQuestionSearchScore(question, normalizedQuery, tokens),
+        score: getQuestionSearchScore(question, normalizedQuery, tokens, getLawLabel),
       }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -490,7 +474,7 @@ export function StudyViewer() {
                 {lawFilter.length === 0
                   ? "Select Laws"
                   : lawFilter.length === 1
-                  ? formatLawLabel(lawFilter[0])
+                  ? getLawLabel(lawFilter[0])
                   : `${lawFilter.length} selected`}
               </span>
               <svg 
@@ -543,7 +527,7 @@ export function StudyViewer() {
                           }
                         `}
                       >
-                        <span>{formatLawLabel(num)}</span>
+                        <span>{getLawLabel(num)}</span>
                         {isSelected && (
                           <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -677,7 +661,7 @@ export function StudyViewer() {
               <div
                 key={lawNum}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 relative group"
-                title={formatLawLabel(lawNum)}
+                title={getLawLabel(lawNum)}
               >
                 <button
                   type="button"
@@ -686,7 +670,7 @@ export function StudyViewer() {
                 >
                   ×
                 </button>
-                <span className="ml-2 truncate max-w-[220px]">{formatLawLabel(lawNum)}</span>
+                <span className="ml-2 truncate max-w-[220px]">{getLawLabel(lawNum)}</span>
               </div>
             ))}
           </div>
@@ -754,24 +738,36 @@ export function StudyViewer() {
                 {/* Law Number Badges */}
                 {currentQuestion.lawNumbers && currentQuestion.lawNumbers.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {currentQuestion.lawNumbers.map((lawNum) => (
-                      <Link
-                        key={lawNum}
-                        href={getLawUrl(lawNum)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:scale-105 transition-all duration-200 group"
-                        onClick={(e) => e.stopPropagation()}
-                        title={formatLawLabel(lawNum)}
-                      >
-                        <svg className="w-4 h-4 text-cyan-400 group-hover:text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm font-medium text-cyan-400 group-hover:text-cyan-300">
-                          Law {lawNum} - {getLawName(lawNum)}
+                    {currentQuestion.lawNumbers.map((lawNum) => {
+                      const lawTag = lawTagMap.get(lawNum);
+                      const label = getLawLabel(lawNum);
+                      return lawTag?.linkUrl ? (
+                        <Link
+                          key={lawNum}
+                          href={lawTag.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:scale-105 transition-all duration-200 group"
+                          onClick={(e) => e.stopPropagation()}
+                          title={label}
+                        >
+                          <svg className="w-4 h-4 text-cyan-400 group-hover:text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm font-medium text-cyan-400 group-hover:text-cyan-300">
+                            {label}
+                          </span>
+                        </Link>
+                      ) : (
+                        <span
+                          key={lawNum}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300"
+                          title={label}
+                        >
+                          {label}
                         </span>
-                      </Link>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
