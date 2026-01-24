@@ -159,21 +159,11 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       return;
     }
 
-    // Load saved preferences to check which filters user has explicitly hidden
+    // Load saved preferences to check which filters user has explicitly set
     const savedVisible = localStorage.getItem('videoFilterPreferences');
     const savedOrder = localStorage.getItem('videoFilterOrder');
-    let userHasSetPreferences = false;
-    let savedFiltersList: FilterType[] = [];
     
-    if (savedVisible) {
-      try {
-        savedFiltersList = JSON.parse(savedVisible);
-        userHasSetPreferences = true;
-      } catch (e) {
-        // If parsing fails, we'll treat it as no preferences set
-      }
-    }
-
+    // Add new filters to the order (but not necessarily to visible)
     setFilterOrder(prev => {
       const next = [...prev];
       let changed = false;
@@ -186,21 +176,42 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       return changed ? next : prev;
     });
 
+    // Only auto-add to visible filters if user hasn't customized their preferences yet
     setVisibleFilters(prev => {
       const next = [...prev];
-      let changed = false;
-      customFilterTypes.forEach(type => {
-        if (!next.includes(type)) {
-          // Only auto-add if user hasn't set preferences, OR if this filter wasn't in their saved list
-          // (meaning it's truly new, not previously hidden)
-          if (!userHasSetPreferences || 
-              (savedOrder && !JSON.parse(savedOrder).includes(type))) {
+      
+      // If no saved preferences exist, add all custom filters (first-time user experience)
+      if (!savedVisible) {
+        let changed = false;
+        customFilterTypes.forEach(type => {
+          if (!next.includes(type)) {
             next.push(type);
             changed = true;
           }
+        });
+        return changed ? next : prev;
+      }
+      
+      // If user has saved preferences, only add truly NEW filters
+      // (filters that didn't exist in the order when they last saved)
+      if (savedOrder) {
+        try {
+          const previousOrder: FilterType[] = JSON.parse(savedOrder);
+          let changed = false;
+          customFilterTypes.forEach(type => {
+            // Only add if this filter is NEW (wasn't in previous order) AND not already in visible
+            if (!previousOrder.includes(type) && !next.includes(type)) {
+              next.push(type);
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
+        } catch (e) {
+          console.error('Failed to parse saved filter order');
         }
-      });
-      return changed ? next : prev;
+      }
+      
+      return prev;
     });
   }, [customFilterTypes]);
 
