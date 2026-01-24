@@ -103,6 +103,7 @@ async function migrateTagCategories() {
         "canBeCorrectAnswer" BOOLEAN NOT NULL DEFAULT false,
         "order" INTEGER NOT NULL DEFAULT 0,
         "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "allowLinks" BOOLEAN NOT NULL DEFAULT false,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         
@@ -262,8 +263,42 @@ async function migrateTagCategories() {
       console.log('✓ Foreign key already exists, skipping\n');
     }
 
-    // Step 10: Create index
-    console.log('Step 10: Creating indexes...');
+    // Step 10: Add allowLinks column to TagCategory if not exists
+    console.log('Step 10: Adding allowLinks column to TagCategory...');
+    const tagCategoryColumns = await prisma.$queryRawUnsafe(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'TagCategory';
+    `);
+    const tagCategoryColumnNames = tagCategoryColumns.map(c => c.column_name);
+    
+    if (!tagCategoryColumnNames.includes('allowLinks')) {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "TagCategory" ADD COLUMN "allowLinks" BOOLEAN NOT NULL DEFAULT false;
+      `);
+      console.log('✓ Added allowLinks column to TagCategory\n');
+    } else {
+      console.log('✓ allowLinks column already exists in TagCategory\n');
+    }
+
+    // Step 11: Add linkUrl column to Tag if not exists
+    console.log('Step 11: Adding linkUrl column to Tag...');
+    const tagColumns = await prisma.$queryRawUnsafe(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'Tag';
+    `);
+    const tagColumnNames = tagColumns.map(c => c.column_name);
+    
+    if (!tagColumnNames.includes('linkUrl')) {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Tag" ADD COLUMN "linkUrl" TEXT;
+      `);
+      console.log('✓ Added linkUrl column to Tag\n');
+    } else {
+      console.log('✓ linkUrl column already exists in Tag\n');
+    }
+
+    // Step 12: Create index
+    console.log('Step 12: Creating indexes...');
     const existingIndex = await prisma.$queryRawUnsafe(`
       SELECT COUNT(*)::int AS count FROM pg_indexes WHERE indexname = 'Tag_categoryId_parentCategory_idx';
     `);

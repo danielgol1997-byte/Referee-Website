@@ -1,0 +1,79 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e4]:
+      - generic [ref=e7]:
+        - link "Referee Whistle Referee Training" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Referee Whistle" [ref=e10]
+          - generic [ref=e11]: Referee Training
+        - navigation [ref=e12]:
+          - link "Laws of the game" [ref=e13] [cursor=pointer]:
+            - /url: /laws
+            - text: Laws of the game
+          - link "Referees practice" [ref=e14] [cursor=pointer]:
+            - /url: /practice
+            - text: Referees practice
+          - link "VAR practice" [ref=e15] [cursor=pointer]:
+            - /url: /practice/var
+            - text: VAR practice
+          - link "A.R. practice" [ref=e16] [cursor=pointer]:
+            - /url: /practice/ar
+            - text: A.R. practice
+          - link "Video Library" [ref=e17] [cursor=pointer]:
+            - /url: /library/videos
+            - text: Video Library
+          - link "Stats" [ref=e18] [cursor=pointer]:
+            - /url: /stats
+            - text: Stats
+        - link "Log in" [active] [ref=e20] [cursor=pointer]:
+          - /url: /auth/login
+    - main [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - img [ref=e28]
+          - generic [ref=e34]:
+            - paragraph [ref=e36]: Professional Training Platform
+            - heading "Master the Art of Match Officiating" [level=1] [ref=e37]:
+              - text: Master the Art of
+              - generic [ref=e38]: Match Officiating
+            - list [ref=e39]:
+              - listitem [ref=e40]:
+                - img [ref=e42]
+                - generic [ref=e44]: Laws of the Game tests with instant explanations
+              - listitem [ref=e45]:
+                - img [ref=e47]
+                - generic [ref=e49]: Video challenges for Offside, Handball, DOGSO/SPA
+              - listitem [ref=e50]:
+                - img [ref=e52]
+                - generic [ref=e54]: VAR and Assistant Referee specific training
+              - listitem [ref=e55]:
+                - img [ref=e57]
+                - generic [ref=e59]: Personal dashboard to track your progress
+            - generic [ref=e60]:
+              - generic [ref=e61]:
+                - generic [ref=e62]: 500+
+                - generic [ref=e63]: Video clips
+              - generic [ref=e64]:
+                - generic [ref=e65]: "17"
+                - generic [ref=e66]: Laws covered
+              - generic [ref=e67]:
+                - generic [ref=e68]: 24/7
+                - generic [ref=e69]: Access
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - heading "Welcome back" [level=2] [ref=e73]
+            - paragraph [ref=e74]: Sign in to continue your training
+          - button "Continue with Google" [ref=e75] [cursor=pointer]
+    - contentinfo [ref=e76]:
+      - generic [ref=e79]:
+        - paragraph [ref=e80]: © 2026 Referee Training Platform. All rights reserved.
+        - generic [ref=e81]:
+          - generic [ref=e82]: Built for referees, by referees
+          - generic [ref=e85]: System Online
+  - button "Open Next.js Dev Tools" [ref=e91] [cursor=pointer]:
+    - img [ref=e92]
+  - alert [ref=e95]
+```

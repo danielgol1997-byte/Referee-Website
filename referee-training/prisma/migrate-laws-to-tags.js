@@ -34,28 +34,53 @@ const LAW_NAMES = {
 
 const LAW_COLOR = '#9B72CB'; // Purple color used in video upload form
 
+// IFAB Official Law Links
+const LAW_LINKS = {
+  1: "https://www.theifab.com/laws/latest/the-field-of-play/",
+  2: "https://www.theifab.com/laws/latest/the-ball/",
+  3: "https://www.theifab.com/laws/latest/the-players/",
+  4: "https://www.theifab.com/laws/latest/the-players-equipment/",
+  5: "https://www.theifab.com/laws/latest/the-referee/",
+  6: "https://www.theifab.com/laws/latest/the-other-match-officials/",
+  7: "https://www.theifab.com/laws/latest/the-duration-of-the-match/",
+  8: "https://www.theifab.com/laws/latest/the-start-and-restart-of-play/",
+  9: "https://www.theifab.com/laws/latest/the-ball-in-and-out-of-play/",
+  10: "https://www.theifab.com/laws/latest/determining-the-outcome-of-a-match/",
+  11: "https://www.theifab.com/laws/latest/offside/",
+  12: "https://www.theifab.com/laws/latest/fouls-and-misconduct/",
+  13: "https://www.theifab.com/laws/latest/free-kicks/",
+  14: "https://www.theifab.com/laws/latest/the-penalty-kick/",
+  15: "https://www.theifab.com/laws/latest/the-throw-in/",
+  16: "https://www.theifab.com/laws/latest/the-goal-kick/",
+  17: "https://www.theifab.com/laws/latest/the-corner-kick/",
+};
+
 async function main() {
   console.log('🚀 Starting Laws to Tags Migration...\n');
 
   // Step 1: Create "Laws" tag category (order: 0 for first position)
   console.log('📦 Step 1: Creating "Laws" tag category...');
-  let lawsCategory = await prisma.tagCategory.findFirst({
-    where: { slug: 'laws' }
-  });
+  let lawsCategory = await prisma.$queryRawUnsafe(`
+    SELECT * FROM "TagCategory" WHERE slug = 'laws' LIMIT 1;
+  `);
+  lawsCategory = lawsCategory[0];
 
   if (lawsCategory) {
     console.log('✅ "Laws" category already exists:', lawsCategory.name);
+    
+    // Update allowLinks if not set
+    await prisma.$executeRawUnsafe(`
+      UPDATE "TagCategory" SET "allowLinks" = true WHERE slug = 'laws';
+    `);
+    console.log('✅ Updated "Laws" category to allow links');
   } else {
-    lawsCategory = await prisma.tagCategory.create({
-      data: {
-        name: 'Laws',
-        slug: 'laws',
-        description: 'Laws of the Game (IFAB)',
-        canBeCorrectAnswer: false, // Laws are metadata filters, not decision answers
-        order: 0, // First position (before Category, Criteria, etc.)
-        isActive: true,
-      }
-    });
+    const { randomUUID } = require('crypto');
+    const newId = randomUUID();
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "TagCategory" (id, name, slug, description, "canBeCorrectAnswer", "order", "isActive", "allowLinks", "createdAt", "updatedAt")
+      VALUES ($1, 'Laws', 'laws', 'Laws of the Game (IFAB)', false, 0, true, true, NOW(), NOW());
+    `, newId);
+    lawsCategory = { id: newId, name: 'Laws', slug: 'laws' };
     console.log('✅ Created "Laws" category:', lawsCategory.name);
   }
 
@@ -67,30 +92,41 @@ async function main() {
     const lawName = LAW_NAMES[lawNum];
     const tagName = `Law ${lawNum} - ${lawName}`;
     const tagSlug = `law-${lawNum}`;
+    const linkUrl = LAW_LINKS[lawNum];
     
-    let tag = await prisma.tag.findFirst({
-      where: { 
-        slug: tagSlug,
-        categoryId: lawsCategory.id
-      }
-    });
+    let existingTags = await prisma.$queryRawUnsafe(`
+      SELECT * FROM "Tag" WHERE slug = $1 AND "categoryId" = $2 LIMIT 1;
+    `, tagSlug, lawsCategory.id);
+    let tag = existingTags[0];
 
     if (tag) {
       console.log(`  ✓ Law ${lawNum} already exists`);
+      
+      // Update linkUrl if not set
+      if (!tag.linkUrl) {
+        await prisma.$executeRawUnsafe(`
+          UPDATE "Tag" SET "linkUrl" = $1 WHERE id = $2;
+        `, linkUrl, tag.id);
+        console.log(`    ✓ Added link for Law ${lawNum}`);
+        tag.linkUrl = linkUrl;
+      }
+      
       lawTags.push(tag);
     } else {
-      tag = await prisma.tag.create({
-        data: {
-          name: tagName,
-          slug: tagSlug,
-          categoryId: lawsCategory.id,
-          color: LAW_COLOR,
-          description: lawName,
-          isActive: true,
-          order: lawNum,
-          parentCategory: null,
-        }
-      });
+      const { randomUUID } = require('crypto');
+      const newId = randomUUID();
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "Tag" (id, name, slug, "categoryId", color, description, "isActive", "order", "parentCategory", "linkUrl", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, true, $7, NULL, $8, NOW(), NOW());
+      `, newId, tagName, tagSlug, lawsCategory.id, LAW_COLOR, lawName, lawNum, linkUrl);
+      
+      tag = {
+        id: newId,
+        name: tagName,
+        slug: tagSlug,
+        order: lawNum,
+        linkUrl: linkUrl
+      };
       console.log(`  ✅ Created: ${tagName}`);
       lawTags.push(tag);
     }
