@@ -62,16 +62,41 @@ interface VideoLibraryViewProps {
  * - Decision reveal overlay
  */
 export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps) {
-  const [filters, setFilters] = useState<VideoFilters>({
-    categoryTags: [],
-    restarts: [],
-    criteria: [],
-    sanctions: [],
-    scenarios: [],
-    laws: [],
-    customTagFilters: {},
+  const [filters, setFilters] = useState<VideoFilters>(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = localStorage.getItem('videoLibraryFilters');
+      if (savedFilters) {
+        try {
+          return JSON.parse(savedFilters);
+        } catch (e) {
+          console.error('Failed to parse saved filters');
+        }
+      }
+    }
+    return {
+      categoryTags: [],
+      restarts: [],
+      criteria: [],
+      sanctions: [],
+      scenarios: [],
+      laws: [],
+      customTagFilters: {},
+    };
   });
-  const [activeCategory, setActiveCategory] = useState<RAPCategory>("all");
+  const [activeCategory, setActiveCategory] = useState<RAPCategory>(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = localStorage.getItem('videoLibraryFilters');
+      if (savedFilters) {
+        try {
+          const parsed = JSON.parse(savedFilters);
+          return parsed.rapCategory || 'all';
+        } catch (e) {
+          console.error('Failed to parse saved category');
+        }
+      }
+    }
+    return 'all';
+  });
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [expandedVideoDetails, setExpandedVideoDetails] = useState<Video | null>(null);
   const [loadingVideoDetails, setLoadingVideoDetails] = useState(false);
@@ -99,10 +124,18 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     // If clicking the same category, deselect it
     if (category === activeCategory && category !== 'all') {
       setActiveCategory('all');
-      setFilters(prev => ({ ...prev, rapCategory: undefined }));
+      const newFilters = { ...filters, rapCategory: undefined };
+      setFilters(newFilters);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
+      }
     } else {
       setActiveCategory(category);
-      setFilters(prev => ({ ...prev, rapCategory: category }));
+      const newFilters = { ...filters, rapCategory: category };
+      setFilters(newFilters);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
+      }
     }
   };
 
@@ -110,6 +143,10 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     setFilters(newFilters);
     // Sync category with tabs
     setActiveCategory(newFilters.rapCategory || 'all');
+    // Persist filters to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
+    }
   };
 
   // Apply all filters and sort by category tags

@@ -7,6 +7,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
 import { useLawTags } from "@/components/hooks/useLawTags";
+import { useModal } from "@/components/ui/modal";
 
 type MandatoryTest = {
   id: string;
@@ -28,6 +29,7 @@ type EditFormState = Partial<MandatoryTest> & {
 };
 
 export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
+  const modal = useModal();
   const [tests, setTests] = useState<MandatoryTest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +95,13 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const deleteTest = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this test? This action cannot be undone.")) {
-      return;
-    }
+    const confirmed = await modal.showConfirm(
+      "Are you sure you want to delete this test? This action cannot be undone.",
+      "Delete Test",
+      "warning"
+    );
+    
+    if (!confirmed) return;
     
     setActionLoading(id);
     try {

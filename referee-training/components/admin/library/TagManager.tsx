@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useModal } from "@/components/ui/modal";
 
 interface TagCategory {
   id: string;
@@ -42,6 +43,7 @@ interface DecisionType {
 
 interface TagManagerProps {
   tags: Tag[];
+  tagCategories: TagCategory[];
   onRefresh: () => void;
 }
 
@@ -151,10 +153,11 @@ const CATEGORY_ORDER = [
   'Teamwork', 'Laws Of The Game'
 ];
 
-export function TagManager({ tags, onRefresh }: TagManagerProps) {
+export function TagManager({ tags, tagCategories: initialTagCategories, onRefresh }: TagManagerProps) {
+  const modal = useModal();
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
-  const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>(initialTagCategories);
   const [isCreatingTagCategory, setIsCreatingTagCategory] = useState(false);
   const [editingTagCategory, setEditingTagCategory] = useState<TagCategory | null>(null);
   const [tagCategoryFormData, setTagCategoryFormData] = useState({
@@ -212,6 +215,11 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
     }
   }, [searchQuery, tags.length, tagCategories]);
 
+  // Sync tagCategories when props change
+  useEffect(() => {
+    setTagCategories(initialTagCategories);
+  }, [initialTagCategories]);
+
   const fetchTagCategories = async () => {
     try {
       const response = await fetch('/api/admin/library/tag-categories');
@@ -225,10 +233,6 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       console.error('Failed to fetch tag categories:', error);
     }
   };
-
-  useEffect(() => {
-    fetchTagCategories();
-  }, []);
 
   useEffect(() => {
     if (tagCategories.length === 0) {
@@ -399,13 +403,54 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         throw new Error(data.error || 'Failed to save tag category');
       }
 
-      alert(editingTagCategory ? 'Tag category updated successfully!' : 'Tag category created successfully!');
+      await modal.showSuccess(
+        editingTagCategory ? 'Tag category updated successfully!' : 'Tag category created successfully!'
+      );
       resetTagCategoryForm();
       await fetchTagCategories();
       onRefresh();
     } catch (error: any) {
       console.error('Tag category save error:', error);
-      alert(error.message || 'Failed to save tag category');
+      await modal.showError(error.message || 'Failed to save tag category');
+    }
+  };
+
+  const handleTagCategoryDelete = async (category: TagCategory) => {
+    const tagCount = category._count?.tags || 0;
+    
+    let confirmed;
+    if (tagCount > 0) {
+      confirmed = await modal.showConfirm(
+        `This tag category "${category.name}" has ${tagCount} tag(s). You must move or delete the tags first.\n\nAre you sure you want to continue?`,
+        'Delete Tag Category',
+        'warning'
+      );
+    } else {
+      confirmed = await modal.showConfirm(
+        `Are you sure you want to delete the tag category "${category.name}"?`,
+        'Delete Tag Category',
+        'warning'
+      );
+    }
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/admin/library/tag-categories/${category.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete tag category');
+      }
+
+      await modal.showSuccess('Tag category deleted successfully!');
+      await fetchTagCategories();
+      onRefresh();
+    } catch (error: any) {
+      console.error('Tag category delete error:', error);
+      await modal.showError(error.message || 'Failed to delete tag category');
     }
   };
 
@@ -474,25 +519,32 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
       }
 
       const result = await response.json();
-      alert(editingTag ? 'Tag updated successfully!' : 'Tag created successfully!');
+      await modal.showSuccess(editingTag ? 'Tag updated successfully!' : 'Tag created successfully!');
       resetForm();
       onRefresh();
     } catch (error: any) {
       console.error('Save error:', error);
-      alert(error.message || 'Failed to save tag');
+      await modal.showError(error.message || 'Failed to save tag');
     }
   };
 
   const handleDelete = async (tagId: string, tagName: string, videoCount: number) => {
+    let confirmed;
     if (videoCount > 0) {
-      if (!confirm(`This tag is used by ${videoCount} video(s). Are you sure you want to delete "${tagName}"?`)) {
-        return;
-      }
+      confirmed = await modal.showConfirm(
+        `This tag is used by ${videoCount} video(s).\n\nAre you sure you want to delete "${tagName}"?`,
+        'Delete Tag',
+        'warning'
+      );
     } else {
-      if (!confirm(`Are you sure you want to delete "${tagName}"?`)) {
-        return;
-      }
+      confirmed = await modal.showConfirm(
+        `Are you sure you want to delete "${tagName}"?`,
+        'Delete Tag',
+        'warning'
+      );
     }
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/admin/library/tags/${tagId}`, {
@@ -504,11 +556,11 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
         throw new Error(data.error || 'Delete failed');
       }
 
-      alert('Tag deleted successfully!');
+      await modal.showSuccess('Tag deleted successfully!');
       onRefresh();
     } catch (error: any) {
       console.error('Delete error:', error);
-      alert(error.message || 'Failed to delete tag');
+      await modal.showError(error.message || 'Failed to delete tag');
     }
   };
 
@@ -782,12 +834,20 @@ export function TagManager({ tags, onRefresh }: TagManagerProps) {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => handleTagCategoryEdit(category)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
-              >
-                Edit
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleTagCategoryEdit(category)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleTagCategoryDelete(category)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
           {tagCategories.length === 0 && (

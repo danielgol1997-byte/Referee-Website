@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useModal } from "@/components/ui/modal";
 
 interface Video {
   id: string;
@@ -43,6 +44,7 @@ export function VideoListManager({
   searchQuery = '',
   onSearchChange,
 }: VideoListManagerProps) {
+  const modal = useModal();
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
   const [filterFeatured, setFilterFeatured] = useState<'all' | 'featured' | 'normal'>('all');
@@ -62,7 +64,13 @@ export function VideoListManager({
   };
 
   const handleDelete = async (videoId: string, videoTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${videoTitle}"?`)) return;
+    const confirmed = await modal.showConfirm(
+      `Are you sure you want to delete "${videoTitle}"?`,
+      'Delete Video',
+      'warning'
+    );
+    
+    if (!confirmed) return;
     
     try {
       const response = await fetch(`/api/admin/library/videos/${videoId}`, {
@@ -71,12 +79,12 @@ export function VideoListManager({
       
       if (!response.ok) throw new Error('Delete failed');
       
-      alert('Video deleted successfully!');
+      await modal.showSuccess('Video deleted successfully!');
       onDelete(videoId);
       onRefresh();
     } catch (error) {
       console.error('Delete error:', error);
-      alert('Failed to delete video');
+      await modal.showError('Failed to delete video');
     }
   };
 

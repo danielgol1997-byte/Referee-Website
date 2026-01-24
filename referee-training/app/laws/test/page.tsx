@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as React from "react";
+import Link from "next/link";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { MandatoryTestsSection } from "@/components/laws/MandatoryTestsSection";
 import { PoolTestsCarousel } from "@/components/laws/PoolTestsCarousel";
@@ -87,6 +88,19 @@ export default function LawsTestStartPage() {
 
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-4">
+      {/* Back Button */}
+      <div className="mb-4">
+        <Link 
+          href="/laws"
+          className="px-4 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white hover:border-cyan-500/50 transition-all cursor-pointer flex items-center gap-2 w-fit"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back
+        </Link>
+      </div>
+
       {/* Mandatory Tests Section */}
       <CollapsibleSection
         ref={mandatoryRef}

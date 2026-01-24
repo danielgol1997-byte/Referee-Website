@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useModal } from "@/components/ui/modal";
 
 interface TagCategory {
   id: string;
@@ -66,6 +67,7 @@ const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
  * and UEFA RAP categories (Decision Making, Management, Offside, Teamwork, Laws)
  */
 export function RAPCategoryMapper({ onRefresh }: RAPCategoryMapperProps) {
+  const modal = useModal();
   const [categoryTags, setCategoryTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -156,13 +158,13 @@ export function RAPCategoryMapper({ onRefresh }: RAPCategoryMapperProps) {
         onRefresh();
       } else {
         const error = await response.json();
-        alert(`Failed to save: ${error.error || 'Unknown error'}`);
+        await modal.showError(`Failed to save: ${error.error || 'Unknown error'}`);
         // Revert on error
         fetchCategoryTags();
       }
     } catch (error) {
       console.error('Error saving mapping:', error);
-      alert('Failed to save RAP category mapping');
+      await modal.showError('Failed to save RAP category mapping');
       // Revert on error
       fetchCategoryTags();
     }

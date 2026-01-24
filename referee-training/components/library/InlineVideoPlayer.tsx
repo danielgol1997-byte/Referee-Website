@@ -128,8 +128,20 @@ export function InlineVideoPlayer({
   const [draggingMarker, setDraggingMarker] = useState<'A' | 'B' | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedVolume = localStorage.getItem('videoPlayerVolume');
+      return savedVolume ? parseFloat(savedVolume) : 0.5;
+    }
+    return 0.5;
+  });
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedMuted = localStorage.getItem('videoPlayerMuted');
+      return savedMuted === 'true';
+    }
+    return false;
+  });
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -311,12 +323,15 @@ export function InlineVideoPlayer({
     setIsVideoReady(false);
     setHasStartedPlayback(false);
     
-    // Reset video element time and playback rate
+    // Reset video element time and playback rate, and apply persisted volume/mute
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.playbackRate = 1;
+      // Apply persisted settings to new video
+      videoRef.current.volume = volume;
+      videoRef.current.muted = isMuted;
     }
-  }, [video.id]);
+  }, [video.id]); // Only depend on video.id, not volume/isMuted
 
   // Set loop marker B to duration when duration loads
   useEffect(() => {
@@ -332,17 +347,23 @@ export function InlineVideoPlayer({
     }
   }, [playbackRate]);
 
-  // Update video volume
+  // Update video volume and persist to localStorage
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = volume;
     }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('videoPlayerVolume', volume.toString());
+    }
   }, [volume]);
 
-  // Update video muted state
+  // Update video muted state and persist to localStorage
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = isMuted;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('videoPlayerMuted', isMuted.toString());
     }
   }, [isMuted]);
 

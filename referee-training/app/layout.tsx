@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { ModalProvider } from "@/components/ui/modal";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SlidingBackground } from "@/components/layout/SlidingBackground";
@@ -40,12 +41,14 @@ export default async function RootLayout({
         className={`${inter.variable} ${geistMono.variable} antialiased bg-dark-900 text-text-primary`}
       >
         <AuthSessionProvider session={session}>
-          <div className="relative min-h-screen flex flex-col">
-            <SlidingBackground />
-            <Header />
-            <main className="relative z-10 flex-1 pt-[88px]">{children}</main>
-            <Footer />
-          </div>
+          <ModalProvider>
+            <div className="relative min-h-screen flex flex-col">
+              <SlidingBackground />
+              <Header />
+              <main className="relative z-10 flex-1 pt-[88px]">{children}</main>
+              <Footer />
+            </div>
+          </ModalProvider>
         </AuthSessionProvider>
       </body>
     </html>

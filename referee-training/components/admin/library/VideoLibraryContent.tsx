@@ -13,8 +13,8 @@ export function VideoLibraryContent() {
   const [videos, setVideos] = useState<any[]>([]);
   const [videoCategories, setVideoCategories] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [tagCategories, setTagCategories] = useState<any[]>([]);
   const [editingVideo, setEditingVideo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -40,12 +40,14 @@ export function VideoLibraryContent() {
 
   const fetchCategoriesAndTags = async () => {
     try {
-      const [categoriesRes, tagsRes] = await Promise.all([
+      const [categoriesRes, tagsRes, tagCategoriesRes] = await Promise.all([
         fetch('/api/admin/library/categories'),
         fetch('/api/admin/library/tags'),
+        fetch('/api/admin/library/tag-categories'),
       ]);
 
       const tagsData = await tagsRes.json();
+      const tagCategoriesData = await tagCategoriesRes.json();
       
       let categoriesData = { categories: [] };
       if (categoriesRes.ok) {
@@ -54,13 +56,13 @@ export function VideoLibraryContent() {
 
       setVideoCategories(categoriesData.categories || []);
       setTags(tagsData.tags || []);
+      setTagCategories(tagCategoriesData.tagCategories || []);
     } catch (error) {
       console.error('Error fetching categories/tags:', error);
     }
   };
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       await Promise.all([
         fetchVideos(1, searchQuery),
@@ -68,8 +70,6 @@ export function VideoLibraryContent() {
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -107,15 +107,6 @@ export function VideoLibraryContent() {
   const handleDeleteVideo = (videoId: string) => {
     setVideos(videos.filter(v => v.id !== videoId));
   };
-
-  if (loading) {
-    return (
-      <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-12 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <p className="text-text-secondary">Loading video library...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -182,13 +173,11 @@ export function VideoLibraryContent() {
           pagination={pagination}
           onPageChange={(page) => {
             fetchVideos(page, searchQuery);
-            setLoading(true);
           }}
           searchQuery={searchQuery}
           onSearchChange={(query) => {
             setSearchQuery(query);
             fetchVideos(1, query);
-            setLoading(true);
           }}
         />
       )}
@@ -197,6 +186,7 @@ export function VideoLibraryContent() {
         <VideoUploadForm
           videoCategories={videoCategories}
           tags={tags}
+          tagCategories={tagCategories}
           onSuccess={handleUploadSuccess}
           editingVideo={editingVideo}
         />
@@ -205,6 +195,7 @@ export function VideoLibraryContent() {
       {activeSubTab === 'tags' && (
         <TagManager
           tags={tags}
+          tagCategories={tagCategories}
           onRefresh={fetchData}
         />
       )}

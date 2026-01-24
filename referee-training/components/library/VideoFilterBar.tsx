@@ -159,6 +159,21 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       return;
     }
 
+    // Load saved preferences to check which filters user has explicitly hidden
+    const savedVisible = localStorage.getItem('videoFilterPreferences');
+    const savedOrder = localStorage.getItem('videoFilterOrder');
+    let userHasSetPreferences = false;
+    let savedFiltersList: FilterType[] = [];
+    
+    if (savedVisible) {
+      try {
+        savedFiltersList = JSON.parse(savedVisible);
+        userHasSetPreferences = true;
+      } catch (e) {
+        // If parsing fails, we'll treat it as no preferences set
+      }
+    }
+
     setFilterOrder(prev => {
       const next = [...prev];
       let changed = false;
@@ -176,8 +191,13 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
       let changed = false;
       customFilterTypes.forEach(type => {
         if (!next.includes(type)) {
-          next.push(type);
-          changed = true;
+          // Only auto-add if user hasn't set preferences, OR if this filter wasn't in their saved list
+          // (meaning it's truly new, not previously hidden)
+          if (!userHasSetPreferences || 
+              (savedOrder && !JSON.parse(savedOrder).includes(type))) {
+            next.push(type);
+            changed = true;
+          }
         }
       });
       return changed ? next : prev;

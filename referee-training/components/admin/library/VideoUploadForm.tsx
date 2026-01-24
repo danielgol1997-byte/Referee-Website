@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useModal } from "@/components/ui/modal";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 
 interface VideoUploadFormProps {
@@ -12,6 +13,13 @@ interface VideoUploadFormProps {
     color?: string;
     category?: { id: string; name: string; slug: string; canBeCorrectAnswer: boolean; order?: number };
     parentCategory?: string;
+  }>;
+  tagCategories: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    canBeCorrectAnswer: boolean;
+    order?: number;
   }>;
   onSuccess?: () => void;
   editingVideo?: any;
@@ -45,7 +53,8 @@ const GROUP_COLORS: Record<string, string> = {
 const CATEGORY_TAG_CATEGORY_SLUG = 'category';
 const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
 
-export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo }: VideoUploadFormProps) {
+export function VideoUploadForm({ videoCategories, tags, tagCategories, onSuccess, editingVideo }: VideoUploadFormProps) {
+  const modal = useModal();
   const [loading, setLoading] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -94,13 +103,6 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
 
   const effectiveIsEducational = uploadMode === 'explanations';
 
-  const tagCategoryMap = tags.reduce((acc, tag) => {
-    if (tag.category) {
-      acc[tag.category.id] = tag.category;
-    }
-    return acc;
-  }, {} as Record<string, TagCategory>);
-
   // Group tags by category
   const tagGroups = tags.reduce((acc, tag) => {
     const categoryId = tag.category?.id || 'other';
@@ -111,12 +113,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
     return acc;
   }, {} as Record<string, Tag[]>);
 
-  // Get unique tag categories (dynamically)
-  const tagCategories = Object.values(tagCategoryMap).sort(
+  // Get unique tag categories (from props, already sorted)
+  const sortedTagCategories = tagCategories.sort(
     (a, b) => (a.order || 0) - (b.order || 0)
   );
 
-  // Handle drag and drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -171,11 +172,11 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || (!videoFile && !editingVideo)) {
-      alert('Please provide a title and video file');
+      await modal.showError('Please provide a title and video file');
       return;
     }
     if (effectiveIsEducational && !decisionExplanation.trim()) {
-      alert('Please provide an explanation for explanation-only videos.');
+      await modal.showError('Please provide an explanation for explanation-only videos.');
       return;
     }
 
@@ -405,7 +406,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
       const result = await response.json();
       console.log('✅ Video created successfully:', result);
 
-      alert(editingVideo ? 'Video updated successfully!' : 'Video uploaded successfully!');
+      await modal.showSuccess(editingVideo ? 'Video updated successfully!' : 'Video uploaded successfully!');
       
       // Reset form
       setVideoFile(null);
@@ -426,7 +427,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         : typeof error === 'string' 
           ? error 
           : 'Failed to upload video. Please check console for details.';
-      alert(errorMessage);
+      await modal.showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -575,7 +576,7 @@ export function VideoUploadForm({ videoCategories, tags, onSuccess, editingVideo
         
         <div className="space-y-6">
           {/* Dynamic Tag Group Dropdowns (including Laws) */}
-          {tagCategories.map(category => {
+          {sortedTagCategories.map(category => {
             let filteredOptions = tagGroups[category.id] || [];
             
             // For CRITERIA tags, filter based on selected CATEGORY tags

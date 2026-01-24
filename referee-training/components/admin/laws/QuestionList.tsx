@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useLawTags } from "@/components/hooks/useLawTags";
+import { useModal } from "@/components/ui/modal";
 
 const DIFFICULTY_OPTIONS = [
   { value: 1, label: "Easy" },
@@ -49,6 +50,7 @@ const VAR_FILTER_OPTIONS = [
 ];
 
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
+  const modal = useModal();
   const [lawFilter, setLawFilter] = useState<number | string>("");
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
@@ -136,9 +138,13 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const deleteQuestion = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this question? This action cannot be undone.")) {
-      return;
-    }
+    const confirmed = await modal.showConfirm(
+      "Are you sure you want to delete this question? This action cannot be undone.",
+      "Delete Question",
+      "warning"
+    );
+    
+    if (!confirmed) return;
     
     setActionLoading(id);
     try {
