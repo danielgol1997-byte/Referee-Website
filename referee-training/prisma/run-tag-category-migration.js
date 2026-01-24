@@ -1,7 +1,7 @@
 const { spawnSync } = require('child_process');
 
 function shouldRunMigration() {
-  // Only run on Vercel production builds to avoid unintended local/preview runs
+  // Only run on Vercel production builds to avoid unintended local/preview runs  
   return process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production';
 }
 
