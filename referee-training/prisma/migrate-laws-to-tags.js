@@ -87,6 +87,7 @@ async function main() {
   // Step 2: Create 17 law tags
   console.log('\n📝 Step 2: Creating law tags (1-17)...');
   const lawTags = [];
+  let needsVideoMigration = false;
   
   for (let lawNum = 1; lawNum <= 17; lawNum++) {
     const lawName = LAW_NAMES[lawNum];
@@ -129,75 +130,91 @@ async function main() {
       };
       console.log(`  ✅ Created: ${tagName}`);
       lawTags.push(tag);
+      needsVideoMigration = true; // New tags means we need to migrate videos
     }
   }
 
   console.log(`\n✅ All ${lawTags.length} law tags ready`);
-
-  // Step 3: Migrate VideoClip.lawNumbers to VideoTag relationships
-  console.log('\n🎬 Step 3: Migrating video law numbers to tags...');
   
-  const videos = await prisma.videoClip.findMany({
-    where: {
-      lawNumbers: { isEmpty: false } // Only videos with law numbers
-    },
-    select: {
-      id: true,
-      title: true,
-      lawNumbers: true,
-    }
-  });
-
-  console.log(`Found ${videos.length} videos with law numbers\n`);
-
-  let migratedCount = 0;
-  let skippedCount = 0;
-
-  for (const video of videos) {
-    console.log(`Processing: "${video.title.substring(0, 50)}..."`);
-    console.log(`  Law numbers: [${video.lawNumbers.join(', ')}]`);
-
-    for (const lawNum of video.lawNumbers) {
-      const lawTag = lawTags.find(t => t.order === lawNum);
-      
-      if (!lawTag) {
-        console.warn(`  ⚠️  No tag found for Law ${lawNum} - skipping`);
-        continue;
+  // Check if migration already completed by counting existing VideoTag relationships
+  const existingVideoTags = await prisma.$queryRawUnsafe(`
+    SELECT COUNT(*) as count FROM "VideoTag" vt
+    INNER JOIN "Tag" t ON vt."tagId" = t.id
+    WHERE t."categoryId" = $1;
+  `, lawsCategory.id);
+  
+  const videoTagCount = parseInt(existingVideoTags[0].count);
+  
+  if (videoTagCount > 0 && !needsVideoMigration) {
+    console.log(`\n✅ Video migration already completed (found ${videoTagCount} existing law tag relationships)`);
+    console.log('Skipping video migration step...');
+  } else {
+    // Step 3: Migrate VideoClip.lawNumbers to VideoTag relationships
+    console.log('\n🎬 Step 3: Migrating video law numbers to tags...');
+  
+    const videos = await prisma.videoClip.findMany({
+      where: {
+        lawNumbers: { isEmpty: false } // Only videos with law numbers
+      },
+      select: {
+        id: true,
+        title: true,
+        lawNumbers: true,
       }
+    });
 
-      // Check if VideoTag already exists
-      const existing = await prisma.videoTag.findUnique({
-        where: {
-          videoId_tagId: {
-            videoId: video.id,
-            tagId: lawTag.id
-          }
+    console.log(`Found ${videos.length} videos with law numbers\n`);
+
+    let migratedCount = 0;
+    let skippedCount = 0;
+
+    for (const video of videos) {
+      console.log(`Processing: "${video.title.substring(0, 50)}..."`);
+      console.log(`  Law numbers: [${video.lawNumbers.join(', ')}]`);
+
+      for (const lawNum of video.lawNumbers) {
+        const lawTag = lawTags.find(t => t.order === lawNum);
+        
+        if (!lawTag) {
+          console.warn(`  ⚠️  No tag found for Law ${lawNum} - skipping`);
+          continue;
         }
-      });
 
-      if (existing) {
-        console.log(`  ↔️  Law ${lawNum} tag already linked`);
-        skippedCount++;
-      } else {
-        await prisma.videoTag.create({
-          data: {
-            video: { connect: { id: video.id } },
-            tag: { connect: { id: lawTag.id } },
-            isCorrectDecision: false, // Laws are filters, not answers
-            decisionOrder: 0,
+        // Check if VideoTag already exists
+        const existing = await prisma.videoTag.findUnique({
+          where: {
+            videoId_tagId: {
+              videoId: video.id,
+              tagId: lawTag.id
+            }
           }
         });
-        console.log(`  ✅ Linked Law ${lawNum} tag`);
-        migratedCount++;
-      }
-    }
-    console.log('');
-  }
 
-  console.log('\n📊 Migration Summary:');
-  console.log(`  Videos processed: ${videos.length}`);
-  console.log(`  Tags created: ${migratedCount}`);
-  console.log(`  Tags skipped (already exist): ${skippedCount}`);
+        if (existing) {
+          console.log(`  ↔️  Law ${lawNum} tag already linked`);
+          skippedCount++;
+        } else {
+          await prisma.videoTag.create({
+            data: {
+              video: { connect: { id: video.id } },
+              tag: { connect: { id: lawTag.id } },
+              isCorrectDecision: false, // Laws are filters, not answers
+              decisionOrder: 0,
+            }
+          });
+          console.log(`  ✅ Linked Law ${lawNum} tag`);
+          migratedCount++;
+        }
+      }
+      console.log('');
+    }
+
+    console.log('\n📊 Migration Summary:');
+    console.log(`  Videos processed: ${videos.length}`);
+    console.log(`  Tags created: ${migratedCount}`);
+    console.log(`  Tags skipped (already exist): ${skippedCount}`);
+  }  // End of video migration if block
+
   console.log('\n✅ Migration complete!');
   console.log('\n💡 Note: Original lawNumbers fields preserved for rollback safety');
 }
