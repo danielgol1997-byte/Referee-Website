@@ -108,6 +108,22 @@ export function VideoLibraryContent() {
     setVideos(videos.filter(v => v.id !== videoId));
   };
 
+  const handleVideoUpdate = (videoId: string, updates: Partial<any>) => {
+    setVideos(prevVideos => {
+      const updatedVideos = prevVideos.map(v => 
+        v.id === videoId ? { ...v, ...updates } : v
+      );
+      
+      // Re-sort the videos to match the server-side ordering
+      return updatedVideos.sort((a, b) => {
+        // Active videos first, then by featured, then by creation date
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Sub-Tab Navigation */}
@@ -170,6 +186,7 @@ export function VideoLibraryContent() {
           onEdit={handleEditVideo}
           onDelete={handleDeleteVideo}
           onRefresh={() => fetchVideos(pagination.page, searchQuery)}
+          onVideoUpdate={handleVideoUpdate}
           pagination={pagination}
           onPageChange={(page) => {
             fetchVideos(page, searchQuery);

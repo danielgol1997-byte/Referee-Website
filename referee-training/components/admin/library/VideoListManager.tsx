@@ -23,6 +23,7 @@ interface VideoListManagerProps {
   onEdit: (video: Video) => void;
   onDelete: (videoId: string) => void;
   onRefresh: () => void;
+  onVideoUpdate?: (videoId: string, updates: Partial<Video>) => void;
   pagination?: {
     page: number;
     limit: number;
@@ -39,6 +40,7 @@ export function VideoListManager({
   onEdit, 
   onDelete, 
   onRefresh,
+  onVideoUpdate,
   pagination,
   onPageChange,
   searchQuery = '',
@@ -56,6 +58,11 @@ export function VideoListManager({
     if (filterFeatured === 'featured' && !video.isFeatured) return false;
     if (filterFeatured === 'normal' && video.isFeatured) return false;
     return true;
+  }).sort((a, b) => {
+    // Sort: Active videos first, then by featured, then by creation date
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -88,6 +95,58 @@ export function VideoListManager({
     }
   };
 
+  const [updatingVideoId, setUpdatingVideoId] = useState<string | null>(null);
+  const [slidingVideoId, setSlidingVideoId] = useState<string | null>(null);
+
+  const toggleActive = async (videoId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    
+    // First, update the switch state visually (optimistic update)
+    setUpdatingVideoId(videoId);
+    
+    // Wait for switch animation to complete
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Start card slide animation
+    setSlidingVideoId(videoId);
+    
+    try {
+      const video = videos.find(v => v.id === videoId);
+      if (!video) return;
+      
+      const response = await fetch(`/api/admin/library/videos/${videoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...video,
+          isActive: newStatus,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to toggle video status');
+      
+      // Wait for fade animation to complete
+      setTimeout(() => {
+        setUpdatingVideoId(null);
+        setSlidingVideoId(null);
+        
+        // Update state directly without full refresh if callback is available
+        if (onVideoUpdate) {
+          onVideoUpdate(videoId, { isActive: newStatus });
+        } else {
+          onRefresh();
+        }
+      }, 700); // Time for the fade-out and collapse
+    } catch (error) {
+      console.error('Toggle active error:', error);
+      await modal.showError('Failed to update video status');
+      setUpdatingVideoId(null);
+      setSlidingVideoId(null);
+    }
+  };
+
   const formatDuration = (seconds?: number) => {
     if (!seconds) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -97,6 +156,27 @@ export function VideoListManager({
 
   return (
     <div className="space-y-6">
+      <style jsx>{`
+        @keyframes fadeOut {
+          0% {
+            opacity: 1;
+            max-height: 500px;
+            margin-bottom: 0.75rem;
+          }
+          100% {
+            opacity: 0;
+            max-height: 0;
+            margin-bottom: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+          }
+        }
+        .animate-fade-out {
+          animation: fadeOut 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          pointer-events: none;
+          overflow: hidden;
+        }
+      `}</style>
       {/* Search & Filters */}
       <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-4">
@@ -157,7 +237,7 @@ export function VideoListManager({
       </div>
 
       {/* Video List */}
-      <div className="space-y-3">
+      <div className="space-y-3 transition-all duration-700">
         {filteredVideos.length === 0 ? (
           <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-12 text-center">
             <svg className="w-16 h-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,7 +249,12 @@ export function VideoListManager({
           filteredVideos.map(video => (
             <div
               key={video.id}
-              className="rounded-xl bg-dark-800/50 border border-dark-600 p-4 hover:border-cyan-500/50 transition-all"
+              data-video-id={video.id}
+              className={cn(
+                "rounded-xl bg-dark-800/50 border border-dark-600 p-4 hover:border-cyan-500/50 transition-all duration-700",
+                !video.isActive && "opacity-75",
+                slidingVideoId === video.id && "animate-fade-out"
+              )}
             >
               <div className="flex gap-4">
                 {/* Thumbnail */}
@@ -217,7 +302,7 @@ export function VideoListManager({
                     </div>
 
                     {/* Status Badges */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       {video.isFeatured && (
                         <span className="px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-yellow-500/10 border border-yellow-500/30 text-yellow-500">
                           Featured
@@ -231,6 +316,25 @@ export function VideoListManager({
                       )}>
                         {video.isActive ? 'Active' : 'Inactive'}
                       </span>
+                      {/* Toggle Switch */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleActive(video.id, video.isActive);
+                        }}
+                        className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-dark-800"
+                        style={{ 
+                          backgroundColor: (updatingVideoId === video.id ? !video.isActive : video.isActive) ? '#10b981' : '#ef4444' 
+                        }}
+                        title={`Click to ${video.isActive ? 'deactivate' : 'activate'}`}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300",
+                            (updatingVideoId === video.id ? !video.isActive : video.isActive) ? "translate-x-6" : "translate-x-1"
+                          )}
+                        />
+                      </button>
                     </div>
                   </div>
 
@@ -257,14 +361,6 @@ export function VideoListManager({
                     >
                       Edit
                     </button>
-                    <a
-                      href={`/library/videos?video=${video.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider bg-dark-700 border border-dark-600 text-text-primary hover:bg-dark-600 hover:border-cyan-500/50 transition-colors"
-                    >
-                      View
-                    </a>
                     <button
                       onClick={() => handleDelete(video.id, video.title)}
                       className="px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"

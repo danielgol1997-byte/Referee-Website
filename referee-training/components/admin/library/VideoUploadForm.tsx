@@ -73,6 +73,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const [decisionExplanation, setDecisionExplanation] = useState(editingVideo?.decisionExplanation || '');
   const [playOn, setPlayOn] = useState(editingVideo?.playOn || false);
   const [noOffence, setNoOffence] = useState(editingVideo?.noOffence || false);
+  const [isActive, setIsActive] = useState(editingVideo?.isActive !== undefined ? editingVideo.isActive : true);
   const [correctDecisionTags, setCorrectDecisionTags] = useState<Tag[]>([]);
   const [invisibleTags, setInvisibleTags] = useState<Tag[]>([]);
 
@@ -360,7 +361,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         playOn: hasDecisionTags ? playOn : false,
         noOffence: hasDecisionTags ? noOffence : false,
         tagData: allTagData, // Send structured tag data with order and type
-        isActive: true,
+        isActive: isActive,
       };
 
       const url = editingVideo 
@@ -550,6 +551,43 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
               className="w-full px-4 py-3 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Video Status
+            </label>
+            <div className="flex items-center gap-4 p-4 rounded-lg bg-dark-900 border border-dark-600">
+              <span className={cn(
+                "text-sm font-medium transition-colors",
+                isActive ? "text-green-500" : "text-text-muted"
+              )}>
+                Active
+              </span>
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-dark-900"
+                style={{ backgroundColor: isActive ? '#10b981' : '#ef4444' }}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300",
+                    isActive ? "translate-x-6" : "translate-x-1"
+                  )}
+                />
+              </button>
+              <span className={cn(
+                "text-sm font-medium transition-colors",
+                !isActive ? "text-red-500" : "text-text-muted"
+              )}>
+                Inactive
+              </span>
+              <span className="text-xs text-text-muted ml-auto">
+                Inactive videos are hidden from users
+              </span>
+            </div>
           </div>
 
           {uploadMode === 'explanations' && (

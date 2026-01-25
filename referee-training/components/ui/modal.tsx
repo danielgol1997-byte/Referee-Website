@@ -165,10 +165,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
               </p>
 
               {/* Buttons */}
-              <div className={cn(
-                "flex gap-3 pt-2",
-                modal.cancelText ? "justify-end" : "justify-center"
-              )}>
+              <div className="flex gap-3 pt-2 justify-center">
                 {modal.cancelText && (
                   <button
                     onClick={() => closeModal(false)}

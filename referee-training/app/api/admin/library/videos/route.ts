@@ -89,6 +89,7 @@ export async function GET(request: Request) {
         },
       },
       orderBy: [
+        { isActive: 'desc' }, // Active videos first
         { isFeatured: 'desc' },
         { createdAt: 'desc' },
       ],

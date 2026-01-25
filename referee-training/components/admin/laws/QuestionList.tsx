@@ -1,5 +1,6 @@
 "use client";
 
+// Updated column widths for better layout
 import { useEffect, useState, useRef, useMemo } from "react";
 import React from "react";
 import { Question } from "@prisma/client";
@@ -399,6 +400,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                         ? "text-accent" 
                         : "text-accent/80 hover:text-accent"
                     )}
+                    style={{ width: '100px', maxWidth: '100px' }}
                     onClick={() => {
                       if (lawSortOrder === null || lawSortOrder === "desc") {
                         // First click (or after descending): Sort ascending (low to high)
@@ -415,13 +417,13 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80">
                     Question
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '300px' }}>
                     Answers
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '100px' }}>
                     Status
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-accent/80">
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '130px' }}>
                     Actions
                   </th>
                 </tr>
@@ -604,25 +606,27 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                         setViewingQuestionId(viewingQuestionId === q.id ? null : q.id);
                       }}
                     >
-                      <td className="px-4 py-3 text-sm text-white whitespace-nowrap">
-                        {(q as any).lawNumbers?.length > 0 
-                          ? (q as any).lawNumbers.map((num: number) => getLawLabel(num)).join(", ")
-                          : "—"
-                        }
+                      <td className="px-4 py-3 text-sm text-white whitespace-nowrap overflow-hidden text-ellipsis" style={{ width: '100px', maxWidth: '100px' }}>
+                        <div className="overflow-hidden text-ellipsis">
+                          {(q as any).lawNumbers?.length > 0 
+                            ? (q as any).lawNumbers.map((num: number) => getLawLabel(num)).join(", ")
+                            : "—"
+                          }
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-white">
-                        <div className="line-clamp-2">{q.text}</div>
+                        <div className="line-clamp-3">{q.text}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-white">
-                        <div className="flex flex-wrap gap-1">
+                      <td className="px-4 py-3 text-sm text-white" style={{ width: '300px' }}>
+                        <div className="flex flex-wrap gap-1.5">
                           {q.answerOptions.map((opt) => (
                             <span
                               key={opt.id}
                               className={cn(
-                                "rounded-full px-2 py-1 text-xs",
+                                "rounded-full px-3 py-1.5 text-xs leading-tight inline-flex items-center",
                                 opt.isCorrect 
                                   ? "bg-accent/20 text-accent border border-accent/30" 
-                                  : "bg-dark-700 text-text-secondary"
+                                  : "bg-dark-700 text-text-secondary border border-transparent"
                               )}
                             >
                               {opt.label.length > 30 ? opt.label.substring(0, 30) + "..." : opt.label}
@@ -630,14 +634,14 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3 text-sm" style={{ width: '100px' }}>
                         {isActive ? (
                           <span className="rounded-full bg-accent/20 border border-accent/30 px-2 py-1 text-xs text-accent">Active</span>
                         ) : (
                           <span className="rounded-full bg-dark-700 px-2 py-1 text-xs text-text-secondary">Inactive</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-white">
+                      <td className="px-4 py-3 text-sm text-white" style={{ width: '130px' }}>
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => startEdit(q)}
