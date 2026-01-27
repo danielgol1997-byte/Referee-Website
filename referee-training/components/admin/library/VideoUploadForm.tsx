@@ -166,6 +166,24 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     return { loopZoneStart, loopZoneEnd };
   };
 
+  // Load video metadata when editing (for videos uploaded before editor feature)
+  useEffect(() => {
+    if (editingVideo?.fileUrl && videoPreview && (!videoDuration || videoDuration === 0)) {
+      console.log('Loading video metadata for existing video:', editingVideo.fileUrl);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.crossOrigin = 'anonymous';
+      video.onloadedmetadata = () => {
+        console.log('Video metadata loaded, duration:', video.duration);
+        setVideoDuration(video.duration);
+      };
+      video.onerror = (e) => {
+        console.error('Error loading video metadata:', e);
+      };
+      video.src = editingVideo.fileUrl;
+    }
+  }, [editingVideo?.fileUrl, videoPreview, videoDuration]);
+
   // Load tags when editing video
   useEffect(() => {
     if (editingVideo?.tags && Array.isArray(editingVideo.tags)) {
@@ -765,7 +783,14 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             ) : (
               <div className="text-center py-8 text-text-muted">
                 <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-2" />
-                <p className="text-sm">Loading video...</p>
+                <p className="text-sm">
+                  {editingVideo ? 'Loading video metadata...' : 'Loading video...'}
+                </p>
+                {editingVideo && (
+                  <p className="text-xs text-text-muted mt-2">
+                    Video URL: {editingVideo.fileUrl?.substring(0, 50)}...
+                  </p>
+                )}
               </div>
             )}
           </div>
