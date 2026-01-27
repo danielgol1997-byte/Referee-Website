@@ -190,65 +190,85 @@ export async function PUT(
       });
     }
 
-    // Update video
-    const video = await prisma.videoClip.update({
-      where: { id },
-      data: {
-        title,
-        description,
-        fileUrl,
-        thumbnailUrl,
-        duration,
-        categoryId,
-        videoCategoryId,
-        videoType,
-        isEducational,
-        correctDecision,
-        decisionExplanation,
-        keyPoints,
-        commonMistakes,
-        lawNumbers,
-        playOn,
-        noOffence,
-        restartType,
-        sanctionType,
-        offsideReason,
-        varRelevant,
-        varNotes,
-        isFeatured,
-        isActive,
-        // Video editing metadata
-        trimStart: trimStart !== undefined ? trimStart : null,
-        trimEnd: trimEnd !== undefined ? trimEnd : null,
-        cutSegments: cutSegments ? cutSegments : null,
-        loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
-        loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
-        // Recreate tag relations with correct decision info
-        tags: tagData && tagData.length > 0 ? {
+    const tagRelations = tagData && tagData.length > 0
+      ? {
           create: tagData.map((tag: any) => ({
             tagId: tag.tagId,
             isCorrectDecision: tag.isCorrectDecision || false,
             decisionOrder: tag.decisionOrder || 0,
           })),
-        } : tagIds && tagIds.length > 0 ? {
-          // Legacy support for old format
-          create: tagIds.map((tagId: string) => ({
-            tagId,
-            isCorrectDecision: false,
-            decisionOrder: 0,
-          })),
-        } : undefined,
-      },
-      include: {
-        category: true,
-        videoCategory: true,
-        tags: {
-          include: {
-            tag: true,
-          },
+        }
+      : tagIds && tagIds.length > 0
+        ? {
+            // Legacy support for old format
+            create: tagIds.map((tagId: string) => ({
+              tagId,
+              isCorrectDecision: false,
+              decisionOrder: 0,
+            })),
+          }
+        : undefined;
+
+    const baseData = {
+      title,
+      description,
+      fileUrl,
+      thumbnailUrl,
+      duration,
+      categoryId,
+      videoCategoryId,
+      videoType,
+      isEducational,
+      correctDecision,
+      decisionExplanation,
+      keyPoints,
+      commonMistakes,
+      lawNumbers,
+      playOn,
+      noOffence,
+      restartType,
+      sanctionType,
+      offsideReason,
+      varRelevant,
+      varNotes,
+      isFeatured,
+      isActive,
+      tags: tagRelations,
+    };
+
+    const includeRelations = {
+      category: true,
+      videoCategory: true,
+      tags: {
+        include: {
+          tag: true,
         },
       },
-    });
+    };
+
+    let video;
+    try {
+      video = await prisma.videoClip.update({
+        where: { id },
+        data: {
+          ...baseData,
+          // Video editing metadata (may not exist in older DBs)
+          trimStart: trimStart !== undefined ? trimStart : null,
+          trimEnd: trimEnd !== undefined ? trimEnd : null,
+          cutSegments: cutSegments ? cutSegments : null,
+          loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
+          loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
+        },
+        include: includeRelations,
+      });
+    } catch (error) {
+      console.warn('Error updating video with edit metadata, retrying without edit fields:', error);
+      video = await prisma.videoClip.update({
+        where: { id },
+        data: baseData,
+        include: includeRelations,
+      });
+    }
 
     return NextResponse.json({ video });
   } catch (error) {
