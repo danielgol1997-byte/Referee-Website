@@ -255,7 +255,9 @@ export async function PUT(
       loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
     };
 
-    const runUpdate = async (data: typeof updateDataWithEdits) => {
+    type UpdateData = typeof baseData & Partial<Pick<typeof updateDataWithEdits, 'trimStart' | 'trimEnd' | 'cutSegments' | 'loopZoneStart' | 'loopZoneEnd'>>;
+
+    const runUpdate = async (data: UpdateData) => {
       if (!hasTagUpdate) {
         return prisma.videoClip.update({
           where: { id },
