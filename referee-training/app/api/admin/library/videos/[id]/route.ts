@@ -190,6 +190,7 @@ export async function PUT(
       });
     }
 
+    const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
     const tagRelations = tagData && tagData.length > 0
       ? {
           create: tagData.map((tag: any) => ({
@@ -214,7 +215,7 @@ export async function PUT(
       description,
       fileUrl,
       thumbnailUrl,
-      duration,
+      duration: normalizedDuration,
       categoryId,
       videoCategoryId,
       videoType,

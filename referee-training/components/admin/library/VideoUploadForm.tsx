@@ -632,8 +632,9 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
 
       const allTagData = [...correctDecisionTagData, ...invisibleTagData];
       
-      const hasTrimEdits = editPayload && hasMeaningfulEdits(editPayload, duration);
-      const adjustedLoop = getAdjustedLoop(editDataForSave, duration);
+      const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
+      const hasTrimEdits = editPayload && hasMeaningfulEdits(editPayload, normalizedDuration || 0);
+      const adjustedLoop = getAdjustedLoop(editDataForSave, normalizedDuration || 0);
 
       const videoData = {
         title,
@@ -641,7 +642,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         isEducational: effectiveIsEducational,
         fileUrl,
         thumbnailUrl,
-        duration,
+        duration: normalizedDuration,
         // Don't pass categoryId - let the backend handle it
         videoCategoryId: videoCategories[0]?.id || null,
         lawNumbers: [], // Deprecated: Laws now managed via tags
@@ -651,7 +652,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         isActive: isActive,
         // Video editing metadata - use saved or latest edits
         trimStart: hasTrimEdits ? 0 : editDataForSave?.trimStart,
-        trimEnd: hasTrimEdits ? duration : editDataForSave?.trimEnd,
+        trimEnd: hasTrimEdits ? (normalizedDuration || 0) : editDataForSave?.trimEnd,
         cutSegments: [],
         loopZoneStart: adjustedLoop.loopZoneStart ?? undefined,
         loopZoneEnd: adjustedLoop.loopZoneEnd ?? undefined,

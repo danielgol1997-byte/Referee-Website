@@ -167,6 +167,10 @@ export async function POST(request: Request) {
       loopZoneStart,
       loopZoneEnd,
     } = body;
+
+    const normalizedDuration = Number.isFinite(duration)
+      ? Math.round(duration as number)
+      : duration;
     
     console.log('📝 Request body:', {
       title,
@@ -247,7 +251,7 @@ export async function POST(request: Request) {
         description,
         fileUrl,
         thumbnailUrl,
-        duration,
+        duration: normalizedDuration,
         categoryId: finalCategoryId,
         videoCategoryId,
         videoType: videoType || 'EDUCATIONAL',
