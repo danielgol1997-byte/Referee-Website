@@ -230,8 +230,20 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     if (editingVideo?.tags && Array.isArray(editingVideo.tags)) {
       const videoTags = editingVideo.tags
         .map((vt: any) => {
-          const tag = tags.find(t => t.id === (vt.tagId || vt.tag?.id));
-          return tag ? { ...tag, order: vt.decisionOrder || 0, isCorrect: vt.isCorrectDecision || false } : null;
+          const tagFromList = tags.find(t => t.id === (vt.tagId || vt.tag?.id));
+          const fallbackTag = vt.tag
+            ? {
+                id: vt.tag.id,
+                name: vt.tag.name,
+                color: vt.tag.color,
+                category: vt.tag.category,
+                parentCategory: vt.tag.parentCategory,
+              }
+            : null;
+          const resolvedTag = tagFromList || fallbackTag;
+          return resolvedTag
+            ? { ...resolvedTag, order: vt.decisionOrder || 0, isCorrect: vt.isCorrectDecision || false }
+            : null;
         })
         .filter((t: any) => t !== null);
 
