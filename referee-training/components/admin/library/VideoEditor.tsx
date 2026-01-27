@@ -35,6 +35,7 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
   } | null>(null);
   const isDraggingRef = useRef(false); // Track dragging state for handleTimeUpdate
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [thumbnailsDisabled, setThumbnailsDisabled] = useState(false);
 
   // Actual video duration from the loaded video element (authoritative source)
   // Initialize to 0 - will be set when video actually loads
@@ -121,6 +122,7 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
 
   // Generate thumbnails from video
   const generateThumbnails = useCallback(async () => {
+    if (thumbnailsDisabled) return;
     if (!videoRef.current || !thumbnailCanvasRef.current || actualVideoDuration <= 0) return;
     
     const video = videoRef.current;
@@ -136,7 +138,8 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
     const newThumbnails: string[] = [];
     const originalTime = video.currentTime;
 
-    for (let i = 0; i < thumbCount; i++) {
+    try {
+      for (let i = 0; i < thumbCount; i++) {
       const time = (actualVideoDuration / thumbCount) * i;
       
       // Seek to time and wait for frame
@@ -149,12 +152,20 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
         video.addEventListener('seeked', onSeeked);
       });
 
-      // Draw frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convert to data URL
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-      newThumbnails.push(dataUrl);
+        // Draw frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        newThumbnails.push(dataUrl);
+      }
+    } catch (error) {
+      console.warn('VideoEditor: Thumbnails disabled due to canvas security error.', error);
+      setThumbnails([]);
+      setThumbnailsDisabled(true);
+      // Restore original time before returning
+      video.currentTime = originalTime;
+      return;
     }
 
     // Restore original time
@@ -162,7 +173,7 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
     
     setThumbnails(newThumbnails);
     console.log('VideoEditor: Generated', newThumbnails.length, 'thumbnails');
-  }, [actualVideoDuration]);
+  }, [actualVideoDuration, thumbnailsDisabled]);
 
   // Auto-adjust loop zone when trim boundaries change
   // This ensures the loop stays within the trim region
@@ -496,6 +507,7 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
           <video
             ref={videoRef}
             src={videoUrl}
+            crossOrigin="anonymous"
             className="w-full h-full object-contain"
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setIsPlaying(true)}

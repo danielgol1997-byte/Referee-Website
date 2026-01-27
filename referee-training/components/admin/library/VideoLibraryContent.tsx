@@ -46,12 +46,21 @@ export function VideoLibraryContent() {
         fetch('/api/admin/library/tag-categories'),
       ]);
 
-      const tagsData = await tagsRes.json();
-      const tagCategoriesData = await tagCategoriesRes.json();
+      if (!tagsRes.ok) {
+        console.error('Failed to fetch tags:', tagsRes.status);
+      }
+      if (!tagCategoriesRes.ok) {
+        console.error('Failed to fetch tag categories:', tagCategoriesRes.status);
+      }
+
+      const tagsData = tagsRes.ok ? await tagsRes.json() : { tags: [] };
+      const tagCategoriesData = tagCategoriesRes.ok ? await tagCategoriesRes.json() : { tagCategories: [] };
       
       let categoriesData = { categories: [] };
       if (categoriesRes.ok) {
         categoriesData = await categoriesRes.json();
+      } else {
+        console.error('Failed to fetch categories:', categoriesRes.status);
       }
 
       setVideoCategories(categoriesData.categories || []);
@@ -86,6 +95,14 @@ export function VideoLibraryContent() {
         setEditingVideo(data.video);
         setActiveSubTab('upload');
       } else {
+        let errorDetails = '';
+        try {
+          const errorJson = await response.json();
+          errorDetails = errorJson?.error || JSON.stringify(errorJson);
+        } catch {
+          errorDetails = await response.text();
+        }
+        console.error('Failed to fetch full video details:', response.status, errorDetails);
         // Fallback to lightweight data if fetch fails
         setEditingVideo(video);
         setActiveSubTab('upload');

@@ -13,7 +13,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const video = await prisma.videoClip.findUnique({
+    const video = await prisma.videoClip.findFirst({
       where: { id, isActive: true },
       include: {
         videoCategory: true,

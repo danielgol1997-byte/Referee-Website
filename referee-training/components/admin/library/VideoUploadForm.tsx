@@ -71,6 +71,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const progressOverlayRef = useRef<HTMLDivElement>(null);
+  const lastEditingVideoIdRef = useRef<string | null>(null);
 
   // Form data
   const [uploadMode, setUploadMode] = useState<'decisions' | 'explanations'>(
@@ -83,6 +84,46 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const [isActive, setIsActive] = useState(editingVideo?.isActive !== undefined ? editingVideo.isActive : true);
   const [correctDecisionTags, setCorrectDecisionTags] = useState<Tag[]>([]);
   const [invisibleTags, setInvisibleTags] = useState<Tag[]>([]);
+
+  // Sync form state when editing video changes
+  useEffect(() => {
+    const nextId = editingVideo?.id ?? null;
+    if (lastEditingVideoIdRef.current === nextId) return;
+    lastEditingVideoIdRef.current = nextId;
+
+    if (!editingVideo) {
+      setVideoFile(null);
+      setThumbnailFile(null);
+      setVideoPreview('');
+      setThumbnailPreview('');
+      setVideoDuration(0);
+      setVideoEditData(null);
+      setUploadMode('decisions');
+      setTitle('');
+      setDecisionExplanation('');
+      setPlayOn(false);
+      setNoOffence(false);
+      setIsActive(true);
+      setCorrectDecisionTags([]);
+      setInvisibleTags([]);
+      return;
+    }
+
+    setVideoFile(null);
+    setThumbnailFile(null);
+    setVideoPreview(editingVideo.fileUrl || '');
+    setThumbnailPreview(editingVideo.thumbnailUrl || '');
+    setVideoDuration(editingVideo.duration || 0);
+    setVideoEditData(null);
+    setUploadMode(editingVideo.isEducational ? 'explanations' : 'decisions');
+    setTitle(editingVideo.title || '');
+    setDecisionExplanation(editingVideo.decisionExplanation || '');
+    setPlayOn(editingVideo.playOn || false);
+    setNoOffence(editingVideo.noOffence || false);
+    setIsActive(editingVideo.isActive !== undefined ? editingVideo.isActive : true);
+    setCorrectDecisionTags([]);
+    setInvisibleTags([]);
+  }, [editingVideo]);
 
   const buildEditPayload = (editData: VideoEditData | null) => {
     if (!editData) return null;
@@ -288,14 +329,19 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       canvas.height = videoElement.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
-            setThumbnailFile(file);
-            setThumbnailPreview(URL.createObjectURL(blob));
-          }
-        }, 'image/jpeg', 0.95);
+        try {
+          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
+              setThumbnailFile(file);
+              setThumbnailPreview(URL.createObjectURL(blob));
+            }
+          }, 'image/jpeg', 0.95);
+        } catch (error) {
+          console.error('Failed to capture thumbnail (tainted canvas):', error);
+          modal.showError('Unable to capture thumbnail from this video. The video source does not allow canvas capture.');
+        }
       }
     }
   };

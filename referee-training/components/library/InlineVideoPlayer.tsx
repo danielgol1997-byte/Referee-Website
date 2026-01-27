@@ -714,6 +714,13 @@ export function InlineVideoPlayer({
         }
       }
 
+      // Close answer with 'i' when it's open
+      if ((e.key === "i" || e.key === "I") && isAnswerOpen) {
+        e.preventDefault();
+        onCloseDecision?.();
+        return;
+      }
+
       // Show answer with 'i' (only if keyboard help is not open)
       if ((e.key === "i" || e.key === "I") && hasAnswer && !isAnswerOpen && !showKeyboardHelp) {
         if (videoRef.current && !videoRef.current.paused) {
@@ -1297,6 +1304,10 @@ export function InlineVideoPlayer({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isAnswerOpen) {
+                          onCloseDecision?.();
+                          return;
+                        }
                         // Pause video when showing answer
                         if (videoRef.current && !videoRef.current.paused) {
                           videoRef.current.pause();
