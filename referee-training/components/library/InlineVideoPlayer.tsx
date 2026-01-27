@@ -1490,24 +1490,26 @@ export function InlineVideoPlayer({
 
             {/* Decision Reveal - Inside fullscreen container */}
             {showDecision && (
-              <DecisionReveal
-                isOpen={showDecision}
-                onClose={() => onCloseDecision?.()}
-                playOn={video.playOn}
-                noOffence={video.noOffence}
-                correctDecision={video.correctDecision}
-                restartType={video.restartType}
-                sanctionType={video.sanctionType}
-                offsideReason={video.offsideReason}
-                decisionExplanation={video.decisionExplanation}
-                keyPoints={video.keyPoints}
-                commonMistakes={video.commonMistakes}
-                varRelevant={false}
-                varNotes={video.varNotes}
-                isEducational={video.isEducational}
-                lawNumbers={video.lawNumbers}
-                tags={video.tags}
-              />
+              <div className="pointer-events-auto">
+                <DecisionReveal
+                  isOpen={showDecision}
+                  onClose={() => onCloseDecision?.()}
+                  playOn={video.playOn}
+                  noOffence={video.noOffence}
+                  correctDecision={video.correctDecision}
+                  restartType={video.restartType}
+                  sanctionType={video.sanctionType}
+                  offsideReason={video.offsideReason}
+                  decisionExplanation={video.decisionExplanation}
+                  keyPoints={video.keyPoints}
+                  commonMistakes={video.commonMistakes}
+                  varRelevant={false}
+                  varNotes={video.varNotes}
+                  isEducational={video.isEducational}
+                  lawNumbers={video.lawNumbers}
+                  tags={video.tags}
+                />
+              </div>
             )}
           </motion.div>
         </>
