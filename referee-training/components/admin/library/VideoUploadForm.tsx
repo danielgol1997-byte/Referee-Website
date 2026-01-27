@@ -45,6 +45,7 @@ interface Tag {
 
 // Tag group colors
 const GROUP_COLORS: Record<string, string> = {
+  laws: '#9B72CB',
   category: '#FF6B6B',
   restarts: '#4A90E2',
   criteria: '#FFD93D',
@@ -52,8 +53,15 @@ const GROUP_COLORS: Record<string, string> = {
   scenario: '#6BCF7F',
 };
 
+const LAW_TAG_CATEGORY_SLUG = 'laws';
 const CATEGORY_TAG_CATEGORY_SLUG = 'category';
 const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+
+const extractLawNumber = (tag: Pick<Tag, 'name'>) => {
+  const nameMatch = tag.name.match(/\blaw\s*(\d{1,2})\b/i);
+  if (nameMatch?.[1]) return Number(nameMatch[1]);
+  return null;
+};
 
 export function VideoUploadForm({ videoCategories, tags, tagCategories, onSuccess, editingVideo }: VideoUploadFormProps) {
   const modal = useModal();
@@ -631,6 +639,14 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       }));
 
       const allTagData = [...correctDecisionTagData, ...invisibleTagData];
+      const selectedLawNumbers = Array.from(
+        new Set(
+          [...correctDecisionTags, ...invisibleTags]
+            .filter((tag) => tag.category?.slug === LAW_TAG_CATEGORY_SLUG)
+            .map((tag) => extractLawNumber(tag))
+            .filter((lawNumber): lawNumber is number => Number.isFinite(lawNumber))
+        )
+      ).sort((a, b) => a - b);
       
       const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
       const hasTrimEdits = editPayload && hasMeaningfulEdits(editPayload, normalizedDuration || 0);
@@ -645,7 +661,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         duration: normalizedDuration,
         // Don't pass categoryId - let the backend handle it
         videoCategoryId: videoCategories[0]?.id || null,
-        lawNumbers: [], // Deprecated: Laws now managed via tags
+        lawNumbers: selectedLawNumbers,
         playOn: hasDecisionTags ? playOn : false,
         noOffence: hasDecisionTags ? noOffence : false,
         tagData: allTagData, // Send structured tag data with order and type
