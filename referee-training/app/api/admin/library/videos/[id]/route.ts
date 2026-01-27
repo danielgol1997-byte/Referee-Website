@@ -246,6 +246,13 @@ export async function PUT(
       ...(hasTagUpdate ? { tags: tagRelations } : {}),
     };
 
+    console.log('[UPDATE] Constructed baseData:', {
+      hasTagsInBase: 'tags' in baseData,
+      hasLoopInBase: 'loopZoneStart' in baseData,
+      hasTrimInBase: 'trimStart' in baseData,
+      baseDataKeys: Object.keys(baseData),
+    });
+
     const includeRelations = {
       category: true,
       videoCategory: true,
@@ -270,7 +277,15 @@ export async function PUT(
     type UpdateData = typeof baseData & Partial<Pick<typeof updateDataWithEdits, 'trimStart' | 'trimEnd' | 'cutSegments' | 'loopZoneStart' | 'loopZoneEnd'>>;
 
     const runUpdate = async (data: UpdateData) => {
+      console.log('[runUpdate] Called with:', {
+        hasTagUpdate,
+        dataKeys: Object.keys(data),
+        hasTagsInData: 'tags' in data,
+        hasLoopInData: 'loopZoneStart' in data,
+      });
+
       if (!hasTagUpdate) {
+        console.log('[runUpdate] Direct update (no tag changes)');
         return prisma.videoClip.update({
           where: { id },
           data,
@@ -278,30 +293,52 @@ export async function PUT(
         });
       }
 
+      console.log('[runUpdate] Transaction update (with tag changes)');
       return prisma.$transaction(async (tx) => {
-        await tx.videoTag.deleteMany({ where: { videoId: id } });
-        return tx.videoClip.update({
+        const deleteResult = await tx.videoTag.deleteMany({ where: { videoId: id } });
+        console.log('[runUpdate] Deleted tags:', deleteResult.count);
+        const updateResult = await tx.videoClip.update({
           where: { id },
           data,
           include: includeRelations,
         });
+        console.log('[runUpdate] Video updated successfully');
+        return updateResult;
       });
     };
 
     try {
+      console.log('[UPDATE] Attempting update WITH edit metadata:', {
+        videoId: id,
+        hasLoopZone: 'loopZoneStart' in updateDataWithEdits,
+        hasTrimStart: 'trimStart' in updateDataWithEdits,
+        updateDataKeys: Object.keys(updateDataWithEdits),
+      });
       video = await runUpdate(updateDataWithEdits);
-    } catch (error) {
-      console.warn('Error updating video with edit metadata, retrying without edit fields:', error);
+      console.log('[UPDATE] First update succeeded');
+    } catch (error: any) {
+      console.error('[UPDATE] First update FAILED:', {
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        errorMeta: error?.meta,
+      });
+      console.log('[UPDATE] Retrying WITHOUT edit fields:', {
+        baseDataKeys: Object.keys(baseData),
+        hasLoopZoneInBase: 'loopZoneStart' in baseData,
+        hasTrimStartInBase: 'trimStart' in baseData,
+      });
       video = await runUpdate(baseData);
+      console.log('[UPDATE] Second update succeeded');
     }
 
     return NextResponse.json({ video });
   } catch (error: any) {
-    console.error('Error updating video:', error);
-    console.error('Error details:', {
-      message: error?.message,
-      code: error?.code,
-      meta: error?.meta,
+    console.error('[UPDATE] OUTER CATCH - Both attempts failed:', {
+      errorName: error?.name,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorMeta: error?.meta,
+      errorStack: error?.stack?.substring(0, 500),
     });
     return NextResponse.json(
       { 
