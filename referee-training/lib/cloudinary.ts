@@ -13,8 +13,6 @@ if (typeof window === 'undefined') {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
-    // Increase timeout to 10 minutes for slow connections
-    timeout: 600000,
   });
 }
 
@@ -89,8 +87,6 @@ export async function uploadVideo(
         },
       ],
       eager_async: false,
-      // Increase timeout to 10 minutes for slow connections
-      timeout: 600000,
     });
 
     console.log('✅ Cloudinary upload complete:', result.public_id);
@@ -269,8 +265,6 @@ export async function createEditedVideoFromPublicId(
       type: 'upload',
       eager,
       eager_async: false,
-      // Increase timeout to 10 minutes for slow connections
-      timeout: 600000,
     });
 
     console.log('✅ Cloudinary explicit result:', {

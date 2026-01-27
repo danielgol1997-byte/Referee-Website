@@ -4,7 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { uploadVideo, createEditedVideoFromPublicId, VideoEditPayload } from '@/lib/cloudinary';
 
 // Route segment config - increase timeout for large video uploads
-export const maxDuration = 600; // 10 minutes in seconds
+// Note: Vercel limits are 10s (Hobby), 60s (Pro), 300s (Pro with Edge), 900s (Enterprise)
+export const maxDuration = 60; // 60 seconds for Pro plan, 10 for Hobby
 
 /**
  * POST /api/admin/library/upload
