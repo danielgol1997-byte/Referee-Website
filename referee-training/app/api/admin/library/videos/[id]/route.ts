@@ -219,7 +219,7 @@ export async function PUT(
           ? { create: [] }
           : undefined;
 
-    const baseData = {
+    const updateData = {
       title,
       description,
       fileUrl,
@@ -243,15 +243,14 @@ export async function PUT(
       varNotes,
       isFeatured,
       isActive,
+      // Video editing metadata
+      trimStart: trimStart !== undefined ? trimStart : null,
+      trimEnd: trimEnd !== undefined ? trimEnd : null,
+      cutSegments: cutSegments ? cutSegments : null,
+      loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
+      loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
       ...(hasTagUpdate ? { tags: tagRelations } : {}),
     };
-
-    console.log('[UPDATE] Constructed baseData:', {
-      hasTagsInBase: 'tags' in baseData,
-      hasLoopInBase: 'loopZoneStart' in baseData,
-      hasTrimInBase: 'trimStart' in baseData,
-      baseDataKeys: Object.keys(baseData),
-    });
 
     const includeRelations = {
       category: true,
@@ -264,82 +263,28 @@ export async function PUT(
     };
 
     let video;
-    const updateDataWithEdits = {
-      ...baseData,
-      // Video editing metadata (may not exist in older DBs)
-      trimStart: trimStart !== undefined ? trimStart : null,
-      trimEnd: trimEnd !== undefined ? trimEnd : null,
-      cutSegments: cutSegments ? cutSegments : null,
-      loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
-      loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
-    };
-
-    type UpdateData = typeof baseData & Partial<Pick<typeof updateDataWithEdits, 'trimStart' | 'trimEnd' | 'cutSegments' | 'loopZoneStart' | 'loopZoneEnd'>>;
-
-    const runUpdate = async (data: UpdateData) => {
-      console.log('[runUpdate] Called with:', {
-        hasTagUpdate,
-        dataKeys: Object.keys(data),
-        hasTagsInData: 'tags' in data,
-        hasLoopInData: 'loopZoneStart' in data,
+    if (!hasTagUpdate) {
+      // Simple update without tag changes
+      video = await prisma.videoClip.update({
+        where: { id },
+        data: updateData,
+        include: includeRelations,
       });
-
-      if (!hasTagUpdate) {
-        console.log('[runUpdate] Direct update (no tag changes)');
-        return prisma.videoClip.update({
+    } else {
+      // Transaction for tag updates
+      video = await prisma.$transaction(async (tx) => {
+        await tx.videoTag.deleteMany({ where: { videoId: id } });
+        return tx.videoClip.update({
           where: { id },
-          data,
+          data: updateData,
           include: includeRelations,
         });
-      }
-
-      console.log('[runUpdate] Transaction update (with tag changes)');
-      return prisma.$transaction(async (tx) => {
-        const deleteResult = await tx.videoTag.deleteMany({ where: { videoId: id } });
-        console.log('[runUpdate] Deleted tags:', deleteResult.count);
-        const updateResult = await tx.videoClip.update({
-          where: { id },
-          data,
-          include: includeRelations,
-        });
-        console.log('[runUpdate] Video updated successfully');
-        return updateResult;
       });
-    };
-
-    try {
-      console.log('[UPDATE] Attempting update WITH edit metadata:', {
-        videoId: id,
-        hasLoopZone: 'loopZoneStart' in updateDataWithEdits,
-        hasTrimStart: 'trimStart' in updateDataWithEdits,
-        updateDataKeys: Object.keys(updateDataWithEdits),
-      });
-      video = await runUpdate(updateDataWithEdits);
-      console.log('[UPDATE] First update succeeded');
-    } catch (error: any) {
-      console.error('[UPDATE] First update FAILED:', {
-        errorCode: error?.code,
-        errorMessage: error?.message,
-        errorMeta: error?.meta,
-      });
-      console.log('[UPDATE] Retrying WITHOUT edit fields:', {
-        baseDataKeys: Object.keys(baseData),
-        hasLoopZoneInBase: 'loopZoneStart' in baseData,
-        hasTrimStartInBase: 'trimStart' in baseData,
-      });
-      video = await runUpdate(baseData);
-      console.log('[UPDATE] Second update succeeded');
     }
 
     return NextResponse.json({ video });
   } catch (error: any) {
-    console.error('[UPDATE] OUTER CATCH - Both attempts failed:', {
-      errorName: error?.name,
-      errorMessage: error?.message,
-      errorCode: error?.code,
-      errorMeta: error?.meta,
-      errorStack: error?.stack?.substring(0, 500),
-    });
+    console.error('Error updating video:', error);
     return NextResponse.json(
       { 
         error: 'Failed to update video',
