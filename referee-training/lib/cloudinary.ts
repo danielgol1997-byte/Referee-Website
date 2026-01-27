@@ -7,13 +7,28 @@
 
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary (server-side only)
-if (typeof window === 'undefined') {
-  cloudinary.config({
+/**
+ * Configure Cloudinary with environment variables
+ * Call this before any Cloudinary operation to ensure credentials are loaded
+ */
+function ensureCloudinaryConfig() {
+  if (typeof window !== 'undefined') {
+    return; // Client-side, skip config
+  }
+  
+  const config = {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
+  };
+  
+  console.log('🔧 Configuring Cloudinary:', {
+    cloud_name: config.cloud_name ? '✅ Set' : '❌ Missing',
+    api_key: config.api_key ? '✅ Set' : '❌ Missing',
+    api_secret: config.api_secret ? '✅ Set' : '❌ Missing',
   });
+  
+  cloudinary.config(config);
 }
 
 export interface CloudinaryUploadResult {
@@ -53,6 +68,8 @@ export async function uploadVideo(
   file: string,
   options: VideoUploadOptions = {}
 ): Promise<CloudinaryUploadResult> {
+  ensureCloudinaryConfig();
+  
   const {
     folder = 'referee-training/videos',
     tags = [],
@@ -60,12 +77,6 @@ export async function uploadVideo(
   } = options;
 
   try {
-    console.log('🔄 Cloudinary config check:', {
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing',
-      apiKey: process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing',
-      apiSecret: process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing',
-    });
-
     console.log('📤 Starting Cloudinary upload...');
     
     const result = await cloudinary.uploader.upload(file, {
@@ -204,6 +215,8 @@ export async function createEditedVideoFromPublicId(
   editData: VideoEditPayload,
   duration?: number
 ): Promise<CloudinaryUploadResult | null> {
+  ensureCloudinaryConfig();
+  
   try {
     const { hasEdits, segments } = normalizeEditSegments(editData, duration);
     
@@ -307,6 +320,8 @@ export async function createEditedVideoFromPublicId(
  * @param publicId - Cloudinary public ID
  */
 export async function deleteVideo(publicId: string): Promise<void> {
+  ensureCloudinaryConfig();
+  
   try {
     await cloudinary.uploader.destroy(publicId, {
       resource_type: 'video',
