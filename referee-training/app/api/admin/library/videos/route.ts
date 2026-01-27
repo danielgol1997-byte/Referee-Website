@@ -87,6 +87,23 @@ export async function GET(request: Request) {
             slug: true,
           },
         },
+        tags: {
+          where: {
+            tag: {
+              category: {
+                slug: 'category',
+              },
+            },
+          },
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: [
         { isActive: 'desc' }, // Active videos first
@@ -97,8 +114,13 @@ export async function GET(request: Request) {
       take: limit,
     });
 
+    const formattedVideos = videos.map(video => ({
+      ...video,
+      categoryTagName: video.tags?.[0]?.tag?.name || null,
+    }));
+
     return NextResponse.json({ 
-      videos,
+      videos: formattedVideos,
       pagination: {
         page,
         limit,

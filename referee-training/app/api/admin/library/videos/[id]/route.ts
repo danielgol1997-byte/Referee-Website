@@ -183,15 +183,10 @@ export async function PUT(
       loopZoneEnd,
     } = body;
 
-    // Delete existing tag relations if tags are being updated
-    if (tagData || tagIds) {
-      await prisma.videoTag.deleteMany({
-        where: { videoId: id },
-      });
-    }
+    const hasTagUpdate = Array.isArray(tagData) || Array.isArray(tagIds);
 
     const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
-    const tagRelations = tagData && tagData.length > 0
+    const tagRelations = Array.isArray(tagData) && tagData.length > 0
       ? {
           create: tagData.map((tag: any) => ({
             tagId: tag.tagId,
@@ -199,7 +194,7 @@ export async function PUT(
             decisionOrder: tag.decisionOrder || 0,
           })),
         }
-      : tagIds && tagIds.length > 0
+      : Array.isArray(tagIds) && tagIds.length > 0
         ? {
             // Legacy support for old format
             create: tagIds.map((tagId: string) => ({
@@ -208,7 +203,9 @@ export async function PUT(
               decisionOrder: 0,
             })),
           }
-        : undefined;
+        : hasTagUpdate
+          ? { create: [] }
+          : undefined;
 
     const baseData = {
       title,
@@ -234,7 +231,7 @@ export async function PUT(
       varNotes,
       isFeatured,
       isActive,
-      tags: tagRelations,
+      ...(hasTagUpdate ? { tags: tagRelations } : {}),
     };
 
     const includeRelations = {
@@ -248,27 +245,40 @@ export async function PUT(
     };
 
     let video;
-    try {
-      video = await prisma.videoClip.update({
-        where: { id },
-        data: {
-          ...baseData,
-          // Video editing metadata (may not exist in older DBs)
-          trimStart: trimStart !== undefined ? trimStart : null,
-          trimEnd: trimEnd !== undefined ? trimEnd : null,
-          cutSegments: cutSegments ? cutSegments : null,
-          loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
-          loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
-        },
-        include: includeRelations,
+    const updateDataWithEdits = {
+      ...baseData,
+      // Video editing metadata (may not exist in older DBs)
+      trimStart: trimStart !== undefined ? trimStart : null,
+      trimEnd: trimEnd !== undefined ? trimEnd : null,
+      cutSegments: cutSegments ? cutSegments : null,
+      loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
+      loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
+    };
+
+    const runUpdate = async (data: typeof updateDataWithEdits) => {
+      if (!hasTagUpdate) {
+        return prisma.videoClip.update({
+          where: { id },
+          data,
+          include: includeRelations,
+        });
+      }
+
+      return prisma.$transaction(async (tx) => {
+        await tx.videoTag.deleteMany({ where: { videoId: id } });
+        return tx.videoClip.update({
+          where: { id },
+          data,
+          include: includeRelations,
+        });
       });
+    };
+
+    try {
+      video = await runUpdate(updateDataWithEdits);
     } catch (error) {
       console.warn('Error updating video with edit metadata, retrying without edit fields:', error);
-      video = await prisma.videoClip.update({
-        where: { id },
-        data: baseData,
-        include: includeRelations,
-      });
+      video = await runUpdate(baseData);
     }
 
     return NextResponse.json({ video });
