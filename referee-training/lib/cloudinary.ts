@@ -13,6 +13,8 @@ if (typeof window === 'undefined') {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
+    // Increase timeout to 10 minutes for slow connections
+    timeout: 600000,
   });
 }
 
@@ -33,6 +35,12 @@ export interface VideoUploadOptions {
   folder?: string;
   tags?: string[];
   context?: Record<string, string>;
+}
+
+export interface VideoEditPayload {
+  trimStart?: number;
+  trimEnd?: number;
+  cutSegments?: Array<{ start: number; end: number }>;
 }
 
 /**
@@ -81,6 +89,8 @@ export async function uploadVideo(
         },
       ],
       eager_async: false,
+      // Increase timeout to 10 minutes for slow connections
+      timeout: 600000,
     });
 
     console.log('✅ Cloudinary upload complete:', result.public_id);
@@ -135,6 +145,164 @@ export async function uploadVideo(
     }
     
     throw new Error(`Failed to upload video: ${errorMessage}`);
+  }
+}
+
+function normalizeEditSegments(editData: VideoEditPayload, duration?: number) {
+  if (!editData) {
+    return { hasEdits: false, segments: [] as Array<{ start: number; end: number }> };
+  }
+
+  const trimStart = Math.max(0, Number(editData.trimStart) || 0);
+  const hasDuration = Number.isFinite(duration) && (duration as number) > 0;
+  const trimEndRaw = Number.isFinite(editData.trimEnd)
+    ? (editData.trimEnd as number)
+    : hasDuration
+      ? (duration as number)
+      : undefined;
+
+  if (trimEndRaw === undefined) {
+    return { hasEdits: false, segments: [] as Array<{ start: number; end: number }> };
+  }
+
+  const trimEnd = hasDuration
+    ? Math.min(duration as number, Math.max(trimStart, trimEndRaw))
+    : Math.max(trimStart, trimEndRaw);
+
+  const rawCuts = Array.isArray(editData.cutSegments) ? editData.cutSegments : [];
+  const cuts = rawCuts
+    .map(seg => ({
+      start: Math.max(trimStart, Number(seg.start) || 0),
+      end: Math.min(trimEnd, Number(seg.end) || 0),
+    }))
+    .filter(seg => Number.isFinite(seg.start) && Number.isFinite(seg.end) && seg.end > seg.start)
+    .sort((a, b) => a.start - b.start);
+
+  const hasEdits =
+    trimStart > 0 ||
+    (hasDuration && trimEnd < (duration as number) - 0.001) ||
+    (!hasDuration && trimEnd > trimStart) ||
+    cuts.length > 0;
+
+  if (!hasEdits) {
+    return { hasEdits: false, segments: [] as Array<{ start: number; end: number }> };
+  }
+
+  const keepSegments: Array<{ start: number; end: number }> = [];
+  let cursor = trimStart;
+  for (const cut of cuts) {
+    if (cut.start > cursor) {
+      keepSegments.push({ start: cursor, end: cut.start });
+    }
+    cursor = Math.max(cursor, cut.end);
+  }
+  if (cursor < trimEnd) {
+    keepSegments.push({ start: cursor, end: trimEnd });
+  }
+
+  return { hasEdits: true, segments: keepSegments };
+}
+
+export async function createEditedVideoFromPublicId(
+  publicId: string,
+  editData: VideoEditPayload,
+  duration?: number
+): Promise<CloudinaryUploadResult | null> {
+  try {
+    const { hasEdits, segments } = normalizeEditSegments(editData, duration);
+    
+    console.log('🎬 createEditedVideoFromPublicId:', {
+      publicId,
+      hasEdits,
+      segments: segments.length,
+      duration,
+      editData,
+    });
+    
+    if (!hasEdits || segments.length === 0) {
+      console.log('ℹ️ No edits needed, returning null');
+      return null;
+    }
+
+    const transformations: Array<Record<string, any>> = [
+      {
+        start_offset: segments[0].start,
+        end_offset: segments[0].end,
+      },
+    ];
+
+    for (let i = 1; i < segments.length; i += 1) {
+      transformations.push({
+        overlay: `video:${publicId}`,
+        flags: 'splice',
+        start_offset: segments[i].start,
+        end_offset: segments[i].end,
+      });
+      transformations.push({ flags: 'layer_apply' });
+    }
+
+    console.log('🎬 Applying transformations:', transformations);
+
+    const eager = [
+      {
+        transformation: transformations,
+        format: 'mp4',
+      },
+      {
+        transformation: [
+          ...transformations,
+          {
+            width: 1280,
+            height: 720,
+            crop: 'fill',
+            quality: 'auto',
+            format: 'jpg',
+            start_offset: '2',
+          },
+        ],
+        format: 'jpg',
+      },
+    ];
+
+    const result = await cloudinary.uploader.explicit(publicId, {
+      resource_type: 'video',
+      type: 'upload',
+      eager,
+      eager_async: false,
+      // Increase timeout to 10 minutes for slow connections
+      timeout: 600000,
+    });
+
+    console.log('✅ Cloudinary explicit result:', {
+      public_id: result.public_id,
+      eager_count: result.eager?.length,
+      has_url: !!result.secure_url,
+    });
+
+    const editedVideo = result.eager?.[0];
+    const editedThumbnail = result.eager?.[1];
+
+    return {
+      public_id: result.public_id,
+      secure_url: editedVideo?.secure_url || result.secure_url,
+      url: editedVideo?.url || result.url,
+      format: editedVideo?.format || result.format,
+      resource_type: result.resource_type,
+      duration: editedVideo?.duration || result.duration,
+      width: editedVideo?.width || result.width,
+      height: editedVideo?.height || result.height,
+      bytes: editedVideo?.bytes || result.bytes,
+      thumbnail_url: editedThumbnail?.secure_url || result.thumbnail_url,
+    };
+  } catch (error: any) {
+    console.error('❌ Error in createEditedVideoFromPublicId:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      http_code: error?.http_code,
+      error: error?.error,
+    });
+    throw error;
   }
 }
 

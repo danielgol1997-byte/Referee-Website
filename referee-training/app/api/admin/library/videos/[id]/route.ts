@@ -98,6 +98,12 @@ export async function PUT(
       tagData, // New structured tag data with order and type
       isFeatured,
       isActive,
+      // Video editing metadata
+      trimStart,
+      trimEnd,
+      cutSegments,
+      loopZoneStart,
+      loopZoneEnd,
     } = body;
 
     // Delete existing tag relations if tags are being updated
@@ -134,6 +140,12 @@ export async function PUT(
         varNotes,
         isFeatured,
         isActive,
+        // Video editing metadata
+        trimStart: trimStart !== undefined ? trimStart : null,
+        trimEnd: trimEnd !== undefined ? trimEnd : null,
+        cutSegments: cutSegments ? cutSegments : null,
+        loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
+        loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
         // Recreate tag relations with correct decision info
         tags: tagData && tagData.length > 0 ? {
           create: tagData.map((tag: any) => ({

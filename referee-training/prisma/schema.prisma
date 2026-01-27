@@ -99,6 +99,12 @@ model VideoClip {
   videoCategoryId     String?
   videoType           VideoType       @default(EDUCATIONAL)
   viewCount           Int             @default(0)
+  // Video editing metadata
+  trimStart           Float?          // Start time in seconds (for trimming from beginning)
+  trimEnd             Float?          // End time in seconds (for trimming from end)
+  cutSegments         Json?           // Array of {start, end} objects for cut sections
+  loopZoneStart       Float?          // Suggested loop start time in seconds
+  loopZoneEnd         Float?          // Suggested loop end time in seconds
   questions           Question[]
   category            Category        @relation(fields: [categoryId], references: [id])
   uploadedBy          User?           @relation(fields: [uploadedById], references: [id])

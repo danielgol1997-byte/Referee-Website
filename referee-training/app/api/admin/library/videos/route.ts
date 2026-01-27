@@ -160,6 +160,12 @@ export async function POST(request: Request) {
       tagData, // New structured tag data with order and type
       isFeatured,
       isActive,
+      // Video editing metadata
+      trimStart,
+      trimEnd,
+      cutSegments,
+      loopZoneStart,
+      loopZoneEnd,
     } = body;
     
     console.log('📝 Request body:', {
@@ -261,6 +267,12 @@ export async function POST(request: Request) {
         uploadedById: userExists ? session.user.id : null, // Only set if user exists
         isFeatured: isFeatured || false,
         isActive: isActive !== undefined ? isActive : true,
+        // Video editing metadata
+        trimStart: trimStart !== undefined ? trimStart : null,
+        trimEnd: trimEnd !== undefined ? trimEnd : null,
+        cutSegments: cutSegments ? cutSegments : null,
+        loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
+        loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
         // Create tag relations with correct decision info
         tags: tagData && tagData.length > 0 ? {
           create: tagData.map((tag: any) => ({

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/components/ui/modal";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
+import { VideoEditor, VideoEditData } from "./VideoEditor";
+import { UploadProgress } from "./UploadProgress";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
@@ -56,14 +58,19 @@ const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
 export function VideoUploadForm({ videoCategories, tags, tagCategories, onSuccess, editingVideo }: VideoUploadFormProps) {
   const modal = useModal();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string>(editingVideo?.fileUrl || '');
   const [thumbnailPreview, setThumbnailPreview] = useState<string>(editingVideo?.thumbnailUrl || '');
   const [isDragging, setIsDragging] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<number>(editingVideo?.duration || 0);
+  const [videoEditData, setVideoEditData] = useState<VideoEditData | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const thumbnailVideoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const progressOverlayRef = useRef<HTMLDivElement>(null);
 
   // Form data
   const [uploadMode, setUploadMode] = useState<'decisions' | 'explanations'>(
@@ -76,6 +83,88 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const [isActive, setIsActive] = useState(editingVideo?.isActive !== undefined ? editingVideo.isActive : true);
   const [correctDecisionTags, setCorrectDecisionTags] = useState<Tag[]>([]);
   const [invisibleTags, setInvisibleTags] = useState<Tag[]>([]);
+
+  const buildEditPayload = (editData: VideoEditData | null) => {
+    if (!editData) return null;
+    return {
+      trimStart: editData.trimStart,
+      trimEnd: editData.trimEnd,
+      cutSegments: [],
+    };
+  };
+
+  const hasMeaningfulEdits = (
+    editPayload: { trimStart?: number; trimEnd?: number; cutSegments?: Array<{ start: number; end: number }> } | null,
+    durationValue: number
+  ) => {
+    if (!editPayload) return false;
+    const trimStart = Math.max(0, Number(editPayload.trimStart) || 0);
+    const durationSafe = Number.isFinite(durationValue) && durationValue > 0;
+    const trimEnd = Number.isFinite(editPayload.trimEnd)
+      ? (editPayload.trimEnd as number)
+      : durationSafe
+        ? durationValue
+        : undefined;
+    const hasTrim = trimStart > 0 || (durationSafe && trimEnd !== undefined && trimEnd < durationValue - 0.001);
+    return hasTrim || (!durationSafe && trimEnd !== undefined && trimEnd > trimStart);
+  };
+
+  const getAdjustedLoop = (
+    editData: VideoEditData | null,
+    finalDuration: number
+  ) => {
+    if (!editData || !Number.isFinite(finalDuration) || finalDuration <= 0) {
+      return { loopZoneStart: editData?.loopZoneStart, loopZoneEnd: editData?.loopZoneEnd };
+    }
+
+    const hasLoop =
+      Number.isFinite(editData.loopZoneStart) &&
+      Number.isFinite(editData.loopZoneEnd);
+
+    if (!hasLoop) {
+      return { loopZoneStart: editData?.loopZoneStart, loopZoneEnd: editData?.loopZoneEnd };
+    }
+
+    const trimStart = Math.max(0, Number(editData.trimStart) || 0);
+    const trimEnd = Number.isFinite(editData.trimEnd) ? (editData.trimEnd as number) : Infinity;
+    
+    // Check if the loop is within the trim region (on original timeline)
+    const loopStart = editData.loopZoneStart as number;
+    const loopEnd = editData.loopZoneEnd as number;
+    
+    // If the loop is entirely outside the trim region, discard it
+    if (loopStart >= trimEnd || loopEnd <= trimStart) {
+      console.log('Loop is outside trim region, discarding:', { loopStart, loopEnd, trimStart, trimEnd });
+      return { loopZoneStart: null, loopZoneEnd: null };
+    }
+    
+    // Clamp loop to trim region first (on original timeline), then convert to new timeline
+    const clampedLoopStart = Math.max(trimStart, Math.min(loopStart, trimEnd));
+    const clampedLoopEnd = Math.max(trimStart, Math.min(loopEnd, trimEnd));
+    
+    // Convert from original timeline to new (trimmed) timeline
+    const loopStartRaw = clampedLoopStart - trimStart;
+    const loopEndRaw = clampedLoopEnd - trimStart;
+
+    // Final clamp to the new video duration (safety check)
+    const loopZoneStart = Math.max(0, Math.min(loopStartRaw, finalDuration));
+    const loopZoneEnd = Math.max(0, Math.min(loopEndRaw, finalDuration));
+
+    // If the loop is too short after all adjustments, discard it
+    if (loopZoneEnd - loopZoneStart < 0.1) {
+      console.log('Loop too short after adjustment, discarding:', { loopZoneStart, loopZoneEnd });
+      return { loopZoneStart: null, loopZoneEnd: null };
+    }
+
+    console.log('Adjusted loop:', { 
+      original: { loopStart, loopEnd }, 
+      trimRegion: { trimStart, trimEnd },
+      clamped: { clampedLoopStart, clampedLoopEnd },
+      final: { loopZoneStart, loopZoneEnd, finalDuration }
+    });
+
+    return { loopZoneStart, loopZoneEnd };
+  };
 
   // Load tags when editing video
   useEffect(() => {
@@ -136,8 +225,19 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('video/')) {
       setVideoFile(file);
-      setVideoPreview(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      setVideoPreview(url);
       setTitle(file.name.replace(/\.[^/.]+$/, '')); // Set filename as default title
+      
+      // Get video duration
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        setVideoDuration(video.duration);
+        // DO NOT revoke the blob URL - it's still needed by VideoEditor
+        // URL.revokeObjectURL(video.src);
+      };
+      video.src = url;
     }
   };
 
@@ -145,20 +245,32 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     const file = e.target.files?.[0];
     if (file) {
       setVideoFile(file);
-      setVideoPreview(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      setVideoPreview(url);
       setTitle(file.name.replace(/\.[^/.]+$/, ''));
+      
+      // Get video duration
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        setVideoDuration(video.duration);
+        // DO NOT revoke the blob URL - it's still needed by VideoEditor
+      };
+      video.src = url;
     }
   };
 
   const captureThumbnail = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
+    // Use the VideoEditor's video element if available, otherwise use hidden thumbnail video
+    const videoElement = document.querySelector('video[src="' + videoPreview + '"]') as HTMLVideoElement || thumbnailVideoRef.current;
+    
+    if (videoElement && canvasRef.current) {
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
           if (blob) {
             const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
@@ -169,6 +281,17 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       }
     }
   };
+
+  const initialEdit = useMemo(() => {
+    if (!editingVideo) return undefined;
+    return {
+      trimStart: editingVideo.trimStart || 0,
+      trimEnd: editingVideo.trimEnd || videoDuration,
+      cutSegments: [],
+      loopZoneStart: editingVideo.loopZoneStart,
+      loopZoneEnd: editingVideo.loopZoneEnd,
+    };
+  }, [editingVideo, videoDuration]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,10 +305,19 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     }
 
     setLoading(true);
+    setUploadProgress(0);
+    
+    // Scroll to progress overlay
+    setTimeout(() => {
+      progressOverlayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+
     try {
       let fileUrl = editingVideo?.fileUrl || '';
       let thumbnailUrl = editingVideo?.thumbnailUrl || '';
       let duration = editingVideo?.duration || 0;
+      const editDataForSave = videoEditData ?? null;
+      const editPayload = buildEditPayload(editDataForSave);
 
       // Upload video if new file
       if (videoFile) {
@@ -198,34 +330,43 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         const uploadViaServer = async () => {
           const uploadFormData = new FormData();
           uploadFormData.append('video', videoFile);
-
-          const uploadResponse = await fetch('/api/admin/library/upload', {
-            method: 'POST',
-            body: uploadFormData,
-          });
-
-          console.log('Upload response status:', uploadResponse.status);
-
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
-            try {
-              const errorData = JSON.parse(errorText);
-              errorMessage = errorData?.error || errorMessage;
-              console.error('Server error response:', errorData);
-            } catch (parseError) {
-              console.error('Could not parse error response:', parseError);
-              console.error('Error response text:', errorText);
-              if (uploadResponse.status === 403) {
-                errorMessage = "Upload forbidden by Vercel. Configure client-side Cloudinary upload (NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET) to bypass Vercel limits.";
-              } else {
-                errorMessage = errorText || errorMessage;
-              }
-            }
-            throw new Error(errorMessage);
+          if (editPayload) {
+            uploadFormData.append('editData', JSON.stringify(editPayload));
           }
 
-          const uploadResult = await uploadResponse.json();
+          const uploadResult = await new Promise<any>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const progress = (e.loaded / e.total) * 90;
+                console.log(`Upload progress (server): ${progress.toFixed(1)}% (${e.loaded}/${e.total} bytes)`);
+                setUploadProgress(progress);
+              }
+            });
+
+            xhr.addEventListener('load', () => {
+              console.log('Server upload complete, setting progress to 95%');
+              setUploadProgress(95);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  resolve(JSON.parse(xhr.responseText));
+                } catch (e) {
+                  reject(new Error('Failed to parse upload response'));
+                }
+              } else {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            });
+
+            xhr.addEventListener('error', () => {
+              reject(new Error('Upload failed'));
+            });
+
+            xhr.open('POST', '/api/admin/library/upload');
+            xhr.send(uploadFormData);
+          });
+
           console.log('Upload successful:', uploadResult);
           
           if (!uploadResult.video || !uploadResult.video.url) {
@@ -235,6 +376,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           fileUrl = uploadResult.video.url;
           thumbnailUrl = uploadResult.video.thumbnailUrl;
           duration = uploadResult.video.duration;
+          setUploadProgress(100);
         };
 
         if (canDirectUpload) {
@@ -243,38 +385,43 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           uploadFormData.append('file', videoFile);
           uploadFormData.append('upload_preset', cloudConfig.uploadPreset);
 
-          const uploadResponse = await fetch(cloudinaryUrl, {
-            method: 'POST',
-            body: uploadFormData,
+          // Use XMLHttpRequest for progress tracking
+          const uploadPromise = new Promise<any>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const progress = (e.loaded / e.total) * 90; // Reserve 90% for upload
+                console.log(`Upload progress: ${progress.toFixed(1)}% (${e.loaded}/${e.total} bytes)`);
+                setUploadProgress(progress);
+              }
+            });
+
+            xhr.addEventListener('load', () => {
+              console.log('Upload complete, setting progress to 95%');
+              setUploadProgress(95);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const result = JSON.parse(xhr.responseText);
+                  resolve(result);
+                } catch (e) {
+                  reject(new Error('Failed to parse upload response'));
+                }
+              } else {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            });
+
+            xhr.addEventListener('error', () => {
+              reject(new Error('Upload failed'));
+            });
+
+            xhr.open('POST', cloudinaryUrl);
+            console.log('Starting XHR upload to Cloudinary...');
+            xhr.send(uploadFormData);
           });
 
-          console.log('Upload response status:', uploadResponse.status);
-
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            let errorMessage = `Upload failed with status ${uploadResponse.status}`;
-            try {
-              const errorData = JSON.parse(errorText);
-              errorMessage = errorData?.error?.message || errorData?.error || errorMessage;
-              console.error('Server error response:', errorData);
-            } catch (parseError) {
-              console.error('Could not parse error response:', parseError);
-              console.error('Error response text:', errorText);
-              if (uploadResponse.status === 403) {
-                errorMessage = "Forbidden by Cloudinary. Check that the upload preset exists and is UNSIGNED, and that it allows video uploads.";
-              } else {
-                errorMessage = errorText || errorMessage;
-              }
-            }
-            if (errorMessage.toLowerCase().includes("upload preset not found")) {
-              console.warn("Upload preset not found. Falling back to server-side upload.");
-              await uploadViaServer();
-              return;
-            }
-            throw new Error(errorMessage);
-          }
-
-          const uploadResult = await uploadResponse.json();
+          const uploadResult = await uploadPromise;
           console.log('Upload successful:', uploadResult);
 
           if (!uploadResult?.secure_url || !uploadResult?.public_id) {
@@ -284,6 +431,67 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           fileUrl = uploadResult.secure_url;
           thumbnailUrl = getThumbnailUrl(uploadResult.public_id);
           duration = uploadResult.duration || 0;
+          setUploadProgress(100);
+
+          const hasTrimEdits = editPayload && hasMeaningfulEdits(editPayload, duration);
+          if (editPayload && hasTrimEdits) {
+            try {
+              const editResponse = await fetch('/api/admin/library/upload/edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  publicId: uploadResult.public_id,
+                  duration,
+                  editData: editPayload,
+                }),
+              });
+
+              if (!editResponse.ok) {
+                let errorMessage = `Edit processing failed (${editResponse.status})`;
+                try {
+                  const errorJson = await editResponse.json();
+                  errorMessage = errorJson.error || errorMessage;
+                  console.error('Edit API error:', errorJson);
+                } catch {
+                  const errorText = await editResponse.text();
+                  errorMessage = errorText || errorMessage;
+                  console.error('Edit API error text:', errorText);
+                }
+                throw new Error(errorMessage);
+              }
+
+              const editResult = await editResponse.json();
+              if (!editResult?.edited || !editResult?.video?.url) {
+                throw new Error('Edit processing did not produce an edited video');
+              }
+
+              fileUrl = editResult.video.url;
+              thumbnailUrl = editResult.video.thumbnailUrl || thumbnailUrl;
+              
+              // Calculate the expected trimmed duration from the edit data
+              // Cloudinary's eager transformation response doesn't include duration,
+              // so we compute it ourselves from the trim values
+              const trimStart = Math.max(0, Number(editPayload.trimStart) || 0);
+              const trimEnd = Number.isFinite(editPayload.trimEnd) 
+                ? Math.min(editPayload.trimEnd as number, duration)
+                : duration;
+              const calculatedDuration = Math.max(0, trimEnd - trimStart);
+              
+              // Use Cloudinary's duration if available, otherwise use calculated
+              duration = editResult.video.duration || calculatedDuration;
+              
+              console.log('📐 Duration calculation:', {
+                originalDuration: uploadResult.duration,
+                trimStart,
+                trimEnd,
+                calculatedDuration,
+                cloudinaryDuration: editResult.video.duration,
+                finalDuration: duration,
+              });
+            } catch (error) {
+              throw error;
+            }
+          }
         } else if (allowServerFallback) {
           await uploadViaServer();
         } else {
@@ -348,6 +556,9 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
 
       const allTagData = [...correctDecisionTagData, ...invisibleTagData];
       
+      const hasTrimEdits = editPayload && hasMeaningfulEdits(editPayload, duration);
+      const adjustedLoop = getAdjustedLoop(editDataForSave, duration);
+
       const videoData = {
         title,
         decisionExplanation: effectiveIsEducational ? decisionExplanation.trim() : null,
@@ -362,6 +573,12 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         noOffence: hasDecisionTags ? noOffence : false,
         tagData: allTagData, // Send structured tag data with order and type
         isActive: isActive,
+        // Video editing metadata - use saved or latest edits
+        trimStart: hasTrimEdits ? 0 : editDataForSave?.trimStart,
+        trimEnd: hasTrimEdits ? duration : editDataForSave?.trimEnd,
+        cutSegments: [],
+        loopZoneStart: adjustedLoop.loopZoneStart ?? undefined,
+        loopZoneEnd: adjustedLoop.loopZoneEnd ?? undefined,
       };
 
       const url = editingVideo 
@@ -378,6 +595,11 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         correctDecisionTags: correctDecisionTags.length,
         invisibleTags: invisibleTags.length,
         lawCount: videoData.lawNumbers.length,
+        trimStart: videoData.trimStart,
+        trimEnd: videoData.trimEnd,
+        cutSegments: videoData.cutSegments,
+        loopZoneStart: videoData.loopZoneStart,
+        loopZoneEnd: videoData.loopZoneEnd,
       });
 
       const response = await fetch(url, {
@@ -419,6 +641,8 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       setCorrectDecisionTags([]);
       setInvisibleTags([]);
       setUploadMode('decisions');
+      setUploadProgress(0);
+      setVideoEditData(null);
       
       onSuccess?.();
     } catch (error: any) {
@@ -431,6 +655,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       await modal.showError(errorMessage);
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -493,42 +718,54 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="relative rounded-xl overflow-hidden bg-black">
-              <video
-                ref={videoRef}
-                src={videoPreview}
-                crossOrigin="anonymous"
-                controls
-                className="w-full"
-              />
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={captureThumbnail}
-                className="px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors text-sm font-medium"
-              >
-                Set Current Frame as Thumbnail
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  setVideoFile(null);
-                  setVideoPreview('');
-                  setThumbnailPreview('');
-                }}
-                className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium"
-              >
-                Remove Video
-              </button>
-            </div>
+            {/* Video Editor - Replaces basic video preview entirely */}
+            {videoDuration > 0 ? (
+              <>
+                <VideoEditor
+                  key={videoPreview}
+                  videoUrl={videoPreview}
+                  duration={videoDuration}
+                  onEditChange={setVideoEditData}
+                  initialEdit={initialEdit}
+                />
 
-            {thumbnailPreview && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-dark-900/50 border border-dark-600">
-                <img src={thumbnailPreview} alt="Thumbnail" className="w-32 h-18 rounded object-cover" />
-                <span className="text-sm text-text-secondary">Custom thumbnail set</span>
+                {/* Thumbnail and Remove buttons below editor */}
+                <div className="flex items-center gap-3 pt-4 border-t border-dark-600">
+                  <button
+                    type="button"
+                    onClick={captureThumbnail}
+                    className="px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors text-sm font-medium"
+                  >
+                    📸 Capture Thumbnail
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoFile(null);
+                      setVideoPreview('');
+                      setThumbnailPreview('');
+                      setThumbnailFile(null);
+                      setVideoEditData(null);
+                      setVideoDuration(0);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium"
+                  >
+                    🗑️ Remove Video
+                  </button>
+
+                  {thumbnailPreview && (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <img src={thumbnailPreview} alt="Thumbnail" className="w-24 h-16 rounded object-cover border-2 border-cyan-500/50 shadow-lg" />
+                      <span className="text-xs text-cyan-400 font-medium">Custom thumbnail</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-text-muted">
+                <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-2" />
+                <p className="text-sm">Loading video...</p>
               </div>
             )}
           </div>
@@ -742,20 +979,163 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           type="button"
           onClick={() => onSuccess?.()}
           className="px-6 py-3 rounded-lg bg-dark-700 border border-dark-600 text-text-primary hover:bg-dark-600 transition-colors font-medium"
+          disabled={loading}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-8 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-8 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
         >
-          {loading ? 'Uploading...' : (editingVideo ? 'Update Video' : 'Upload Video')}
+          {editingVideo ? 'Update Video' : 'Upload Video'}
         </button>
       </div>
 
+      {/* Animated Upload Progress Overlay */}
+      {loading && (
+        <div 
+          ref={progressOverlayRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md"
+        >
+          <div className="bg-gradient-to-br from-dark-900 to-dark-800 border border-cyan-500/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            {/* Title */}
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold text-white mb-2">
+                {uploadProgress < 90 ? 'Uploading Video' : uploadProgress < 95 ? 'Processing' : 'Finalizing'}
+              </h3>
+              <p className="text-gray-400 text-sm">
+                {uploadProgress < 90 
+                  ? 'Transferring your video to the cloud...' 
+                  : uploadProgress < 95 
+                    ? 'Optimizing and preparing...' 
+                    : 'Saving video details...'}
+              </p>
+            </div>
+
+            {/* Circular Progress */}
+            <div className="relative w-40 h-40 mx-auto mb-6">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="70"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  className="text-dark-700"
+                />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="70"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeLinecap="round"
+                  className="text-cyan-500 transition-all duration-300"
+                  style={{
+                    strokeDasharray: `${2 * Math.PI * 70}`,
+                    strokeDashoffset: `${2 * Math.PI * 70 * (1 - uploadProgress / 100)}`,
+                  }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-white">{Math.round(uploadProgress)}%</div>
+                  {videoFile && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Stages */}
+            <div className="space-y-2">
+              <div className={cn(
+                "flex items-center gap-3 p-3 rounded-lg transition-all",
+                uploadProgress > 0 ? "bg-cyan-500/20 border border-cyan-500/50" : "bg-dark-700/50 border border-dark-600"
+              )}>
+                {uploadProgress >= 90 ? (
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : uploadProgress > 0 ? (
+                  <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-dark-600" />
+                )}
+                <span className={cn(
+                  "text-sm font-medium",
+                  uploadProgress > 0 ? "text-white" : "text-gray-500"
+                )}>
+                  Upload to cloud
+                </span>
+              </div>
+
+              <div className={cn(
+                "flex items-center gap-3 p-3 rounded-lg transition-all",
+                uploadProgress >= 90 ? "bg-cyan-500/20 border border-cyan-500/50" : "bg-dark-700/50 border border-dark-600"
+              )}>
+                {uploadProgress >= 95 ? (
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : uploadProgress >= 90 ? (
+                  <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-dark-600" />
+                )}
+                <span className={cn(
+                  "text-sm font-medium",
+                  uploadProgress >= 90 ? "text-white" : "text-gray-500"
+                )}>
+                  Process & optimize
+                </span>
+              </div>
+
+              <div className={cn(
+                "flex items-center gap-3 p-3 rounded-lg transition-all",
+                uploadProgress >= 95 ? "bg-cyan-500/20 border border-cyan-500/50" : "bg-dark-700/50 border border-dark-600"
+              )}>
+                {uploadProgress >= 100 ? (
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : uploadProgress >= 95 ? (
+                  <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-dark-600" />
+                )}
+                <span className={cn(
+                  "text-sm font-medium",
+                  uploadProgress >= 95 ? "text-white" : "text-gray-500"
+                )}>
+                  Save details
+                </span>
+              </div>
+            </div>
+
+            {/* File info */}
+            {videoFile && (
+              <div className="mt-6 pt-4 border-t border-dark-600">
+                <p className="text-xs text-gray-400 text-center truncate">{videoFile.name}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+
       {/* Hidden canvas for thumbnail capture */}
       <canvas ref={canvasRef} className="hidden" />
+      
+      {/* Hidden video element for thumbnail capture if needed */}
+      {videoPreview && (
+        <video ref={thumbnailVideoRef} src={videoPreview} crossOrigin="anonymous" className="hidden" />
+      )}
     </form>
   );
 }

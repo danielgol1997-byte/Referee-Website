@@ -36,7 +36,7 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" data-scroll-behavior="smooth">
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased bg-dark-900 text-text-primary`}
       >

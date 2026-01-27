@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    qualities: [75, 85],
+  },
+  // Increase API route timeout for video uploads (10 minutes)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
   },
 };
 

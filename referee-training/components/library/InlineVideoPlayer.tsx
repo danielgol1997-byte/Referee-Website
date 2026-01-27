@@ -18,6 +18,8 @@ interface Video {
   fileUrl: string;
   thumbnailUrl?: string;
   duration?: number;
+  loopZoneStart?: number;
+  loopZoneEnd?: number;
   description?: string;
   playOn?: boolean;
   noOffence?: boolean;
@@ -174,6 +176,20 @@ export function InlineVideoPlayer({
   const FRAME_RATE = 30;
   const FRAME_DURATION = 1 / FRAME_RATE;
 
+  const getDefaultLoopStart = useCallback((videoDuration: number) => {
+    if (Number.isFinite(video.loopZoneStart)) {
+      return Math.max(0, Math.min(video.loopZoneStart as number, videoDuration || Number.MAX_SAFE_INTEGER));
+    }
+    return 0;
+  }, [video.loopZoneStart]);
+
+  const getDefaultLoopEnd = useCallback((videoDuration: number) => {
+    if (Number.isFinite(video.loopZoneEnd)) {
+      return Math.max(0, Math.min(video.loopZoneEnd as number, videoDuration || Number.MAX_SAFE_INTEGER));
+    }
+    return videoDuration || 0;
+  }, [video.loopZoneEnd]);
+
   // Format time helper
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";
@@ -181,6 +197,7 @@ export function InlineVideoPlayer({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
 
   // Get position percentage for markers
   const getMarkerPosition = (time: number) => {
@@ -203,12 +220,12 @@ export function InlineVideoPlayer({
     }
     setIsPlaying(false);
     setCurrentTime(0);
-    setLoopMarkerA(0);
-    setLoopMarkerB(0);
+    setLoopMarkerA(getDefaultLoopStart(duration));
+    setLoopMarkerB(getDefaultLoopEnd(duration));
     setIsLoopEnabled(false);
     setIsFullscreen(false);
     onClose();
-  }, [onClose]);
+  }, [onClose, duration, getDefaultLoopStart, getDefaultLoopEnd]);
 
   // Fullscreen toggle
   const toggleFullscreen = useCallback(async () => {
@@ -248,7 +265,7 @@ export function InlineVideoPlayer({
     setCurrentTime(clampedTime);
     videoRef.current.pause();
     setIsPlaying(false);
-  }, [currentTime, duration, FRAME_DURATION]);
+  }, [currentTime, FRAME_DURATION, duration]);
 
   // Scrubbing handlers
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -298,7 +315,6 @@ export function InlineVideoPlayer({
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
-    
     if (draggingMarker === 'A') {
       setLoopMarkerA(newTime);
     } else {
@@ -309,6 +325,9 @@ export function InlineVideoPlayer({
   const handleMarkerDragEnd = useCallback(() => {
     setDraggingMarker(null);
   }, []);
+
+  // Track what we've initialized loop markers with (to detect changes)
+  const loopInitStateRef = useRef<{ videoId: string; loopStart?: number; loopEnd?: number } | null>(null);
 
   // Reset state when video changes
   useEffect(() => {
@@ -323,6 +342,9 @@ export function InlineVideoPlayer({
     setIsVideoReady(false);
     setHasStartedPlayback(false);
     
+    // Reset loop initialization tracking
+    loopInitStateRef.current = null;
+    
     // Reset video element time and playback rate, and apply persisted volume/mute
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
@@ -333,12 +355,52 @@ export function InlineVideoPlayer({
     }
   }, [video.id]); // Only depend on video.id, not volume/isMuted
 
-  // Set loop marker B to duration when duration loads
+  // Set loop markers when duration loads or when video's loop zone data changes
+  
   useEffect(() => {
-    if (duration > 0 && loopMarkerB === 0) {
-      setLoopMarkerB(duration);
+    if (duration > 0) {
+      const currentState = loopInitStateRef.current;
+      const hasLoopZoneData = video.loopZoneStart !== undefined && video.loopZoneEnd !== undefined;
+      
+      // Check if we need to (re-)initialize:
+      // 1. Different video ID
+      // 2. Loop zone data just became available (wasn't set before, now it is)
+      // 3. Loop zone values changed
+      const videoChanged = currentState?.videoId !== video.id;
+      const loopDataJustLoaded = hasLoopZoneData && (
+        currentState?.loopStart === undefined || 
+        currentState?.loopEnd === undefined
+      );
+      const loopDataChanged = hasLoopZoneData && (
+        currentState?.loopStart !== video.loopZoneStart ||
+        currentState?.loopEnd !== video.loopZoneEnd
+      );
+      
+      if (videoChanged || loopDataJustLoaded || loopDataChanged || loopMarkerB === 0) {
+        const newLoopA = getDefaultLoopStart(duration);
+        const newLoopB = getDefaultLoopEnd(duration);
+        
+        setLoopMarkerA(newLoopA);
+        setLoopMarkerB(newLoopB);
+        
+        // Update the ref to track what we initialized with
+        loopInitStateRef.current = {
+          videoId: video.id,
+          loopStart: video.loopZoneStart,
+          loopEnd: video.loopZoneEnd,
+        };
+        
+        console.log('InlineVideoPlayer: Initialized loop markers', { 
+          videoId: video.id,
+          loopZoneStart: video.loopZoneStart, 
+          loopZoneEnd: video.loopZoneEnd,
+          newLoopA, 
+          newLoopB,
+          reason: videoChanged ? 'videoChanged' : loopDataJustLoaded ? 'loopDataJustLoaded' : loopDataChanged ? 'loopDataChanged' : 'initial'
+        });
+      }
     }
-  }, [duration, loopMarkerB]);
+  }, [duration, video.id, video.loopZoneStart, video.loopZoneEnd, getDefaultLoopStart, getDefaultLoopEnd, loopMarkerB]);
 
   // Update video playback rate
   useEffect(() => {
@@ -598,8 +660,8 @@ export function InlineVideoPlayer({
       // Reset loop markers with 'c'
       if (e.key === "c") {
         e.preventDefault();
-        setLoopMarkerA(0);
-        setLoopMarkerB(duration);
+        setLoopMarkerA(getDefaultLoopStart(duration));
+        setLoopMarkerB(getDefaultLoopEnd(duration));
         setIsLoopEnabled(false);
         return;
       }
@@ -703,7 +765,7 @@ export function InlineVideoPlayer({
     };
   }, [
     isExpanded, hasNext, hasPrev, onNext, onPrev, hasAnswer, isAnswerOpen, onDecisionReveal,
-    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay, toggleFullscreen, showKeyboardHelp
+    handleClose, stepFrame, currentTime, duration, loopMarkerA, loopMarkerB, isLoopEnabled, safePlay, toggleFullscreen, showKeyboardHelp, getDefaultLoopStart, getDefaultLoopEnd
   ]);
 
   const handleVideoPlay = () => {
@@ -1068,8 +1130,8 @@ export function InlineVideoPlayer({
                       {/* Reset loop markers button */}
                       <button
                         onClick={() => {
-                          setLoopMarkerA(0);
-                          setLoopMarkerB(duration);
+                          setLoopMarkerA(getDefaultLoopStart(duration));
+                          setLoopMarkerB(getDefaultLoopEnd(duration));
                           setIsLoopEnabled(false);
                         }}
                         className="w-7 h-7 flex items-center justify-center text-white/50 hover:text-white/90 hover:bg-white/10 rounded transition-all"

@@ -65,6 +65,12 @@ export async function GET(
       isFeatured: video.isFeatured,
       rapCategoryCode: video.videoCategory?.rapCategoryCode || null,
       videoType: video.videoType || undefined,
+      // Video editing metadata
+      trimStart: video.trimStart || undefined,
+      trimEnd: video.trimEnd || undefined,
+      cutSegments: video.cutSegments || undefined,
+      loopZoneStart: video.loopZoneStart || undefined,
+      loopZoneEnd: video.loopZoneEnd || undefined,
       tags: video.tags.map(vt => ({
         id: vt.tag.id,
         slug: vt.tag.slug,

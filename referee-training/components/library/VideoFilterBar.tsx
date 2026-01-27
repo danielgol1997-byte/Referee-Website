@@ -80,32 +80,31 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedVisible = localStorage.getItem('videoFilterPreferences');
-      if (savedVisible) {
-        try {
-          return JSON.parse(savedVisible);
-        } catch (e) {
-          console.error('Failed to load filter preferences');
-        }
+  const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(DEFAULT_VISIBLE_FILTERS);
+  const [filterOrder, setFilterOrder] = useState<FilterType[]>(DEFAULT_FILTER_ORDER);
+  const [isClient, setIsClient] = useState(false);
+
+  // Load saved preferences after hydration
+  useEffect(() => {
+    setIsClient(true);
+    const savedVisible = localStorage.getItem('videoFilterPreferences');
+    if (savedVisible) {
+      try {
+        setVisibleFilters(JSON.parse(savedVisible));
+      } catch (e) {
+        console.error('Failed to load filter preferences');
       }
     }
-    return DEFAULT_VISIBLE_FILTERS;
-  });
-  const [filterOrder, setFilterOrder] = useState<FilterType[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedOrder = localStorage.getItem('videoFilterOrder');
-      if (savedOrder) {
-        try {
-          return JSON.parse(savedOrder);
-        } catch (e) {
-          console.error('Failed to load filter order');
-        }
+
+    const savedOrder = localStorage.getItem('videoFilterOrder');
+    if (savedOrder) {
+      try {
+        setFilterOrder(JSON.parse(savedOrder));
+      } catch (e) {
+        console.error('Failed to load filter order');
       }
     }
-    return DEFAULT_FILTER_ORDER;
-  });
+  }, []);
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
