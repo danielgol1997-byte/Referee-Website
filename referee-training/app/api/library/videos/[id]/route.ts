@@ -13,29 +13,89 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const video = await prisma.videoClip.findFirst({
-      where: { id, isActive: true },
-      include: {
-        videoCategory: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            order: true,
-          },
+    const baseSelect = {
+      id: true,
+      title: true,
+      description: true,
+      fileUrl: true,
+      thumbnailUrl: true,
+      duration: true,
+      viewCount: true,
+      lawNumbers: true,
+      playOn: true,
+      noOffence: true,
+      sanctionType: true,
+      restartType: true,
+      offsideReason: true,
+      correctDecision: true,
+      decisionExplanation: true,
+      keyPoints: true,
+      commonMistakes: true,
+      varNotes: true,
+      isEducational: true,
+      isFeatured: true,
+      videoType: true,
+      videoCategory: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          rapCategoryCode: true,
         },
-        tags: {
-          include: {
-            tag: {
-              include: {
-                category: true,
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          order: true,
+        },
+      },
+      tags: {
+        select: {
+          isCorrectDecision: true,
+          decisionOrder: true,
+          tag: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              rapCategory: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  canBeCorrectAnswer: true,
+                },
               },
             },
           },
         },
       },
-    });
+    };
+
+    let video;
+    try {
+      video = await prisma.videoClip.findFirst({
+        where: { id, isActive: true },
+        select: {
+          ...baseSelect,
+          // Video editing metadata (may not exist in older DBs)
+          trimStart: true,
+          trimEnd: true,
+          cutSegments: true,
+          loopZoneStart: true,
+          loopZoneEnd: true,
+        },
+      });
+    } catch (error) {
+      console.warn('Error fetching video with edit metadata, retrying without edit fields:', error);
+      video = await prisma.videoClip.findFirst({
+        where: { id, isActive: true },
+        select: baseSelect,
+      });
+    }
 
     if (!video) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
@@ -66,11 +126,11 @@ export async function GET(
       rapCategoryCode: video.videoCategory?.rapCategoryCode || null,
       videoType: video.videoType || undefined,
       // Video editing metadata
-      trimStart: video.trimStart || undefined,
-      trimEnd: video.trimEnd || undefined,
-      cutSegments: video.cutSegments || undefined,
-      loopZoneStart: video.loopZoneStart || undefined,
-      loopZoneEnd: video.loopZoneEnd || undefined,
+      trimStart: (video as any).trimStart || undefined,
+      trimEnd: (video as any).trimEnd || undefined,
+      cutSegments: (video as any).cutSegments || undefined,
+      loopZoneStart: (video as any).loopZoneStart || undefined,
+      loopZoneEnd: (video as any).loopZoneEnd || undefined,
       tags: video.tags.map(vt => ({
         id: vt.tag.id,
         slug: vt.tag.slug,
