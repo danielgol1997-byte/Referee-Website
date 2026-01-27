@@ -184,20 +184,32 @@ export async function PUT(
     } = body;
 
     const hasTagUpdate = Array.isArray(tagData) || Array.isArray(tagIds);
+    const normalizedTagIds = Array.isArray(tagIds)
+      ? Array.from(new Set(tagIds.filter((id: any) => typeof id === 'string' && id.trim())))
+      : [];
+    const normalizedTagData = Array.isArray(tagData)
+      ? Array.from(
+          new Map(
+            tagData
+              .filter((tag: any) => tag && typeof tag.tagId === 'string' && tag.tagId.trim())
+              .map((tag: any) => [tag.tagId, tag])
+          ).values()
+        )
+      : [];
 
     const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
-    const tagRelations = Array.isArray(tagData) && tagData.length > 0
+    const tagRelations = normalizedTagData.length > 0
       ? {
-          create: tagData.map((tag: any) => ({
+          create: normalizedTagData.map((tag: any) => ({
             tagId: tag.tagId,
             isCorrectDecision: tag.isCorrectDecision || false,
             decisionOrder: tag.decisionOrder || 0,
           })),
         }
-      : Array.isArray(tagIds) && tagIds.length > 0
+      : normalizedTagIds.length > 0
         ? {
             // Legacy support for old format
-            create: tagIds.map((tagId: string) => ({
+            create: normalizedTagIds.map((tagId: string) => ({
               tagId,
               isCorrectDecision: false,
               decisionOrder: 0,
@@ -284,10 +296,19 @@ export async function PUT(
     }
 
     return NextResponse.json({ video });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating video:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+    });
     return NextResponse.json(
-      { error: 'Failed to update video' },
+      { 
+        error: 'Failed to update video',
+        code: error?.code,
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      },
       { status: 500 }
     );
   }

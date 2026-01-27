@@ -116,7 +116,10 @@ export async function GET(request: Request) {
 
     const formattedVideos = videos.map(video => ({
       ...video,
-      categoryTagName: video.tags?.[0]?.tag?.name || null,
+      categoryTagLabel: video.tags
+        ?.map(tagRelation => tagRelation.tag?.name)
+        .filter(Boolean)
+        .join(', ') || null,
     }));
 
     return NextResponse.json({ 
