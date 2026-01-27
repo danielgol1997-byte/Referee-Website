@@ -93,6 +93,30 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const [correctDecisionTags, setCorrectDecisionTags] = useState<Tag[]>([]);
   const [invisibleTags, setInvisibleTags] = useState<Tag[]>([]);
 
+  // Auto-add restart, sanction, and criteria tags to correct decision box
+  useEffect(() => {
+    const restartCategorySlug = 'restarts';
+    const sanctionCategorySlug = 'sanction';
+    const criteriaCategorySlug = 'criteria';
+
+    // Get all tags with these categories
+    const autoCorrectTags = [...correctDecisionTags, ...invisibleTags].filter(tag => 
+      tag.category?.slug === restartCategorySlug || 
+      tag.category?.slug === sanctionCategorySlug || 
+      tag.category?.slug === criteriaCategorySlug
+    );
+
+    // Check which ones are not in correctDecisionTags
+    const tagsToAdd = autoCorrectTags.filter(tag => 
+      !correctDecisionTags.find(ct => ct.id === tag.id)
+    );
+
+    if (tagsToAdd.length > 0) {
+      setCorrectDecisionTags(prev => [...prev, ...tagsToAdd]);
+      setInvisibleTags(prev => prev.filter(tag => !tagsToAdd.find(t => t.id === tag.id)));
+    }
+  }, [invisibleTags]);
+
   // Sync form state when editing video changes
   useEffect(() => {
     const nextId = editingVideo?.id ?? null;
@@ -992,58 +1016,17 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             <div className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/30 p-6">
               <h4 className="text-md font-semibold text-cyan-400 mb-3">Correct Decision Tags</h4>
               <p className="text-sm text-text-muted mb-4">
-                These tags will be displayed as the correct answer when users view this video. Drag to reorder.
+                These tags will be displayed as the correct answer when users view this video. Preview below shows how it will appear.
               </p>
               
-              {/* Play On / No Offence Toggles */}
-              <div className="flex gap-4 mb-4 p-4 bg-dark-900/50 rounded-lg border border-cyan-500/20">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={playOn}
-                    onChange={(e) => {
-                      setPlayOn(e.target.checked);
-                      if (e.target.checked) setNoOffence(false);
-                    }}
-                    className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
-                  />
-                  <span className={cn(
-                    "font-semibold text-sm uppercase tracking-wider transition-colors",
-                    playOn ? "text-cyan-400" : "text-slate-600"
-                  )}>
-                    Play On
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={noOffence}
-                    onChange={(e) => {
-                      setNoOffence(e.target.checked);
-                      if (e.target.checked) setPlayOn(false);
-                    }}
-                    className="w-5 h-5 rounded border-cyan-500/50 bg-dark-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-dark-900"
-                  />
-                  <span className={cn(
-                    "font-semibold text-sm uppercase tracking-wider transition-colors",
-                    noOffence ? "text-cyan-400" : "text-slate-600"
-                  )}>
-                    No Offence
-                  </span>
-                </label>
-                <p className="text-xs text-text-muted ml-auto self-center">
-                  When enabled, this will be displayed as the title above the answer sections
-                </p>
-              </div>
-              
-              <CorrectDecisionList
-                tags={correctDecisionTags}
+              <AnswerPreview
+                playOn={playOn}
+                noOffence={noOffence}
+                correctDecisionTags={correctDecisionTags}
                 allTags={[...correctDecisionTags, ...invisibleTags]}
+                onPlayOnChange={setPlayOn}
+                onNoOffenceChange={setNoOffence}
                 onReorder={setCorrectDecisionTags}
-                onMove={(tag) => {
-                  setInvisibleTags(invisibleTags.filter(t => t.id !== tag.id));
-                  setCorrectDecisionTags([...correctDecisionTags, tag]);
-                }}
                 onRemove={(tag) => {
                   setCorrectDecisionTags(correctDecisionTags.filter(t => t.id !== tag.id));
                   setInvisibleTags([...invisibleTags, tag]);
@@ -1102,58 +1085,74 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             {/* Title */}
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">
-                {uploadProgress < 90 ? 'Uploading Video' : uploadProgress < 95 ? 'Processing' : 'Finalizing'}
+                {editingVideo 
+                  ? 'Updating' 
+                  : uploadProgress < 90 ? 'Uploading Video' : uploadProgress < 95 ? 'Processing' : 'Finalizing'}
               </h3>
               <p className="text-gray-400 text-sm">
-                {uploadProgress < 90 
-                  ? 'Transferring your video to the cloud...' 
-                  : uploadProgress < 95 
-                    ? 'Optimizing and preparing...' 
-                    : 'Saving video details...'}
+                {editingVideo 
+                  ? 'Updating video details...'
+                  : uploadProgress < 90 
+                    ? 'Transferring your video to the cloud...' 
+                    : uploadProgress < 95 
+                      ? 'Optimizing and preparing...' 
+                      : 'Saving video details...'}
               </p>
             </div>
 
-            {/* Circular Progress */}
-            <div className="relative w-40 h-40 mx-auto mb-6">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="none"
-                  className="text-dark-700"
+            {/* Progress Indicator */}
+            {editingVideo ? (
+              // Whistle animation for updates
+              <div className="flex flex-col items-center gap-4 mb-6">
+                <img
+                  src="/logo/whistle-chrome-liquid.gif"
+                  alt="Updating"
+                  className="h-24 w-24 object-contain"
                 />
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="none"
-                  strokeLinecap="round"
-                  className="text-cyan-500 transition-all duration-300"
-                  style={{
-                    strokeDasharray: `${2 * Math.PI * 70}`,
-                    strokeDashoffset: `${2 * Math.PI * 70 * (1 - uploadProgress / 100)}`,
-                  }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-white">{Math.round(uploadProgress)}%</div>
-                  {videoFile && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
-                    </div>
-                  )}
+              </div>
+            ) : (
+              // Circular Progress for uploads
+              <div className="relative w-40 h-40 mx-auto mb-6">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="70"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    className="text-dark-700"
+                  />
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="70"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeLinecap="round"
+                    className="text-cyan-500 transition-all duration-300"
+                    style={{
+                      strokeDasharray: `${2 * Math.PI * 70}`,
+                      strokeDashoffset: `${2 * Math.PI * 70 * (1 - uploadProgress / 100)}`,
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-white">{Math.round(uploadProgress)}%</div>
+                    {videoFile && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Progress Stages */}
-            <div className="space-y-2">
+            {/* Progress Stages - Only show for uploads */}
+            {!editingVideo && <div className="space-y-2">
               <div className={cn(
                 "flex items-center gap-3 p-3 rounded-lg transition-all",
                 uploadProgress > 0 ? "bg-cyan-500/20 border border-cyan-500/50" : "bg-dark-700/50 border border-dark-600"
@@ -1216,7 +1215,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                   Save details
                 </span>
               </div>
-            </div>
+            </div>}
 
             {/* File info */}
             {videoFile && (
@@ -1237,6 +1236,241 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         <video ref={thumbnailVideoRef} src={videoPreview} crossOrigin="anonymous" className="hidden" />
       )}
     </form>
+  );
+}
+
+// Answer Preview Component - Shows how the answer will look to users
+function AnswerPreview({
+  playOn,
+  noOffence,
+  correctDecisionTags,
+  allTags,
+  onPlayOnChange,
+  onNoOffenceChange,
+  onReorder,
+  onRemove,
+}: {
+  playOn: boolean;
+  noOffence: boolean;
+  correctDecisionTags: Tag[];
+  allTags: Tag[];
+  onPlayOnChange: (value: boolean) => void;
+  onNoOffenceChange: (value: boolean) => void;
+  onReorder: (tags: Tag[]) => void;
+  onRemove: (tag: Tag) => void;
+}) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Determine which checkbox to show based on category tags
+  const hasHandball = allTags.some(tag => tag.name.toLowerCase().includes('handball'));
+  const hasOffside = allTags.some(tag => tag.name.toLowerCase().includes('offside'));
+  
+  let offenceTitle = "Offence";
+  if (hasHandball) {
+    offenceTitle = "Handball Offence";
+  } else if (hasOffside) {
+    offenceTitle = "Offside Offence";
+  }
+
+  // Filter tags by category
+  const restartTags = correctDecisionTags.filter(tag => tag.category?.slug === 'restarts');
+  const sanctionTags = correctDecisionTags.filter(tag => tag.category?.slug === 'sanction');
+  const criteriaTags = correctDecisionTags.filter(tag => tag.category?.slug === 'criteria');
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newTags = [...correctDecisionTags];
+    const draggedTag = newTags[draggedIndex];
+    newTags.splice(draggedIndex, 1);
+    newTags.splice(index, 0, draggedTag);
+
+    onReorder(newTags);
+    setDraggedIndex(index);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Title Bar with Play On / No Offence Toggles */}
+      <div className={cn(
+        "rounded-lg p-4 border-4 transition-all",
+        playOn || noOffence ? "border-green-500 bg-green-500/10" : "border-red-500 bg-red-500/10"
+      )}>
+        <h3 className={cn(
+          "text-2xl font-bold uppercase tracking-wider text-center mb-4",
+          playOn || noOffence ? "text-green-400" : "text-red-400"
+        )}>
+          {playOn ? "Play On" : noOffence ? "No Offence" : offenceTitle}
+        </h3>
+
+        {/* Checkboxes */}
+        <div className="flex gap-4 justify-center">
+          {/* Show Play On for non-handball/offside categories */}
+          {!hasHandball && !hasOffside && (
+            <label className="flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-800/60 border-2 border-slate-700/50 hover:border-green-500/50 cursor-pointer transition-all">
+              <input
+                type="checkbox"
+                checked={playOn}
+                onChange={(e) => {
+                  onPlayOnChange(e.target.checked);
+                  if (e.target.checked) onNoOffenceChange(false);
+                }}
+                className="w-6 h-6 rounded border-2 border-green-500 bg-slate-900 text-green-500 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
+              />
+              <span className={cn(
+                "font-semibold text-base uppercase tracking-wider transition-colors",
+                playOn ? "text-green-400" : "text-slate-400"
+              )}>
+                Play On
+              </span>
+            </label>
+          )}
+
+          {/* Show No Offence for handball/offside categories */}
+          {(hasHandball || hasOffside) && (
+            <label className="flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-800/60 border-2 border-slate-700/50 hover:border-green-500/50 cursor-pointer transition-all">
+              <input
+                type="checkbox"
+                checked={noOffence}
+                onChange={(e) => {
+                  onNoOffenceChange(e.target.checked);
+                  if (e.target.checked) onPlayOnChange(false);
+                }}
+                className="w-6 h-6 rounded border-2 border-green-500 bg-slate-900 text-green-500 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
+              />
+              <span className={cn(
+                "font-semibold text-base uppercase tracking-wider transition-colors",
+                noOffence ? "text-green-400" : "text-slate-400"
+              )}>
+                No Offence
+              </span>
+            </label>
+          )}
+        </div>
+      </div>
+
+      {/* 3-Section Layout matching user-side answer display */}
+      <div className="grid grid-cols-3 gap-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-4 border border-slate-700">
+        {/* Restart Section */}
+        <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+            Restart
+          </div>
+          <div className="space-y-2 min-h-[60px]">
+            {restartTags.length > 0 ? (
+              restartTags.map((tag, index) => (
+                <div
+                  key={tag.id}
+                  draggable
+                  onDragStart={() => handleDragStart(correctDecisionTags.indexOf(tag))}
+                  onDragOver={(e) => handleDragOver(e, correctDecisionTags.indexOf(tag))}
+                  onDragEnd={() => setDraggedIndex(null)}
+                  className="group relative px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center cursor-move hover:bg-cyan-500/30 transition-colors"
+                >
+                  {tag.name}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(tag)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-600 text-xs text-center py-4">—</div>
+            )}
+          </div>
+        </div>
+
+        {/* Sanction Section */}
+        <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+            Sanction
+          </div>
+          <div className="space-y-2 min-h-[60px]">
+            {sanctionTags.length > 0 ? (
+              sanctionTags.map((tag) => {
+                const isYellowCard = tag.name.toLowerCase().includes('yellow');
+                const isRedCard = tag.name.toLowerCase().includes('red');
+                
+                return (
+                  <div
+                    key={tag.id}
+                    draggable
+                    onDragStart={() => handleDragStart(correctDecisionTags.indexOf(tag))}
+                    onDragOver={(e) => handleDragOver(e, correctDecisionTags.indexOf(tag))}
+                    onDragEnd={() => setDraggedIndex(null)}
+                    className={cn(
+                      "group relative px-3 py-1.5 text-sm font-semibold rounded text-center border-2 cursor-move transition-colors",
+                      isYellowCard && "bg-yellow-500/30 border-yellow-500 text-yellow-300 hover:bg-yellow-500/40",
+                      isRedCard && "bg-red-500/30 border-red-500 text-red-300 hover:bg-red-500/40",
+                      !isYellowCard && !isRedCard && "bg-cyan-500/20 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/30"
+                    )}
+                  >
+                    {tag.name}
+                    <button
+                      type="button"
+                      onClick={() => onRemove(tag)}
+                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-slate-600 text-xs text-center py-4">—</div>
+            )}
+          </div>
+        </div>
+
+        {/* Criteria Section */}
+        <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
+            Criteria
+          </div>
+          <div className="space-y-2 min-h-[60px]">
+            {criteriaTags.length > 0 ? (
+              criteriaTags.map((tag) => (
+                <div
+                  key={tag.id}
+                  draggable
+                  onDragStart={() => handleDragStart(correctDecisionTags.indexOf(tag))}
+                  onDragOver={(e) => handleDragOver(e, correctDecisionTags.indexOf(tag))}
+                  onDragEnd={() => setDraggedIndex(null)}
+                  className="group relative px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-sm font-semibold rounded text-center cursor-move hover:bg-cyan-500/30 transition-colors"
+                >
+                  {tag.name}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(tag)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-600 text-xs text-center py-4">—</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Helper text */}
+      <div className="text-xs text-text-muted text-center">
+        Drag tags to reorder within their sections. Click × to move tag to filter tags.
+      </div>
+    </div>
   );
 }
 

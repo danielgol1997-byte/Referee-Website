@@ -243,12 +243,12 @@ export async function PUT(
       varNotes,
       isFeatured,
       isActive,
-      // Video editing metadata
-      trimStart: trimStart !== undefined ? trimStart : null,
-      trimEnd: trimEnd !== undefined ? trimEnd : null,
-      cutSegments: cutSegments ? cutSegments : null,
-      loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
-      loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
+      // Video editing metadata - only update if explicitly provided
+      ...(trimStart !== undefined ? { trimStart } : {}),
+      ...(trimEnd !== undefined ? { trimEnd } : {}),
+      ...(cutSegments !== undefined ? { cutSegments } : {}),
+      ...(loopZoneStart !== undefined ? { loopZoneStart } : {}),
+      ...(loopZoneEnd !== undefined ? { loopZoneEnd } : {}),
       ...(hasTagUpdate ? { tags: tagRelations } : {}),
     };
 

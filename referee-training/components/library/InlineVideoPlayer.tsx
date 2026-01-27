@@ -124,8 +124,8 @@ export function InlineVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [wasPlayingBeforeScrub, setWasPlayingBeforeScrub] = useState(false);
-  const [loopMarkerA, setLoopMarkerA] = useState<number>(0);
-  const [loopMarkerB, setLoopMarkerB] = useState<number>(0);
+  const [loopMarkerA, setLoopMarkerA] = useState<number | null>(null);
+  const [loopMarkerB, setLoopMarkerB] = useState<number | null>(null);
   const [isLoopEnabled, setIsLoopEnabled] = useState(false);
   const [draggingMarker, setDraggingMarker] = useState<'A' | 'B' | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
@@ -311,7 +311,7 @@ export function InlineVideoPlayer({
   }, []);
 
   const handleMarkerDragMove = useCallback((e: MouseEvent) => {
-    if (!draggingMarker || !progressBarRef.current || !videoRef.current) return;
+    if (!draggingMarker || !progressBarRef.current || !videoRef.current || duration === 0) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const newTime = pos * duration;
@@ -336,8 +336,9 @@ export function InlineVideoPlayer({
     setIsScrubbing(false);
     setDraggingMarker(null);
     setIsLoopEnabled(false);
-    setLoopMarkerA(0);
-    setLoopMarkerB(0);
+    // Set markers to null initially - they'll be set when duration loads
+    setLoopMarkerA(null);
+    setLoopMarkerB(null);
     setPlaybackRate(1);
     setIsVideoReady(false);
     setHasStartedPlayback(false);
@@ -356,7 +357,6 @@ export function InlineVideoPlayer({
   }, [video.id]); // Only depend on video.id, not volume/isMuted
 
   // Set loop markers when duration loads or when video's loop zone data changes
-  
   useEffect(() => {
     if (duration > 0) {
       const currentState = loopInitStateRef.current;
@@ -366,6 +366,7 @@ export function InlineVideoPlayer({
       // 1. Different video ID
       // 2. Loop zone data just became available (wasn't set before, now it is)
       // 3. Loop zone values changed
+      // 4. Markers are still null (initial load)
       const videoChanged = currentState?.videoId !== video.id;
       const loopDataJustLoaded = hasLoopZoneData && (
         currentState?.loopStart === undefined || 
@@ -375,8 +376,9 @@ export function InlineVideoPlayer({
         currentState?.loopStart !== video.loopZoneStart ||
         currentState?.loopEnd !== video.loopZoneEnd
       );
+      const markersNotInitialized = loopMarkerA === null || loopMarkerB === null;
       
-      if (videoChanged || loopDataJustLoaded || loopDataChanged || loopMarkerB === 0) {
+      if (videoChanged || loopDataJustLoaded || loopDataChanged || markersNotInitialized) {
         const newLoopA = getDefaultLoopStart(duration);
         const newLoopB = getDefaultLoopEnd(duration);
         
@@ -396,11 +398,11 @@ export function InlineVideoPlayer({
           loopZoneEnd: video.loopZoneEnd,
           newLoopA, 
           newLoopB,
-          reason: videoChanged ? 'videoChanged' : loopDataJustLoaded ? 'loopDataJustLoaded' : loopDataChanged ? 'loopDataChanged' : 'initial'
+          reason: videoChanged ? 'videoChanged' : loopDataJustLoaded ? 'loopDataJustLoaded' : loopDataChanged ? 'loopDataChanged' : markersNotInitialized ? 'markersNotInitialized' : 'unknown'
         });
       }
     }
-  }, [duration, video.id, video.loopZoneStart, video.loopZoneEnd, getDefaultLoopStart, getDefaultLoopEnd, loopMarkerB]);
+  }, [duration, video.id, video.loopZoneStart, video.loopZoneEnd, getDefaultLoopStart, getDefaultLoopEnd, loopMarkerA, loopMarkerB]);
 
   // Update video playback rate
   useEffect(() => {
@@ -455,7 +457,7 @@ export function InlineVideoPlayer({
 
   // A-B Loop functionality
   useEffect(() => {
-    if (!isLoopEnabled || !videoRef.current) return;
+    if (!isLoopEnabled || !videoRef.current || loopMarkerA === null || loopMarkerB === null) return;
     
     const startTime = Math.min(loopMarkerA, loopMarkerB);
     const endTime = Math.max(loopMarkerA, loopMarkerB);
@@ -983,8 +985,8 @@ export function InlineVideoPlayer({
                       onMouseDown={handleScrubStart}
                       onClick={handleProgressClick}
                     >
-                      {/* Loop region highlight - only show when loop is active */}
-                      {isLoopEnabled && (
+                      {/* Loop region highlight - only show when loop is active and markers are initialized */}
+                      {isLoopEnabled && loopMarkerA !== null && loopMarkerB !== null && (
                         <div
                           className="absolute top-0 h-full rounded-full transition-colors bg-green-500/30 z-[1]"
                           style={{
@@ -1009,51 +1011,55 @@ export function InlineVideoPlayer({
                         }}
                       />
 
-                      {/* Loop Marker A - Left bracket [ */}
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing z-20 group/marker"
-                        style={{ left: `${getMarkerPosition(loopMarkerA)}%` }}
-                        onMouseDown={(e) => handleMarkerDragStart(e, 'A')}
-                      >
-                        {/* Bracket shape [ */}
-                        <div className={cn(
-                          "relative w-3 h-6 transition-all",
-                          "border-l-2 border-t-2 border-b-2 rounded-l-sm",
-                          "group-hover/marker:scale-110",
-                          isLoopEnabled 
-                            ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
-                            : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
-                        )} />
-                        {/* Hover tooltip */}
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                          <div className="bg-black/90 text-white text-xs px-2 py-1 rounded">
-                            Loop Start
+                      {/* Loop Marker A - Left bracket [ - Only show when initialized */}
+                      {loopMarkerA !== null && (
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing z-20 group/marker"
+                          style={{ left: `${getMarkerPosition(loopMarkerA)}%` }}
+                          onMouseDown={(e) => handleMarkerDragStart(e, 'A')}
+                        >
+                          {/* Bracket shape [ */}
+                          <div className={cn(
+                            "relative w-3 h-6 transition-all",
+                            "border-l-2 border-t-2 border-b-2 rounded-l-sm",
+                            "group-hover/marker:scale-110",
+                            isLoopEnabled 
+                              ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
+                              : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
+                          )} />
+                          {/* Hover tooltip */}
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            <div className="bg-black/90 text-white text-xs px-2 py-1 rounded">
+                              Loop Start
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Loop Marker B - Right bracket ] */}
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing z-20 group/marker"
-                        style={{ left: `${getMarkerPosition(loopMarkerB)}%` }}
-                        onMouseDown={(e) => handleMarkerDragStart(e, 'B')}
-                      >
-                        {/* Bracket shape ] */}
-                        <div className={cn(
-                          "relative w-3 h-6 transition-all",
-                          "border-r-2 border-t-2 border-b-2 rounded-r-sm",
-                          "group-hover/marker:scale-110",
-                          isLoopEnabled 
-                            ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
-                            : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
-                        )} />
-                        {/* Hover tooltip */}
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                          <div className="bg-black/90 text-white text-xs px-2 py-1 rounded">
-                            Loop End
+                      {/* Loop Marker B - Right bracket ] - Only show when initialized */}
+                      {loopMarkerB !== null && (
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing z-20 group/marker"
+                          style={{ left: `${getMarkerPosition(loopMarkerB)}%` }}
+                          onMouseDown={(e) => handleMarkerDragStart(e, 'B')}
+                        >
+                          {/* Bracket shape ] */}
+                          <div className={cn(
+                            "relative w-3 h-6 transition-all",
+                            "border-r-2 border-t-2 border-b-2 rounded-r-sm",
+                            "group-hover/marker:scale-110",
+                            isLoopEnabled 
+                              ? "border-green-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" 
+                              : "border-white/30 shadow-[0_0_2px_rgba(255,255,255,0.2)] group-hover/marker:border-white/50"
+                          )} />
+                          {/* Hover tooltip */}
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            <div className="bg-black/90 text-white text-xs px-2 py-1 rounded">
+                              Loop End
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Time display */}
