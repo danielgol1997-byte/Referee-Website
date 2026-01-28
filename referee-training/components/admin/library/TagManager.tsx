@@ -8,6 +8,7 @@ interface TagCategory {
   id: string;
   name: string;
   slug: string;
+  color?: string | null;
   canBeCorrectAnswer: boolean;
   allowLinks: boolean;
   order: number;
@@ -160,9 +161,33 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const [tagCategories, setTagCategories] = useState<TagCategory[]>(initialTagCategories);
   const [isCreatingTagCategory, setIsCreatingTagCategory] = useState(false);
   const [editingTagCategory, setEditingTagCategory] = useState<TagCategory | null>(null);
+  // Rainbow color palette for tag categories
+  const TAG_CATEGORY_RAINBOW_COLORS = [
+    '#FF6B6B', // Red
+    '#FF8C42', // Orange
+    '#FFD93D', // Yellow
+    '#6BCF7F', // Green
+    '#4ECDC4', // Teal
+    '#45B7D1', // Light Blue
+    '#5F9DF7', // Blue
+    '#9B72CB', // Purple
+    '#C77DFF', // Light Purple
+    '#E0ACD5', // Pink
+    '#FF6B9D', // Hot Pink
+    '#F72585', // Magenta
+  ];
+
+  // Get next available color from rainbow palette
+  const getNextRainbowColor = () => {
+    const usedColors = tagCategories.map(cat => cat.color).filter(Boolean);
+    const unusedColor = TAG_CATEGORY_RAINBOW_COLORS.find(color => !usedColors.includes(color));
+    return unusedColor || TAG_CATEGORY_RAINBOW_COLORS[tagCategories.length % TAG_CATEGORY_RAINBOW_COLORS.length];
+  };
+
   const [tagCategoryFormData, setTagCategoryFormData] = useState({
     name: '',
     description: '',
+    color: '#00E8F8',
     canBeCorrectAnswer: false,
     allowLinks: false,
     order: 0,
@@ -363,6 +388,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     setTagCategoryFormData({
       name: '',
       description: '',
+      color: getNextRainbowColor(),
       canBeCorrectAnswer: false,
       allowLinks: false,
       order: 0,
@@ -377,6 +403,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     setTagCategoryFormData({
       name: category.name,
       description: category.description || '',
+      color: category.color || '#00E8F8',
       canBeCorrectAnswer: category.canBeCorrectAnswer,
       allowLinks: category.allowLinks,
       order: category.order || 0,
@@ -709,7 +736,18 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
           </div>
           {!isCreatingTagCategory && (
             <button
-              onClick={() => setIsCreatingTagCategory(true)}
+              onClick={() => {
+                setTagCategoryFormData({
+                  name: '',
+                  description: '',
+                  color: getNextRainbowColor(),
+                  canBeCorrectAnswer: false,
+                  allowLinks: false,
+                  order: 0,
+                  isActive: true,
+                });
+                setIsCreatingTagCategory(true);
+              }}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900 font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all"
             >
               + Create Tag Category
@@ -755,6 +793,57 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                 className="w-full px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
                 rows={2}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Color
+              </label>
+              
+              {/* Rainbow Preset Colors */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {TAG_CATEGORY_RAINBOW_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setTagCategoryFormData({ ...tagCategoryFormData, color })}
+                    className={cn(
+                      "w-10 h-10 rounded-lg border-2 transition-all hover:scale-110",
+                      tagCategoryFormData.color === color
+                        ? "border-cyan-500 ring-2 ring-cyan-500/50 scale-105"
+                        : "border-dark-600 hover:border-dark-400"
+                    )}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+
+              {/* Custom Color Option */}
+              <details className="mt-2">
+                <summary className="text-xs text-text-muted cursor-pointer hover:text-text-secondary mb-2">
+                  + Add custom color
+                </summary>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="color"
+                    value={tagCategoryFormData.color}
+                    onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, color: e.target.value })}
+                    className="w-12 h-10 rounded border border-dark-600 bg-dark-900 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={tagCategoryFormData.color}
+                    onChange={(e) => setTagCategoryFormData({ ...tagCategoryFormData, color: e.target.value })}
+                    className="flex-1 px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
+                    placeholder="#00E8F8"
+                  />
+                </div>
+              </details>
+              
+              <p className="text-xs text-text-muted mt-2">
+                This color will be used as the default for all tags in this category
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-4">
@@ -814,7 +903,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
               <div className="flex items-center gap-3">
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: GROUP_COLORS[category.slug] || '#00E8F8' }}
+                  style={{ backgroundColor: category.color || GROUP_COLORS[category.slug] || '#00E8F8' }}
                 />
                 <div>
                   <div className="flex items-center gap-2">

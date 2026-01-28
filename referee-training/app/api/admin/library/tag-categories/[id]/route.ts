@@ -27,6 +27,7 @@ export async function PATCH(
     if (body.name !== undefined) updateData.name = body.name;
     if (body.slug !== undefined) updateData.slug = body.slug;
     if (body.description !== undefined) updateData.description = body.description;
+    if (body.color !== undefined) updateData.color = body.color;
     if (body.canBeCorrectAnswer !== undefined) updateData.canBeCorrectAnswer = body.canBeCorrectAnswer;
     if (body.allowLinks !== undefined) updateData.allowLinks = body.allowLinks;
     if (body.order !== undefined) updateData.order = body.order;
@@ -69,7 +70,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, description, canBeCorrectAnswer, allowLinks, order, isActive } = body;
+    const { name, slug, description, color, canBeCorrectAnswer, allowLinks, order, isActive } = body;
 
     // Get current tag category
     const currentCategory = await prisma.tagCategory.findUnique({
@@ -103,6 +104,7 @@ export async function PUT(
         name,
         slug,
         description,
+        color,
         canBeCorrectAnswer,
         allowLinks,
         order,

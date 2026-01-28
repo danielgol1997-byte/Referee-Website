@@ -40,7 +40,6 @@ export async function GET(
           id: true,
           name: true,
           slug: true,
-          rapCategoryCode: true,
         },
       },
       category: {
@@ -60,7 +59,6 @@ export async function GET(
               id: true,
               slug: true,
               name: true,
-              rapCategory: true,
               category: {
                 select: {
                   id: true,
@@ -123,7 +121,6 @@ export async function GET(
       varNotes: video.varNotes || undefined,
       isEducational: video.isEducational,
       isFeatured: video.isFeatured,
-      rapCategoryCode: video.videoCategory?.rapCategoryCode || null,
       videoType: video.videoType || undefined,
       // Video editing metadata
       trimStart: (video as any).trimStart || undefined,
@@ -143,7 +140,6 @@ export async function GET(
               canBeCorrectAnswer: vt.tag.category.canBeCorrectAnswer,
             }
           : null,
-        rapCategory: vt.tag.rapCategory,
         isCorrectDecision: vt.isCorrectDecision,
         decisionOrder: vt.decisionOrder,
       })),

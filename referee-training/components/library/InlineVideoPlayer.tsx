@@ -1270,7 +1270,12 @@ export function InlineVideoPlayer({
                 "flex-shrink-0" // Prevent footer from being compressed
               )}>
                 <div className="flex-1">
-                  <h2 className="text-lg font-bold text-white line-clamp-1">{video.title}</h2>
+                  {/* Show category instead of title */}
+                  {(() => {
+                    const categoryTag = video.tags?.find(t => t.category?.slug === 'category');
+                    const displayText = categoryTag?.name || video.title;
+                    return <h2 className="text-lg font-bold text-white line-clamp-1">{displayText}</h2>;
+                  })()}
                   {video.description && (
                     <p className="text-text-secondary text-sm line-clamp-1">{video.description}</p>
                   )}

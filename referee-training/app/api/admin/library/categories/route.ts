@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, slug, description, icon, parentId, order, color, rapCategoryCode, isActive } = body;
+    const { name, slug, description, icon, parentId, order, color, isActive } = body;
 
     // Validation
     if (!name || !slug) {
@@ -88,7 +88,6 @@ export async function POST(request: Request) {
         parentId,
         order: order || 0,
         color,
-        rapCategoryCode,
         isActive: isActive !== undefined ? isActive : true,
       },
       include: {

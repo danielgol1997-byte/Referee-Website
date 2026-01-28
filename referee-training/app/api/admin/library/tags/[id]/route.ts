@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 
 /**
  * PATCH /api/admin/library/tags/[id]
- * Partially update a tag (e.g., just rapCategory)
+ * Partially update a tag
  * Requires SUPER_ADMIN role
  */
 export async function PATCH(
@@ -24,7 +24,6 @@ export async function PATCH(
 
     // Allow partial updates - only update provided fields
     const updateData: any = {};
-    if (body.rapCategory !== undefined) updateData.rapCategory = body.rapCategory;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.slug !== undefined) updateData.slug = body.slug;
     if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
@@ -188,8 +187,6 @@ export async function PUT(
         order,
         isActive,
         linkUrl: category?.allowLinks ? linkUrl : null,
-        // Preserve rapCategory if not explicitly updated
-        ...(body.rapCategory !== undefined && { rapCategory: body.rapCategory }),
       },
       include: {
         category: true,

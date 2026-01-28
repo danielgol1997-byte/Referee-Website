@@ -59,7 +59,6 @@ export async function GET(
           id: true,
           name: true,
           slug: true,
-          rapCategoryCode: true,
         },
       },
       tags: {
@@ -73,7 +72,6 @@ export async function GET(
               name: true,
               slug: true,
               color: true,
-              rapCategory: true,
               category: {
                 select: {
                   id: true,

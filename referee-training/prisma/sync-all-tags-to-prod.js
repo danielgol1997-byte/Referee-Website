@@ -129,7 +129,6 @@ async function main() {
         if (localTag.color !== prodTag.color) changes.push(`color: ${prodTag.color} → ${localTag.color}`);
         if (localTag.category !== prodTag.category) changes.push(`category: ${prodTag.category} → ${localTag.category}`);
         if (localTag.parentCategory !== prodTag.parentCategory) changes.push(`parentCategory: ${prodTag.parentCategory} → ${localTag.parentCategory}`);
-        if (localTag.rapCategory !== prodTag.rapCategory) changes.push(`rapCategory: ${prodTag.rapCategory} → ${localTag.rapCategory}`);
         if (localTag.order !== prodTag.order) changes.push(`order: ${prodTag.order} → ${localTag.order}`);
         if (localTag.isActive !== prodTag.isActive) changes.push(`isActive: ${prodTag.isActive} → ${localTag.isActive}`);
         
@@ -146,7 +145,6 @@ async function main() {
           return localTag.color !== prodTag.color || 
                  localTag.category !== prodTag.category ||
                  localTag.parentCategory !== prodTag.parentCategory ||
-                 localTag.rapCategory !== prodTag.rapCategory ||
                  localTag.order !== prodTag.order ||
                  localTag.isActive !== prodTag.isActive;
         }).length;
@@ -185,7 +183,6 @@ async function main() {
             slug: tag.slug,
             category: tag.category,
             parentCategory: tag.parentCategory,
-            rapCategory: tag.rapCategory,
             color: tag.color,
             description: tag.description,
             order: tag.order,
@@ -207,7 +204,6 @@ async function main() {
             slug: localTag.slug,
             category: localTag.category,
             parentCategory: localTag.parentCategory,
-            rapCategory: localTag.rapCategory,
             color: localTag.color,
             description: localTag.description,
             order: localTag.order,

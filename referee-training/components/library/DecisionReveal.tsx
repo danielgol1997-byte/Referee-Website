@@ -141,7 +141,7 @@ export function DecisionReveal({
     <>
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/90 transition-opacity duration-300"
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
         style={{ zIndex: 100100 }}
         onClick={onClose}
       />
@@ -150,9 +150,9 @@ export function DecisionReveal({
       <div className="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto" style={{ zIndex: 100110 }}>
         <div
           className={cn(
-            "relative w-full max-w-3xl bg-gradient-to-br from-[#0F1419] to-[#1E293B]",
-            "rounded-lg shadow-2xl border-4",
-            playOn || noOffence ? "border-green-500" : "border-red-500",
+            "relative w-full max-w-3xl backdrop-blur-xl bg-gradient-to-br from-[#0F1419]/70 to-[#1E293B]/80",
+            "rounded-lg shadow-2xl border-2",
+            playOn || noOffence ? "border-green-500/60" : "border-red-500/60",
             "transform transition-all duration-300",
             isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"
           )}
@@ -179,7 +179,7 @@ export function DecisionReveal({
             {!isEducational && hasDecisionData && (
               <div className="grid grid-cols-3 gap-4">
                 {/* Restart Section */}
-                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
                     Restart
                   </div>
@@ -204,7 +204,7 @@ export function DecisionReveal({
                 </div>
 
                 {/* Sanction Section */}
-                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
                     Sanction
                   </div>
@@ -239,7 +239,7 @@ export function DecisionReveal({
                 </div>
 
                 {/* Criteria Section */}
-                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
+                <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
                     Criteria
                   </div>
@@ -263,7 +263,7 @@ export function DecisionReveal({
 
             {/* Legacy: Offside Reason */}
             {offsideReason && !isEducational && (
-              <div className="bg-slate-800/50 rounded-lg p-5 mt-4">
+              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-5 mt-4 border border-slate-700/30">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1 text-center">
                   Offside Reason
                 </div>
@@ -275,7 +275,7 @@ export function DecisionReveal({
 
             {/* Explanation */}
             {decisionExplanation && (
-              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-6 border border-slate-700/30">
                 <div className={cn(
                   "text-sm font-semibold text-white uppercase tracking-wider mb-3",
                   isEducational && "text-center"
@@ -293,7 +293,7 @@ export function DecisionReveal({
 
             {/* Key Points */}
             {keyPoints.length > 0 && (
-              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-6 border border-slate-700/30">
                 <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
                   Key Points
                 </div>
@@ -310,7 +310,7 @@ export function DecisionReveal({
 
             {/* Common Mistakes */}
             {commonMistakes.length > 0 && (
-              <div className="bg-slate-800/30 rounded-lg p-6 border border-slate-700">
+              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-6 border border-slate-700/30">
                 <div className="text-sm font-semibold text-white uppercase tracking-wider mb-3">
                   Common Mistakes
                 </div>
@@ -327,7 +327,7 @@ export function DecisionReveal({
 
             {/* VAR Notes */}
             {varRelevant && varNotes && (
-              <div className="bg-blue-900/20 rounded-lg p-6 border border-blue-500/30">
+              <div className="bg-blue-900/15 backdrop-blur-sm rounded-lg p-6 border border-blue-500/30">
                 <div className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
                   VAR Protocol
                 </div>
@@ -339,7 +339,7 @@ export function DecisionReveal({
           </div>
 
           {/* Footer */}
-          <div className="px-8 py-6 border-t border-cyan-500/20 flex justify-end">
+          <div className="px-8 py-6 border-t border-cyan-500/20 backdrop-blur-sm flex justify-end">
             <button
               onClick={onClose}
               className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold text-sm uppercase tracking-wide rounded transition-colors"

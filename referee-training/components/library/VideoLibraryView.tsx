@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { RAPCategoryTabs, RAPCategory } from "./RAPCategoryTabs";
 import { VideoCard3D } from "./VideoCard3D";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
 import { VideoFilterBar, VideoFilters } from "./VideoFilterBar";
@@ -28,7 +27,6 @@ interface Video {
   varNotes?: string;
   isEducational?: boolean;
   isFeatured?: boolean;
-  rapCategoryCode?: string | null;
   videoType?: string;
   tags?: Array<{
     id: string;
@@ -40,7 +38,6 @@ interface Video {
       slug: string;
       canBeCorrectAnswer: boolean;
     } | null;
-    rapCategory?: string | null;
     isCorrectDecision?: boolean;
     decisionOrder?: number;
   }>;
@@ -48,7 +45,6 @@ interface Video {
 
 interface VideoLibraryViewProps {
   videos: Video[];
-  videoCounts: Record<RAPCategory, number>;
 }
 
 /**
@@ -57,11 +53,10 @@ interface VideoLibraryViewProps {
  * Single-page experience with:
  * - Comprehensive filter bar (top)
  * - Gallery grid view with 3D hover effects
- * - RAP category tabs (below gallery, centered)
  * - Inline video player (no navigation)
  * - Decision reveal overlay
  */
-export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps) {
+export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   const [filters, setFilters] = useState<VideoFilters>(() => {
     if (typeof window !== 'undefined') {
       const savedFilters = localStorage.getItem('videoLibraryFilters');
@@ -83,20 +78,6 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       customTagFilters: {},
     };
   });
-  const [activeCategory, setActiveCategory] = useState<RAPCategory>(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = localStorage.getItem('videoLibraryFilters');
-      if (savedFilters) {
-        try {
-          const parsed = JSON.parse(savedFilters);
-          return parsed.rapCategory || 'all';
-        } catch (e) {
-          console.error('Failed to parse saved category');
-        }
-      }
-    }
-    return 'all';
-  });
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [expandedVideoDetails, setExpandedVideoDetails] = useState<Video | null>(null);
   const [loadingVideoDetails, setLoadingVideoDetails] = useState(false);
@@ -117,32 +98,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
     return 1; // mobile
   }, []);
 
-  // Sync RAP category with tabs
-  const effectiveRAPCategory = filters.rapCategory || activeCategory;
-
-  const handleCategoryChange = (category: RAPCategory) => {
-    // If clicking the same category, deselect it
-    if (category === activeCategory && category !== 'all') {
-      setActiveCategory('all');
-      const newFilters = { ...filters, rapCategory: undefined };
-      setFilters(newFilters);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
-      }
-    } else {
-      setActiveCategory(category);
-      const newFilters = { ...filters, rapCategory: category };
-      setFilters(newFilters);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
-      }
-    }
-  };
-
   const handleFiltersChange = (newFilters: VideoFilters) => {
     setFilters(newFilters);
-    // Sync category with tabs
-    setActiveCategory(newFilters.rapCategory || 'all');
     // Persist filters to localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('videoLibraryFilters', JSON.stringify(newFilters));
@@ -152,25 +109,6 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
   // Apply all filters and sort by category tags
   const filteredVideos = videos
     .filter(video => {
-    // RAP Category filter (synced between tabs)
-    if (effectiveRAPCategory !== 'all') {
-      const categoryMap: Record<RAPCategory, string> = {
-        'all': '',
-        'decision-making': 'A',
-        'management': 'B',
-        'offside': 'C',
-        'teamwork': 'D',
-        'laws-of-the-game': 'L',
-      };
-      const targetRapCode = categoryMap[effectiveRAPCategory];
-      
-      // Check both videoCategory rapCode AND video tags' rapCategory
-      const hasMatchingVideoCategory = video.rapCategoryCode === targetRapCode;
-      const hasMatchingTag = video.tags?.some(t => t.rapCategory === targetRapCode);
-      
-      if (!hasMatchingVideoCategory && !hasMatchingTag) return false;
-    }
-
     // Get video tag slugs for filtering
     const videoTagSlugs = video.tags?.map(t => t.slug) || [];
 
@@ -435,8 +373,8 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
       sanctions: [],
       scenarios: [],
       laws: [],
+      customTagFilters: {},
     });
-    setActiveCategory("all");
   };
 
   const sharedLayoutEnabled = !disableSharedLayout || closingVideoId !== null;
@@ -449,7 +387,6 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
           <VideoFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            videoCounts={videoCounts}
           />
         </div>
 
@@ -511,21 +448,6 @@ export function VideoLibraryView({ videos, videoCounts }: VideoLibraryViewProps)
           )}
         </div>
 
-        {/* RAP Category Tabs - Below Gallery */}
-        <div className="py-8 border-t border-dark-600/50 bg-dark-900/50">
-          <div className="max-w-5xl mx-auto px-4">
-            <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-text-muted mb-6">
-              Browse by Category
-            </h2>
-            <div className="flex justify-center">
-              <RAPCategoryTabs
-                activeCategory={effectiveRAPCategory}
-                onCategoryChange={handleCategoryChange}
-                videoCounts={videoCounts}
-              />
-            </div>
-          </div>
-        </div>
 
         {/* Inline Video Player (Full screen overlay) */}
         {expandedVideo && expandedVideo.fileUrl && (

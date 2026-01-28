@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { RAPCategory } from "./RAPCategoryTabs";
 
 export interface VideoFilters {
   categoryTags: string[];
@@ -11,7 +10,6 @@ export interface VideoFilters {
   sanctions: string[];
   scenarios: string[];
   laws: number[]; // Deprecated: kept for backward compatibility, use customTagFilters['laws'] instead
-  rapCategory?: RAPCategory;
   customTagFilters?: Record<string, string[]>;
 }
 
@@ -36,7 +34,6 @@ interface TagCategory {
 interface VideoFilterBarProps {
   filters: VideoFilters;
   onFiltersChange: (filters: VideoFilters) => void;
-  videoCounts?: Record<RAPCategory, number>;
 }
 
 type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | `custom:${string}`;
@@ -75,8 +72,7 @@ const GROUP_COLORS: Record<string, string> = {
  * - Auto-hides/shows on hover
  * - Criteria requires category selection
  */
-export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoFilterBarProps) {
-  const [isHovered, setIsHovered] = useState(false);
+export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -108,7 +104,6 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
 
   // Fetch tags on mount
@@ -238,56 +233,6 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Handle mouse enter - open immediately and cancel any pending close
-  const handleMouseEnter = () => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-    setIsHovered(true);
-  };
-
-  // Handle mouse leave - wait 3 seconds before closing
-  const handleMouseLeave = (e: React.MouseEvent) => {
-    // Check if we're actually leaving the entire filter bar area
-    if (filterBarRef.current) {
-      const rect = filterBarRef.current.getBoundingClientRect();
-      const { clientX, clientY } = e;
-      
-      // If mouse is still within the filter bar bounds, don't start close timer
-      if (
-        clientX >= rect.left &&
-        clientX <= rect.right &&
-        clientY >= rect.top &&
-        clientY <= rect.bottom
-      ) {
-        return;
-      }
-    }
-
-    // Clear any existing timeout
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-    }
-
-    // Start 3-second countdown to close
-    closeTimeoutRef.current = setTimeout(() => {
-      setIsHovered(false);
-      setActiveDropdown(null);
-      setShowSettings(false);
-      closeTimeoutRef.current = null;
-    }, 3000);
-  };
 
   const categoryGroup = tagCategoryMap[CATEGORY_TAG_CATEGORY_SLUG];
   const criteriaGroup = tagCategoryMap[CRITERIA_TAG_CATEGORY_SLUG];
@@ -467,43 +412,14 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
     return FILTER_CONFIG[type as keyof typeof FILTER_CONFIG] || null;
   };
 
-  const shouldShow = isHovered;
-
   return (
     <div 
       ref={filterBarRef}
       className="relative"
     >
-      {/* Filter Indicator - Hover zone for opening */}
+      {/* Filter Bar Content - Always Visible */}
       <div
-        className={cn(
-          "absolute top-0 left-0 right-0 h-1 transition-all duration-300 cursor-pointer",
-          shouldShow ? "bg-transparent" : activeFilterCount > 0 ? "bg-accent" : "bg-accent/40"
-        )}
-        onMouseEnter={handleMouseEnter}
-      >
-        {!shouldShow && (
-          <div className="flex items-center justify-center pt-1">
-            <div className={cn(
-              "px-4 py-1 text-xs font-semibold uppercase tracking-wider rounded-b-md cursor-pointer",
-              activeFilterCount > 0 
-                ? "bg-accent text-dark-900" 
-                : "bg-accent/20 text-accent"
-            )}>
-              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Filter Bar Content */}
-      <div
-        className={cn(
-          "border-b border-amber-400/30 bg-gradient-to-b from-amber-500/20 to-amber-600/10 backdrop-blur-md transition-all duration-500 ease-out shadow-lg shadow-amber-500/10",
-          shouldShow ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
-        )}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        className="border-b border-amber-400/30 bg-gradient-to-b from-amber-500/20 to-amber-600/10 backdrop-blur-md shadow-lg shadow-amber-500/10"
       >
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
           {/* Filter Controls */}
@@ -533,7 +449,7 @@ export function VideoFilterBar({ filters, onFiltersChange, videoCounts }: VideoF
             <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-lg bg-dark-900 border border-dark-600 text-text-secondary hover:text-accent hover:border-accent transition-colors"
+                className="px-2 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-secondary hover:text-accent hover:border-accent transition-colors self-start"
                 title="Customize Filters"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

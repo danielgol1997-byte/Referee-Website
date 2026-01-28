@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, slug, description, canBeCorrectAnswer, allowLinks, order, isActive } = body;
+    const { name, slug, description, color, canBeCorrectAnswer, allowLinks, order, isActive } = body;
 
     // Validation
     if (!name) {
@@ -116,6 +116,7 @@ export async function POST(request: Request) {
         name,
         slug: categorySlug,
         description,
+        color: color || null,
         canBeCorrectAnswer: canBeCorrectAnswer !== undefined ? canBeCorrectAnswer : false,
         allowLinks: allowLinks !== undefined ? allowLinks : false,
         order: order || 0,
