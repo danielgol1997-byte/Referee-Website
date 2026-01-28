@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navItems = [
-  { href: "/laws", label: "Laws of the game" },
-  { href: "/practice", label: "Referees practice" },
-  { href: "/practice/var", label: "VAR practice" },
-  { href: "/practice/ar", label: "A.R. practice" },
+  { href: "/laws", label: "Laws Of The Game" },
+  { href: "/practice", label: "Referees Practice" },
+  { href: "/practice/var", label: "VAR Practice" },
+  { href: "/practice/ar", label: "A.R. Practice" },
   { href: "/library/videos", label: "Video Library" },
   { href: "/stats", label: "Stats" },
 ];
