@@ -26,6 +26,7 @@ interface TagCategory {
   id: string;
   name: string;
   slug: string;
+  color?: string | null;
   canBeCorrectAnswer: boolean;
   order: number;
   tags: Tag[];
