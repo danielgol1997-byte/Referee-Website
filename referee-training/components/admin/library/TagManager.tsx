@@ -317,17 +317,17 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   // SANCTION tags always use the same color
   useEffect(() => {
     if (isCreating && !editingTag) {
-      const groupColor = (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8';
+      const groupColor = (selectedTagCategory?.color) || (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8';
       setFormData(prev => ({ ...prev, color: groupColor }));
     }
     // Also enforce SANCTION color when editing
     if (
       selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG &&
-      formData.color !== GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+      formData.color !== (selectedTagCategory?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG])
     ) {
-      setFormData(prev => ({ ...prev, color: GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }));
+      setFormData(prev => ({ ...prev, color: selectedTagCategory?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }));
     }
-  }, [selectedTagCategorySlug, isCreating, editingTag, formData.color]);
+  }, [selectedTagCategorySlug, selectedTagCategory?.color, isCreating, editingTag, formData.color]);
 
   useEffect(() => {
     if (selectedTagCategory && !selectedTagCategory.allowLinks && formData.linkUrl) {
@@ -346,7 +346,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const handleGroupSelect = (categoryId: string) => {
     const selectedCategory = tagCategories.find(category => category.id === categoryId);
     const categorySlug = selectedCategory?.slug;
-    const groupColor = (categorySlug && GROUP_COLORS[categorySlug]) || '#00E8F8';
+    const groupColor = selectedCategory?.color || (categorySlug && GROUP_COLORS[categorySlug]) || '#00E8F8';
     setFormData(prev => ({
       ...prev,
       categoryId,
@@ -487,7 +487,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     const tagCategorySlug = tag.category?.slug;
     const tagColor =
       tagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
-        ? GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+        ? (tag.category?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG])
         : (tag.color || '#00E8F8');
     setFormData({
       name: tag.name,
@@ -525,7 +525,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
         // SANCTION tags always use the same color
         color:
           selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
-            ? GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG]
+            ? (selectedTagCategory?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG])
             : formData.color,
       };
       
@@ -995,7 +995,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-4 h-4 rounded-full border border-dark-600"
-                      style={{ backgroundColor: (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8' }} 
+                      style={{ backgroundColor: selectedTagCategory?.color || (selectedTagCategorySlug && GROUP_COLORS[selectedTagCategorySlug]) || '#00E8F8' }} 
                     />
                     <span>{selectedTagCategory?.name || 'Select Tag Category'}</span>
                   </div>
@@ -1023,7 +1023,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                       >
                         <div 
                           className="w-4 h-4 rounded-full border border-dark-600"
-                          style={{ backgroundColor: GROUP_COLORS[category.slug] || '#00E8F8' }}
+                          style={{ backgroundColor: category.color || GROUP_COLORS[category.slug] || '#00E8F8' }}
                         />
                         <span className="text-text-primary">{category.name}</span>
                       </button>
@@ -1118,7 +1118,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-dark-900/50 border border-dark-600">
                   <div 
                     className="w-10 h-10 rounded-lg border-2 border-cyan-500 ring-2 ring-cyan-500/50"
-                    style={{ backgroundColor: GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }}
+                    style={{ backgroundColor: selectedTagCategory?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG] }}
                   />
                   <div>
                     <p className="text-sm font-medium text-text-primary">
@@ -1250,7 +1250,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
       {tagCategories.map((category) => {
         const groupTags = groupedTags[category.id] || [];
         const isExpanded = expandedTabs[category.id] ?? true;
-        const groupColor = GROUP_COLORS[category.slug] || '#00E8F8';
+        const groupColor = category.color || GROUP_COLORS[category.slug] || '#00E8F8';
 
         if (category.slug === CRITERIA_TAG_CATEGORY_SLUG) {
           // Special rendering for Criteria with sub-grouping

@@ -9,27 +9,13 @@ import { authOptions } from '@/lib/auth';
  * Requires SUPER_ADMIN role
  */
 export async function GET(request: Request) {
-  // #region agent log
-  const debugInfo: any = { checkpoints: [], timestamp: new Date().toISOString() };
-  debugInfo.checkpoints.push('Handler entry');
-  // #endregion
   try {
     const session = await getServerSession(authOptions);
-    // #region agent log
-    debugInfo.checkpoints.push('Session retrieved');
-    debugInfo.session = { hasSession: !!session, hasUser: !!session?.user, role: session?.user?.role, userId: session?.user?.id };
-    // #endregion
 
     if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
-      // #region agent log
-      debugInfo.checkpoints.push('Unauthorized check failed');
-      // #endregion
-      return NextResponse.json({ error: 'Unauthorized', debug: debugInfo }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // #region agent log
-    debugInfo.checkpoints.push('Before Prisma query');
-    // #endregion
     const tagCategories = await prisma.tagCategory.findMany({
       include: {
         _count: {
@@ -41,27 +27,12 @@ export async function GET(request: Request) {
         { name: 'asc' },
       ],
     });
-    // #region agent log
-    debugInfo.checkpoints.push('Prisma query successful');
-    debugInfo.result = { count: tagCategories.length, firstCategoryName: tagCategories[0]?.name };
-    // #endregion
 
     return NextResponse.json({ tagCategories });
   } catch (error: any) {
-    // #region agent log
-    debugInfo.checkpoints.push('Error caught');
-    debugInfo.error = {
-      name: error?.constructor?.name,
-      message: error?.message,
-      code: error?.code,
-      meta: error?.meta,
-      stack: error?.stack?.split('\n').slice(0, 5),
-      isPrismaError: error?.constructor?.name?.includes('Prisma')
-    };
-    console.error('[DEBUG ERROR]', JSON.stringify(debugInfo, null, 2));
-    // #endregion
+    console.error('Error fetching tag categories:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch tag categories', debug: debugInfo },
+      { error: 'Failed to fetch tag categories' },
       { status: 500 }
     );
   }

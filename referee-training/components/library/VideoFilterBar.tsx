@@ -38,12 +38,34 @@ interface VideoFilterBarProps {
 
 type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | `custom:${string}`;
 
-const FILTER_CONFIG: Record<'category' | 'criteria' | 'restart' | 'sanction' | 'scenario', { label: string; color: string; key: keyof VideoFilters }> = {
+const FILTER_CONFIG_DEFAULTS: Record<'category' | 'criteria' | 'restart' | 'sanction' | 'scenario', { label: string; color: string; key: keyof VideoFilters }> = {
   category: { label: 'Category', color: '#FF6B6B', key: 'categoryTags' },
   criteria: { label: 'Criteria', color: '#FFD93D', key: 'criteria' },
   restart: { label: 'Restart', color: '#4A90E2', key: 'restarts' },
   sanction: { label: 'Sanction', color: '#EC4899', key: 'sanctions' },
   scenario: { label: 'Scenario', color: '#6BCF7F', key: 'scenarios' },
+};
+
+// Helper to get filter config with dynamic colors from tag categories
+const getDynamicFilterConfig = (
+  type: 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario',
+  tagCategoryMap: Record<string, TagCategory>
+): { label: string; color: string; key: keyof VideoFilters } => {
+  const defaults = FILTER_CONFIG_DEFAULTS[type];
+  const slugMap: Record<string, string> = {
+    category: 'category',
+    criteria: 'criteria',
+    restart: 'restarts',
+    sanction: 'sanction',
+    scenario: 'scenario'
+  };
+  const categorySlug = slugMap[type];
+  const tagCategory = tagCategoryMap[categorySlug];
+  
+  return {
+    ...defaults,
+    color: tagCategory?.color || defaults.color
+  };
 };
 
 const DEFAULT_FILTER_ORDER: FilterType[] = ['category', 'criteria', 'restart', 'sanction', 'scenario'];
@@ -271,7 +293,7 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
     }
 
     // Safety check: skip if filter type no longer exists in config (e.g., deprecated 'law' type)
-    const config = FILTER_CONFIG[type as keyof typeof FILTER_CONFIG];
+    const config = FILTER_CONFIG_DEFAULTS[type as keyof typeof FILTER_CONFIG_DEFAULTS];
     if (!config) return;
 
     const key = config.key;
@@ -304,7 +326,7 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
     }
 
     // Safety check: skip if filter type no longer exists in config (e.g., deprecated 'law' type)
-    const config = FILTER_CONFIG[type as keyof typeof FILTER_CONFIG];
+    const config = FILTER_CONFIG_DEFAULTS[type as keyof typeof FILTER_CONFIG_DEFAULTS];
     if (!config) return;
 
     const key = config.key;
@@ -403,13 +425,14 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
       const category = tagCategoryMap[slug];
       return {
         label: category?.name || slug,
-        color: GROUP_COLORS[slug] || '#00E8F8',
+        color: category?.color || GROUP_COLORS[slug] || '#00E8F8',
         key: 'customTagFilters' as const,
         customSlug: slug,
       };
     }
-    // Return the config if it exists, otherwise return null for deprecated types
-    return FILTER_CONFIG[type as keyof typeof FILTER_CONFIG] || null;
+    // Return the config if it exists with dynamic colors, otherwise return null for deprecated types
+    const baseConfig = FILTER_CONFIG_DEFAULTS[type as keyof typeof FILTER_CONFIG_DEFAULTS];
+    return baseConfig ? getDynamicFilterConfig(type as keyof typeof FILTER_CONFIG_DEFAULTS, tagCategoryMap) : null;
   };
 
   return (
