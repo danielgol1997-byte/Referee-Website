@@ -9,13 +9,25 @@ import { authOptions } from '@/lib/auth';
  * Requires SUPER_ADMIN role
  */
 export async function GET(request: Request) {
+  // #region agent log
+  console.log('[DEBUG H1,H2] GET /api/admin/library/tag-categories - Handler entry', {timestamp: new Date().toISOString()});
+  // #endregion
   try {
     const session = await getServerSession(authOptions);
+    // #region agent log
+    console.log('[DEBUG H2] Session check', {hasSession: !!session, hasUser: !!session?.user, role: session?.user?.role, userId: session?.user?.id});
+    // #endregion
 
     if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+      // #region agent log
+      console.log('[DEBUG H2] Unauthorized - returning 401', {hasSession: !!session, hasUser: !!session?.user, role: session?.user?.role});
+      // #endregion
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // #region agent log
+    console.log('[DEBUG H3,H4,H5] Before Prisma query tagCategory.findMany');
+    // #endregion
     const tagCategories = await prisma.tagCategory.findMany({
       include: {
         _count: {
@@ -27,9 +39,22 @@ export async function GET(request: Request) {
         { name: 'asc' },
       ],
     });
+    // #region agent log
+    console.log('[DEBUG H1,H3,H5] Prisma query successful', {count: tagCategories.length, firstCategoryName: tagCategories[0]?.name, firstCategoryId: tagCategories[0]?.id});
+    // #endregion
 
     return NextResponse.json({ tagCategories });
-  } catch (error) {
+  } catch (error: any) {
+    // #region agent log
+    console.error('[DEBUG H1,H3,H4,H5] Error caught in GET handler', {
+      errorName: error?.constructor?.name,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorMeta: error?.meta,
+      errorStack: error?.stack,
+      prismaErrorType: error?.constructor?.name?.includes('Prisma') ? 'Prisma Error' : 'Other Error'
+    });
+    // #endregion
     console.error('Error fetching tag categories:', error);
     return NextResponse.json(
       { error: 'Failed to fetch tag categories' },
