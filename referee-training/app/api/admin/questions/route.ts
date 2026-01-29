@@ -30,6 +30,7 @@ export async function GET(req: Request) {
   const onlyVar = searchParams.get("onlyVar") === "true";
   const upToDate = searchParams.get("upToDate") === "true";
   const outdated = searchParams.get("outdated") === "true";
+  const isIfab = searchParams.get("isIfab");
 
   const where: Prisma.QuestionWhereInput = {};
 
@@ -45,6 +46,13 @@ export async function GET(req: Request) {
     where.isUpToDate = true;
   } else if (outdated) {
     where.isUpToDate = false;
+  }
+
+  // IFAB filtering
+  if (isIfab === "true") {
+    where.isIfab = true;
+  } else if (isIfab === "false") {
+    where.isIfab = false;
   }
 
 
@@ -113,6 +121,7 @@ export async function POST(req: Request) {
       explanation,
       difficulty = 1,
       answerOptions = [],
+      isIfab = true,
     } = body ?? {};
 
     if (!type || !text || !explanation) {
@@ -145,6 +154,7 @@ export async function POST(req: Request) {
         text,
         explanation,
         difficulty,
+        isIfab,
         answerOptions: {
           create: (answerOptions as Array<{ label: string; code?: string; isCorrect?: boolean; order?: number }>).map(
             (opt, idx) => ({

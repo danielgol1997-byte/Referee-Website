@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { useLawTags } from "@/components/hooks/useLawTags";
+import { DualSourceToggle } from "@/components/ui/dual-source-toggle";
 const MIN_QUESTIONS = 5;
 const MAX_QUESTIONS = 20;
 
@@ -15,6 +16,8 @@ export function TestConfiguration() {
   const [selectedLaws, setSelectedLaws] = useState<number[]>([]);
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [includeVar, setIncludeVar] = useState(false);
+  const [includeIfab, setIncludeIfab] = useState(true);
+  const [includeCustom, setIncludeCustom] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveToProfile, setSaveToProfile] = useState(false);
@@ -117,19 +120,21 @@ export function TestConfiguration() {
                   : "All laws",
                 categorySlug: "laws-of-the-game",
                 lawNumbers: selectedLaws,
-                totalQuestions: questionCount,
-                isActive: true,
-                isMandatory: false,
-                isUserGenerated: true,
-              }),
-            });
-            
-            if (!createRes.ok) {
-              const data = await createRes.json();
-              throw new Error(data?.error ?? "Failed to create test");
-            }
-            
-            const data = await createRes.json();
+            totalQuestions: questionCount,
+            isActive: true,
+            isMandatory: false,
+            isUserGenerated: true,
+            includeIfab,
+            includeCustom,
+          }),
+        });
+        
+        if (!createRes.ok) {
+          const data = await createRes.json();
+          throw new Error(data?.error ?? "Failed to create test");
+        }
+        
+        const data = await createRes.json();
             testId = data.test?.id;
             
             // Continue to start test
@@ -165,6 +170,8 @@ export function TestConfiguration() {
             isActive: true,
             isMandatory: false,
             isUserGenerated: true,
+            includeIfab,
+            includeCustom,
           }),
         });
         
@@ -226,32 +233,53 @@ export function TestConfiguration() {
         </p>
       </div>
 
-      {/* VAR Toggle */}
-      <div className="flex items-center justify-between p-4 rounded-lg border border-dark-600 bg-dark-800/30">
-        <div className="flex-1">
-          <label className="text-sm font-medium text-white cursor-pointer" htmlFor="var-toggle">
-            Include VAR Questions
-          </label>
-          <p className="text-xs text-text-secondary mt-1">
-            Include questions related to Video Assistant Referee protocols
-          </p>
-        </div>
-        <button
-          id="var-toggle"
-          type="button"
-          onClick={() => setIncludeVar(!includeVar)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900 ${
-            includeVar ? "bg-accent" : "bg-dark-600"
-          }`}
-          role="switch"
-          aria-checked={includeVar}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-              includeVar ? "translate-x-6" : "translate-x-1"
+      {/* Test Options */}
+      <div className="space-y-3">
+        {/* VAR Toggle */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-dark-600 bg-dark-800/30">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-white cursor-pointer" htmlFor="var-toggle">
+              Include VAR Questions
+            </label>
+            <p className="text-xs text-text-secondary mt-1">
+              Include questions related to Video Assistant Referee protocols
+            </p>
+          </div>
+          <button
+            id="var-toggle"
+            type="button"
+            onClick={() => setIncludeVar(!includeVar)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900 ${
+              includeVar ? "bg-accent" : "bg-dark-600"
             }`}
+            role="switch"
+            aria-checked={includeVar}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                includeVar ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Question Sources Toggle */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-dark-600 bg-dark-800/30">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-white">
+              Question Sources
+            </label>
+            <p className="text-xs text-text-secondary mt-1">
+              Choose which question sources to include in your test
+            </p>
+          </div>
+          <DualSourceToggle
+            includeIfab={includeIfab}
+            includeCustom={includeCustom}
+            onIfabChange={setIncludeIfab}
+            onCustomChange={setIncludeCustom}
           />
-        </button>
+        </div>
       </div>
 
       {/* Question Count */}

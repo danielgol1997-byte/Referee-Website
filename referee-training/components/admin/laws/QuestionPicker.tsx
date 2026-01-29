@@ -16,9 +16,16 @@ type Question = {
 interface QuestionPickerProps {
   selectedQuestionIds: string[];
   onQuestionsChange: (questionIds: string[]) => void;
+  includeIfab?: boolean;
+  includeCustom?: boolean;
 }
 
-export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: QuestionPickerProps) {
+export function QuestionPicker({ 
+  selectedQuestionIds, 
+  onQuestionsChange,
+  includeIfab = true,
+  includeCustom = false,
+}: QuestionPickerProps) {
   const [search, setSearch] = useState("");
   const [lawFilter, setLawFilter] = useState<number | "">("");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -76,7 +83,7 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
     if (isOpen) {
       fetchQuestions();
     }
-  }, [isOpen, lawFilter]);
+  }, [isOpen, lawFilter, includeIfab, includeCustom]);
 
   // Reset to page 1 when search changes
   useEffect(() => {
@@ -90,6 +97,14 @@ export function QuestionPicker({ selectedQuestionIds, onQuestionsChange }: Quest
       params.set("type", "LOTG_TEXT");
       params.set("categorySlug", "laws-of-the-game");
       if (lawFilter !== "") params.set("lawNumber", String(lawFilter));
+      
+      // Apply source filtering
+      if (includeIfab && !includeCustom) {
+        params.set("isIfab", "true");
+      } else if (!includeIfab && includeCustom) {
+        params.set("isIfab", "false");
+      }
+      // If both or neither, don't add filter (show all)
       
       const res = await fetch(`/api/admin/questions?${params.toString()}`);
       const data = await res.json();

@@ -7,9 +7,12 @@ import { Question } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { cn } from "@/lib/utils";
 import { useLawTags } from "@/components/hooks/useLawTags";
 import { useModal } from "@/components/ui/modal";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { DualSourceToggle } from "@/components/ui/dual-source-toggle";
 
 const DIFFICULTY_OPTIONS = [
   { value: 1, label: "Easy" },
@@ -38,6 +41,7 @@ type EditFormAnswer = {
 
 type EditForm = {
   lawNumbers: number[];
+  isIfab: boolean;
   text: string;
   explanation: string;
   difficulty: number;
@@ -45,14 +49,14 @@ type EditForm = {
 };
 
 const VAR_FILTER_OPTIONS = [
-  { value: "exclude", label: "Exclude VAR" },
-  { value: "include", label: "Include VAR" },
-  { value: "only", label: "Only VAR" },
+  { value: "exclude", label: "Exclude" },
+  { value: "include", label: "Include" },
+  { value: "only", label: "Only" },
 ];
 
 const UP_TO_DATE_FILTER_OPTIONS = [
-  { value: "all", label: "All Questions" },
-  { value: "upToDate", label: "Up to Date" },
+  { value: "all", label: "All" },
+  { value: "upToDate", label: "Current" },
   { value: "outdated", label: "Outdated" },
 ];
 
@@ -62,6 +66,8 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
   const [upToDateFilter, setUpToDateFilter] = useState<string>("all");
+  const [includeIfabFilter, setIncludeIfabFilter] = useState(true);
+  const [includeCustomFilter, setIncludeCustomFilter] = useState(true);
   const [questions, setQuestions] = useState<QuestionWithRelations[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +79,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [viewingQuestionId, setViewingQuestionId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     lawNumbers: [],
+    isIfab: true,
     text: "",
     explanation: "",
     difficulty: 2,
@@ -83,8 +90,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       { label: "", isCorrect: false },
     ],
   });
-  const [isEditLawDropdownOpen, setIsEditLawDropdownOpen] = useState(false);
-  const editLawDropdownRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { lawTags, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
 
@@ -103,6 +108,11 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     [lawTags, isLoadingLawTags]
   );
 
+  const lawMultiSelectOptions = useMemo(
+    () => lawTags.map((tag) => ({ value: tag.number, label: tag.name })),
+    [lawTags]
+  );
+
   const fetchQuestions = async () => {
     setLoading(true);
     setError(null);
@@ -116,6 +126,14 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       
       if (upToDateFilter === "upToDate") params.set("upToDate", "true");
       if (upToDateFilter === "outdated") params.set("outdated", "true");
+      
+      // Apply source filtering
+      if (includeIfabFilter && !includeCustomFilter) {
+        params.set("isIfab", "true");
+      } else if (!includeIfabFilter && includeCustomFilter) {
+        params.set("isIfab", "false");
+      }
+      // If both or neither, don't add filter (show all)
       
       params.set("categorySlug", "laws-of-the-game");
       const res = await fetch(`/api/admin/questions?${params.toString()}`);
@@ -194,6 +212,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     setEditingId(question.id);
     setEditForm({
       lawNumbers: (question as any).lawNumbers || [],
+      isIfab: (question as any).isIfab ?? true,
       text: question.text,
       explanation: question.explanation,
       difficulty: question.difficulty || 2,
@@ -206,9 +225,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setIsEditLawDropdownOpen(false);
     setEditForm({
       lawNumbers: [],
+      isIfab: true,
       text: "",
       explanation: "",
       difficulty: 2,
@@ -221,19 +240,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     });
   };
 
-  const toggleEditLaw = (lawNumber: number) => {
-    setEditForm((prev) => ({
-      ...prev,
-      lawNumbers: prev.lawNumbers.includes(lawNumber)
-        ? prev.lawNumbers.filter((num) => num !== lawNumber)
-        : [...prev.lawNumbers, lawNumber].sort((a, b) => a - b),
-    }));
-  };
-
-  const clearEditLaws = () => {
-    setEditForm((prev) => ({ ...prev, lawNumbers: [] }));
-  };
-
   const saveEdit = async (id: string) => {
     setActionLoading(id);
     try {
@@ -242,6 +248,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lawNumbers: editForm.lawNumbers,
+          isIfab: editForm.isIfab,
           text: editForm.text,
           explanation: editForm.explanation,
           difficulty: editForm.difficulty,
@@ -256,7 +263,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       if (!res.ok) throw new Error("Failed to update question");
       await fetchQuestions();
       setEditingId(null);
-      setIsEditLawDropdownOpen(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update question";
       setError(message);
@@ -277,23 +283,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     }
     setEditForm({ ...editForm, answers: newAnswers });
   };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (editLawDropdownRef.current && !editLawDropdownRef.current.contains(event.target as Node)) {
-        setIsEditLawDropdownOpen(false);
-      }
-    };
-
-    if (isEditLawDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isEditLawDropdownOpen]);
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -316,7 +305,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, lawFilter, varFilter, upToDateFilter]);
+  }, [refreshKey, lawFilter, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
@@ -346,7 +335,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, lawFilter, varFilter, upToDateFilter, perPage, lawSortOrder]);
+  }, [search, lawFilter, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter, perPage, lawSortOrder]);
 
   const isEditFormValid = () => {
     return (
@@ -360,40 +349,88 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-accent/20 bg-dark-800/50 p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-text-secondary">Law</label>
-                <Select
-                  value={lawFilter}
-                  onChange={(val) => {
-                    setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
-                    setLawSortOrder(null); // Reset sort order when manually changing filter
-                  }}
-                  options={lawFilterOptions}
-                  className="w-48"
-                />
-              </div>
-              <Select
-                value={varFilter}
-                onChange={(val) => setVarFilter(String(val))}
-                options={VAR_FILTER_OPTIONS}
-                className="w-36"
-              />
-              <Select
-                value={upToDateFilter}
-                onChange={(val) => setUpToDateFilter(String(val))}
-                options={UP_TO_DATE_FILTER_OPTIONS}
-                className="w-36"
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search question text..."
+                className="w-full"
               />
             </div>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search question text"
-              className="md:max-w-sm"
-            />
+          </div>
+          
+          {/* Filter Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Law Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Law
+              </label>
+              <Select
+                value={lawFilter}
+                onChange={(val) => {
+                  setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
+                  setLawSortOrder(null);
+                }}
+                options={lawFilterOptions}
+                className="w-full"
+              />
+            </div>
+
+            {/* VAR Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                VAR Questions
+              </label>
+              <SegmentedControl
+                value={varFilter}
+                onChange={setVarFilter}
+                options={VAR_FILTER_OPTIONS}
+                className="w-full"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Status
+              </label>
+              <SegmentedControl
+                value={upToDateFilter}
+                onChange={setUpToDateFilter}
+                options={UP_TO_DATE_FILTER_OPTIONS}
+                className="w-full"
+              />
+            </div>
+
+            {/* Source Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Sources
+              </label>
+              <DualSourceToggle
+                includeIfab={includeIfabFilter}
+                includeCustom={includeCustomFilter}
+                onIfabChange={setIncludeIfabFilter}
+                onCustomChange={setIncludeCustomFilter}
+                className="w-full"
+              />
+            </div>
           </div>
           
           {/* Results info and per-page selector */}
@@ -477,82 +514,48 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                       <tr key={q.id} className="bg-dark-800/50">
                         <td colSpan={6} className="px-4 py-4">
                           <div className="space-y-4">
-                            <div className="grid gap-4 md:grid-cols-3">
-                              <div className="space-y-1">
-                                <label className="text-sm font-medium text-white">Law Numbers (select multiple)</label>
-                                <div className="relative" ref={editLawDropdownRef}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setIsEditLawDropdownOpen(!isEditLawDropdownOpen)}
-                                    className="w-full flex items-center justify-between rounded-lg px-4 py-2.5 text-sm text-left bg-dark-900 border border-dark-600 text-white hover:border-accent/50 focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition-all"
-                                  >
-                                    <span className={editForm.lawNumbers.length === 0 ? "text-text-muted" : ""}>
-                                      {editForm.lawNumbers.length === 0 
-                                        ? "No laws selected" 
-                                        : editForm.lawNumbers.length === 1
-                                        ? getLawLabel(editForm.lawNumbers[0])
-                                        : `${editForm.lawNumbers.length} laws selected`
-                                      }
-                                    </span>
-                                    <svg 
-                                      className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isEditLawDropdownOpen ? "rotate-180" : ""}`}
-                                      fill="none" 
-                                      viewBox="0 0 24 24" 
-                                      stroke="currentColor"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </button>
-                                  
-                                  {isEditLawDropdownOpen && (
-                                    <div className="absolute top-full mt-2 z-50 w-full rounded-lg border border-dark-600 bg-dark-800 shadow-elevated max-h-60 overflow-auto">
-                                      <div className="p-1">
-                                        {editForm.lawNumbers.length > 0 && (
-                                          <button
-                                            type="button"
-                                            onClick={clearEditLaws}
-                                            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left text-text-secondary hover:text-white hover:bg-dark-700 border-b border-dark-600 mb-1"
-                                          >
-                                            <span>Clear all</span>
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                          </button>
-                                        )}
-                                        
-                                        {lawTags.length > 0 ? (
-                                          lawTags.map((tag) => {
-                                            const isSelected = editForm.lawNumbers.includes(tag.number);
-                                            return (
-                                              <button
-                                                key={tag.id}
-                                                type="button"
-                                                onClick={() => toggleEditLaw(tag.number)}
-                                                className={cn(
-                                                  "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
-                                                  isSelected 
-                                                    ? "bg-accent/10 text-accent hover:bg-accent/20" 
-                                                    : "text-text-secondary hover:text-white hover:bg-dark-700"
-                                                )}
-                                              >
-                                                <span>{tag.name}</span>
-                                                {isSelected && (
-                                                  <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                  </svg>
-                                                )}
-                                              </button>
-                                            );
-                                          })
-                                        ) : (
-                                          <div className="px-3 py-2 text-sm text-text-muted">
-                                            {isLoadingLawTags ? "Loading law tags..." : "No law tags available"}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
+                            <div className="space-y-1">
+                              <label className="text-sm font-medium text-white">Law Numbers</label>
+                              <MultiSelect
+                                value={editForm.lawNumbers}
+                                onChange={(val) => setEditForm({ ...editForm, lawNumbers: val as number[] })}
+                                options={lawMultiSelectOptions}
+                                placeholder="Add law"
+                              />
+                            </div>
+
+                            <div className="space-y-2 p-3 rounded-lg border border-dark-600 bg-dark-900/50">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <label className="text-sm font-medium text-white">Question Source</label>
+                                  <p className="text-xs text-text-muted">
+                                    IFAB questions appear in study mode. Custom questions are for tests only.
+                                  </p>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditForm({ ...editForm, isIfab: !editForm.isIfab })}
+                                  className={cn(
+                                    "relative inline-flex h-6 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent/20",
+                                    editForm.isIfab ? "bg-accent" : "bg-dark-700"
+                                  )}
+                                >
+                                  <span
+                                    className={cn(
+                                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                      editForm.isIfab ? "translate-x-7" : "translate-x-1"
+                                    )}
+                                  />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={cn("text-xs font-medium", !editForm.isIfab ? "text-accent" : "text-text-muted")}>
+                                  Custom
+                                </span>
+                                <div className="flex-1 h-px bg-dark-600" />
+                                <span className={cn("text-xs font-medium", editForm.isIfab ? "text-accent" : "text-text-muted")}>
+                                  IFAB Official
+                                </span>
                               </div>
                             </div>
 

@@ -53,9 +53,7 @@ export async function uploadVideoClient(file: File, uploadPreset: string, cloudN
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
     method: 'POST',
     body: formData,
-  });
-
-  if (!response.ok) {
+  });  if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Cloudinary video upload failed: ${errorText}`);
   }

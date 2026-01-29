@@ -18,9 +18,20 @@ export default defineConfig({
   },
 
   projects: [
+    // Setup project - runs first to authenticate
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Main test project - uses authenticated state
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Use the authenticated state for all tests
+        storageState: 'playwright/.auth/user.json',
+      },
+      dependencies: ['setup'], // Run setup project first
     },
   ],
 

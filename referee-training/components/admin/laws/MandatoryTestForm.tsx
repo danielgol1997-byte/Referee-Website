@@ -7,6 +7,7 @@ import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
 import { useLawTags } from "@/components/hooks/useLawTags";
+import { DualSourceToggle } from "@/components/ui/dual-source-toggle";
 
 export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   const [title, setTitle] = useState("");
@@ -17,6 +18,8 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   const [dueDate, setDueDate] = useState<string>("");
   const [isMandatory, setIsMandatory] = useState(false);
   const [includeVar, setIncludeVar] = useState(false);
+  const [includeIfab, setIncludeIfab] = useState(true);
+  const [includeCustom, setIncludeCustom] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -69,6 +72,8 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
         isActive: true, // Always active when creating
         isMandatory: isMandatory, // This determines mandatory vs pool
         includeVar,
+        includeIfab,
+        includeCustom,
       };
       
       const res = await fetch("/api/admin/mandatory-tests", {
@@ -90,6 +95,8 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       setDueDate("");
       setIsMandatory(false);
       setIncludeVar(false);
+      setIncludeIfab(true);
+      setIncludeCustom(false);
       setSelectedQuestionIds([]);
       setSuccess(isMandatory ? "Mandatory test created" : "Test created and added to pool");
       onCreated?.();
@@ -234,7 +241,7 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-white">Question Selection</label>
-          {selectionMode === "random" && (
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label className="text-sm text-white cursor-pointer" htmlFor="var-toggle">
                 Include VAR
@@ -256,7 +263,16 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
                 />
               </button>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-white">Question Sources</label>
+              <DualSourceToggle
+                includeIfab={includeIfab}
+                includeCustom={includeCustom}
+                onIfabChange={setIncludeIfab}
+                onCustomChange={setIncludeCustom}
+              />
+            </div>
+          </div>
         </div>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer group">
@@ -373,6 +389,8 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
             <QuestionPicker
               selectedQuestionIds={selectedQuestionIds}
               onQuestionsChange={setSelectedQuestionIds}
+              includeIfab={includeIfab}
+              includeCustom={includeCustom}
             />
           </div>
 

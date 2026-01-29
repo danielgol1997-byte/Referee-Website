@@ -33,6 +33,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       difficulty,
       isActive,
       isUpToDate,
+      isIfab,
       answerOptions,
     }: {
       type?: QuestionType;
@@ -43,6 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       difficulty?: number;
       isActive?: boolean;
       isUpToDate?: boolean;
+      isIfab?: boolean;
       answerOptions?: Array<{ label: string; code?: string; isCorrect?: boolean; order?: number }>;
     } = body ?? {};
 
@@ -62,6 +64,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (difficulty !== undefined) data.difficulty = difficulty;
     if (isActive !== undefined) data.isActive = isActive;
     if (isUpToDate !== undefined) data.isUpToDate = isUpToDate;
+    if (isIfab !== undefined) data.isIfab = isIfab;
 
     let question;
     if (answerOptions) {

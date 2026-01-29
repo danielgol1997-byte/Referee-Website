@@ -8,6 +8,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { QuestionPicker } from "./QuestionPicker";
 import { useLawTags } from "@/components/hooks/useLawTags";
 import { useModal } from "@/components/ui/modal";
+import { DualSourceToggle } from "@/components/ui/dual-source-toggle";
 
 type MandatoryTest = {
   id: string;
@@ -21,6 +22,8 @@ type MandatoryTest = {
   isActive: boolean;
   isMandatory: boolean;
   includeVar?: boolean;
+  includeIfab?: boolean;
+  includeCustom?: boolean;
   completions?: Array<{ id: string }>;
 };
 
@@ -130,11 +133,13 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
       questionIds: test.questionIds || [],
       selectionMode: hasSpecificQuestions ? "specific" : "random",
       totalQuestions: test.totalQuestions,
-      passingScore: test.passingScore,
+      passingScore: test.passingScore || null,
       dueDate: test.dueDate ? new Date(test.dueDate).toISOString().split('T')[0] : "",
       isActive: test.isActive,
       isMandatory: test.isMandatory,
       includeVar: test.includeVar || false,
+      includeIfab: test.includeIfab ?? true,
+      includeCustom: test.includeCustom || false,
     });
   };
 
@@ -162,6 +167,8 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
           isActive: editForm.isActive,
           isMandatory: editForm.isMandatory,
           includeVar: editForm.includeVar || false,
+          includeIfab: editForm.includeIfab ?? true,
+          includeCustom: editForm.includeCustom || false,
         }),
       });
       
@@ -409,7 +416,7 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
                               <label className="text-sm font-medium text-white">Question Selection</label>
-                              {editForm.selectionMode === "random" && (
+                              <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
                                   <label className="text-sm text-white cursor-pointer" htmlFor="edit-var-toggle">
                                     Include VAR
@@ -431,7 +438,16 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                                     />
                                   </button>
                                 </div>
-                              )}
+                                <div className="flex items-center gap-2">
+                                  <label className="text-sm text-white">Question Sources</label>
+                                  <DualSourceToggle
+                                    includeIfab={editForm.includeIfab ?? true}
+                                    includeCustom={editForm.includeCustom || false}
+                                    onIfabChange={(value) => setEditForm({ ...editForm, includeIfab: value })}
+                                    onCustomChange={(value) => setEditForm({ ...editForm, includeCustom: value })}
+                                  />
+                                </div>
+                              </div>
                             </div>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer group">
@@ -552,6 +568,8 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                                 <QuestionPicker
                                   selectedQuestionIds={editForm.questionIds || []}
                                   onQuestionsChange={(ids) => setEditForm({ ...editForm, questionIds: ids })}
+                                  includeIfab={editForm.includeIfab ?? true}
+                                  includeCustom={editForm.includeCustom || false}
                                 />
                               </div>
 

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       type: "LOTG_TEXT",
       isActive: true,
       isUpToDate: true,  // Only show up-to-date questions in study mode
+      isIfab: true,      // Only show IFAB official questions in study mode
     };
 
     // Filter out VAR questions by default unless requested

@@ -51,7 +51,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       dueDate, 
       isActive, 
       isMandatory,
-      includeVar 
+      includeVar,
+      includeIfab,
+      includeCustom
     } = body;
 
     // Build update data dynamically
@@ -65,6 +67,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (totalQuestions !== undefined) updateData.totalQuestions = totalQuestions;
     if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
     if (includeVar !== undefined) updateData.includeVar = includeVar;
+    if (includeIfab !== undefined) updateData.includeIfab = includeIfab;
+    if (includeCustom !== undefined) updateData.includeCustom = includeCustom;
     
     // Validate and set passing score
     if (passingScore !== undefined) {
@@ -86,6 +90,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const finalLawNumbers = lawNumbers !== undefined ? lawNumbers : existingTest.lawNumbers;
     const finalTotalQuestions = totalQuestions !== undefined ? totalQuestions : existingTest.totalQuestions;
     const finalIncludeVar = includeVar !== undefined ? includeVar : existingTest.includeVar;
+    const finalIncludeIfab = includeIfab !== undefined ? includeIfab : existingTest.includeIfab;
+    const finalIncludeCustom = includeCustom !== undefined ? includeCustom : existingTest.includeCustom;
     const finalQuestionIds = questionIds !== undefined ? questionIds : existingTest.questionIds;
 
     // Only validate for random mode (no specific question IDs)
@@ -96,6 +102,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         isActive: true,
         isUpToDate: true  // Only count up-to-date questions
       };
+      
+      // Filter by IFAB status based on include flags
+      if (finalIncludeIfab && !finalIncludeCustom) {
+        questionWhere.isIfab = true;
+      } else if (!finalIncludeIfab && finalIncludeCustom) {
+        questionWhere.isIfab = false;
+      }
+      // If both or neither, don't add any isIfab filter
       
       if (!finalIncludeVar) {
         questionWhere.isVar = false;
@@ -111,8 +125,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const lawsText = finalLawNumbers && finalLawNumbers.length > 0 
           ? `for Law(s) ${finalLawNumbers.join(", ")}` 
           : "for all laws";
+        const questionTypes: string[] = [];
+        if (finalIncludeIfab && finalIncludeCustom) questionTypes.push("IFAB & Custom");
+        else if (!finalIncludeIfab && finalIncludeCustom) questionTypes.push("Custom only");
+        else if (finalIncludeIfab && !finalIncludeCustom) questionTypes.push("IFAB only");
+        else questionTypes.push("No sources selected");
+        if (finalIncludeVar) questionTypes.push("including VAR");
+        else questionTypes.push("excluding VAR");
+        
         return NextResponse.json({ 
-          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText}${finalIncludeVar ? " (including VAR)" : " (excluding VAR)"}. Please reduce the number of questions to ${availableCount} or fewer, or add more laws.`,
+          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText} (${questionTypes.join(", ")}). Please reduce the number of questions to ${availableCount} or fewer, or add more laws.`,
           availableCount 
         }, { status: 400 });
       }

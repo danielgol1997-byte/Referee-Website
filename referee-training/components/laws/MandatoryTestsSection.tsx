@@ -14,6 +14,8 @@ type MandatoryTest = {
   dueDate?: string | null;
   isActive: boolean;
   includeVar?: boolean;
+  includeIfab?: boolean;
+  includeCustom?: boolean;
 };
 
 export function MandatoryTestsSection() {
@@ -373,6 +375,26 @@ function MandatoryTestCard({
                 <p className="text-xl font-bold text-accent">{test.passingScore}</p>
               </div>
             )}
+          </div>
+
+          {/* Question Source Badge */}
+          <div className="flex items-center gap-2 pt-2">
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+              test.includeIfab && test.includeCustom
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                : !test.includeIfab && test.includeCustom
+                ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                : "bg-green-500/10 border-green-500/30 text-green-400"
+            }`}>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {test.includeIfab && test.includeCustom
+                ? "IFAB & Custom" 
+                : !test.includeIfab && test.includeCustom
+                ? "Custom Only" 
+                : "IFAB Only"}
+            </div>
           </div>
         </div>
 

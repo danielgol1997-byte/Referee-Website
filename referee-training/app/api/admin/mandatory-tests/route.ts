@@ -55,6 +55,8 @@ export async function POST(req: Request) {
       isMandatory = false,
       isUserGenerated = false,
       includeVar = false,
+      includeIfab = true,
+      includeCustom = false,
     } = body ?? {};
 
     // Only super admins can create mandatory tests
@@ -99,6 +101,14 @@ export async function POST(req: Request) {
         isUpToDate: true  // Only count up-to-date questions
       };
       
+      // Filter by IFAB status based on include flags
+      if (includeIfab && !includeCustom) {
+        questionWhere.isIfab = true;
+      } else if (!includeIfab && includeCustom) {
+        questionWhere.isIfab = false;
+      }
+      // If both or neither, don't add any isIfab filter
+      
       if (!includeVar) {
         questionWhere.isVar = false;
       }
@@ -113,8 +123,16 @@ export async function POST(req: Request) {
         const lawsText = lawNumbers && lawNumbers.length > 0 
           ? `for Law(s) ${lawNumbers.join(", ")}` 
           : "for all laws";
+        const questionTypes: string[] = [];
+        if (includeIfab && includeCustom) questionTypes.push("IFAB & Custom");
+        else if (!includeIfab && includeCustom) questionTypes.push("Custom only");
+        else if (includeIfab && !includeCustom) questionTypes.push("IFAB only");
+        else questionTypes.push("No sources selected");
+        if (includeVar) questionTypes.push("including VAR");
+        else questionTypes.push("excluding VAR");
+        
         return NextResponse.json({ 
-          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText}${includeVar ? " (including VAR)" : " (excluding VAR)"}. Please reduce the number of questions to ${availableCount} or fewer.`,
+          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText} (${questionTypes.join(", ")}). Please reduce the number of questions to ${availableCount} or fewer.`,
           availableCount 
         }, { status: 400 });
       }
@@ -137,6 +155,8 @@ export async function POST(req: Request) {
         isMandatory,
         isUserGenerated,
         includeVar,
+        includeIfab,
+        includeCustom,
         createdById: session.user.id,
       },
       include: { category: true },

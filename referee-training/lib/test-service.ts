@@ -10,6 +10,8 @@ type CreateSessionParams = {
   totalQuestions?: number;
   mandatoryTestId?: string;
   includeVar?: boolean;
+  includeIfab?: boolean;
+  includeCustom?: boolean;
 };
 
 /**
@@ -34,6 +36,8 @@ export async function createTestSession({
   totalQuestions = 10,
   mandatoryTestId,
   includeVar = false,
+  includeIfab = true,
+  includeCustom = false,
 }: CreateSessionParams) {
   const where: Prisma.CategoryWhereInput = {};
   if (categorySlug) where.slug = categorySlug;
@@ -46,23 +50,40 @@ export async function createTestSession({
   }
 
   let selected: any[] = [];
+  let mandatoryTest = null;
 
-  // Check if this is a mandatory test with specific question IDs
+  // Check if this is a mandatory test and fetch it to get source settings
   if (mandatoryTestId) {
-    const mandatoryTest = await prisma.mandatoryTest.findUnique({
+    mandatoryTest = await prisma.mandatoryTest.findUnique({
       where: { id: mandatoryTestId },
     });
+
+    // Use the test's source settings if available
+    if (mandatoryTest) {
+      includeIfab = mandatoryTest.includeIfab ?? true;
+      includeCustom = mandatoryTest.includeCustom ?? false;
+    }
 
     // If test has specific question IDs, use those (question-specific test)
     if (mandatoryTest?.questionIds && mandatoryTest.questionIds.length > 0) {
       // Question-specific test: use the exact questions, but randomize their order
       // Filter for active questions only, consistent with regular question selection
+      const specificQuestionsWhere: Prisma.QuestionWhereInput = {
+        id: { in: mandatoryTest.questionIds },
+        isActive: true,
+        isUpToDate: true,  // Only show up-to-date questions to users
+      };
+
+      // Filter by IFAB status based on include flags
+      if (includeIfab && !includeCustom) {
+        specificQuestionsWhere.isIfab = true;
+      } else if (!includeIfab && includeCustom) {
+        specificQuestionsWhere.isIfab = false;
+      }
+      // If both or neither, don't add any isIfab filter
+
       const specificQuestions = await prisma.question.findMany({
-        where: {
-          id: { in: mandatoryTest.questionIds },
-          isActive: true,
-          isUpToDate: true,  // Only show up-to-date questions to users
-        },
+        where: specificQuestionsWhere,
         include: { answerOptions: true },
       });
 
@@ -83,6 +104,14 @@ export async function createTestSession({
       isActive: true,
       isUpToDate: true  // Only show up-to-date questions to users
     };
+    
+    // Filter by IFAB status based on include flags
+    if (includeIfab && !includeCustom) {
+      questionWhere.isIfab = true;
+    } else if (!includeIfab && includeCustom) {
+      questionWhere.isIfab = false;
+    }
+    // If both or neither, don't add any isIfab filter
     
     // Filter out VAR questions by default unless requested
     if (!includeVar) {

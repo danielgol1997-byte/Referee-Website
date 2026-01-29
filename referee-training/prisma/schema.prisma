@@ -128,6 +128,7 @@ model Question {
   updatedAt     DateTime       @updatedAt
   isActive      Boolean        @default(true)
   isUpToDate    Boolean        @default(false)
+  isIfab        Boolean        @default(true)
   lawNumbers    Int[]          @default([])
   isVar         Boolean        @default(false)
   answerOptions AnswerOption[]
@@ -139,6 +140,7 @@ model Question {
   @@index([categoryId, type, isActive])
   @@index([lawNumbers])
   @@index([isUpToDate, isActive])
+  @@index([isIfab, isActive])
 }
 
 model AnswerOption {
@@ -227,6 +229,8 @@ model MandatoryTest {
   isMandatory     Boolean              @default(true)
   isUserGenerated Boolean              @default(false)
   includeVar      Boolean              @default(false)
+  includeIfab     Boolean              @default(true)
+  includeCustom   Boolean              @default(false)
   category        Category             @relation(fields: [categoryId], references: [id])
   createdBy       User                 @relation(fields: [createdById], references: [id])
   testSessions    TestSession[]
