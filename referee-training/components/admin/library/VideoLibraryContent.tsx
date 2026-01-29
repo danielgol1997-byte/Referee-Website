@@ -16,9 +16,12 @@ export function VideoLibraryContent() {
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+  const [isLoadingTags, setIsLoadingTags] = useState(true);
 
   const fetchVideos = async (page = 1, search = '') => {
     try {
+      setIsLoadingVideos(true);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
@@ -34,11 +37,14 @@ export function VideoLibraryContent() {
       setPagination(videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
     } catch (error) {
       console.error('Error fetching videos:', error);
+    } finally {
+      setIsLoadingVideos(false);
     }
   };
 
   const fetchCategoriesAndTags = async () => {
     try {
+      setIsLoadingTags(true);
       const [categoriesRes, tagsRes, tagCategoriesRes] = await Promise.all([
         fetch('/api/admin/library/categories'),
         fetch('/api/admin/library/tags'),
@@ -67,6 +73,8 @@ export function VideoLibraryContent() {
       setTagCategories(tagCategoriesData.tagCategories || []);
     } catch (error) {
       console.error('Error fetching categories/tags:', error);
+    } finally {
+      setIsLoadingTags(false);
     }
   };
 
@@ -184,22 +192,37 @@ export function VideoLibraryContent() {
 
       {/* Content */}
       {activeSubTab === 'videos' && (
-        <VideoListManager
-          videos={videos}
-          onEdit={handleEditVideo}
-          onDelete={handleDeleteVideo}
-          onRefresh={() => fetchVideos(pagination.page, searchQuery)}
-          onVideoUpdate={handleVideoUpdate}
-          pagination={pagination}
-          onPageChange={(page) => {
-            fetchVideos(page, searchQuery);
-          }}
-          searchQuery={searchQuery}
-          onSearchChange={(query) => {
-            setSearchQuery(query);
-            fetchVideos(1, query);
-          }}
-        />
+        <>
+          {isLoadingVideos ? (
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4 text-text-secondary">
+                <img
+                  src="/logo/whistle-chrome-liquid.gif"
+                  alt="Loading videos"
+                  className="h-24 w-24 object-contain"
+                />
+                <span className="text-sm font-medium">Loading videos…</span>
+              </div>
+            </div>
+          ) : (
+            <VideoListManager
+              videos={videos}
+              onEdit={handleEditVideo}
+              onDelete={handleDeleteVideo}
+              onRefresh={() => fetchVideos(pagination.page, searchQuery)}
+              onVideoUpdate={handleVideoUpdate}
+              pagination={pagination}
+              onPageChange={(page) => {
+                fetchVideos(page, searchQuery);
+              }}
+              searchQuery={searchQuery}
+              onSearchChange={(query) => {
+                setSearchQuery(query);
+                fetchVideos(1, query);
+              }}
+            />
+          )}
+        </>
       )}
 
       {activeSubTab === 'upload' && (
@@ -213,11 +236,26 @@ export function VideoLibraryContent() {
       )}
 
       {activeSubTab === 'tags' && (
-        <TagManager
-          tags={tags}
-          tagCategories={tagCategories}
-          onRefresh={fetchData}
-        />
+        <>
+          {isLoadingTags ? (
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4 text-text-secondary">
+                <img
+                  src="/logo/whistle-chrome-liquid.gif"
+                  alt="Loading tags"
+                  className="h-24 w-24 object-contain"
+                />
+                <span className="text-sm font-medium">Loading tags…</span>
+              </div>
+            </div>
+          ) : (
+            <TagManager
+              tags={tags}
+              tagCategories={tagCategories}
+              onRefresh={fetchData}
+            />
+          )}
+        </>
       )}
     </div>
   );

@@ -161,6 +161,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const [tagCategories, setTagCategories] = useState<TagCategory[]>(initialTagCategories);
   const [isCreatingTagCategory, setIsCreatingTagCategory] = useState(false);
   const [editingTagCategory, setEditingTagCategory] = useState<TagCategory | null>(null);
+  const [isSavingTag, setIsSavingTag] = useState(false);
+  const [isSavingTagCategory, setIsSavingTagCategory] = useState(false);
   // Rainbow color palette for tag categories
   const TAG_CATEGORY_RAINBOW_COLORS = [
     '#FF6B6B', // Red
@@ -415,6 +417,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const handleTagCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSavingTagCategory(true);
       const url = editingTagCategory
         ? `/api/admin/library/tag-categories/${editingTagCategory.id}`
         : '/api/admin/library/tag-categories';
@@ -439,6 +442,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     } catch (error: any) {
       console.error('Tag category save error:', error);
       await modal.showError(error.message || 'Failed to save tag category');
+    } finally {
+      setIsSavingTagCategory(false);
     }
   };
 
@@ -511,6 +516,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     e.preventDefault();
 
     try {
+      setIsSavingTag(true);
       const url = editingTag
         ? `/api/admin/library/tags/${editingTag.id}`
         : '/api/admin/library/tags';
@@ -552,6 +558,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     } catch (error: any) {
       console.error('Save error:', error);
       await modal.showError(error.message || 'Failed to save tag');
+    } finally {
+      setIsSavingTag(false);
     }
   };
 
@@ -756,6 +764,19 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
         </div>
 
         {isCreatingTagCategory && (
+          <div className="relative">
+            {isSavingTagCategory && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-dark-900/80 backdrop-blur-sm rounded-xl">
+                <img
+                  src="/logo/whistle-chrome-liquid.gif"
+                  alt="Saving"
+                  className="h-20 w-20 object-contain mb-3"
+                />
+                <span className="text-sm font-medium text-text-secondary">
+                  {editingTagCategory ? 'Updating tag category...' : 'Creating tag category...'}
+                </span>
+              </div>
+            )}
           <form onSubmit={handleTagCategorySubmit} className="space-y-4 mb-6">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
@@ -892,6 +913,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
               </button>
             </div>
           </form>
+          </div>
         )}
 
         <div className="space-y-2">
@@ -967,6 +989,19 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
         </div>
 
         {isCreating && (
+          <div className="relative">
+            {isSavingTag && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-dark-900/80 backdrop-blur-sm rounded-xl">
+                <img
+                  src="/logo/whistle-chrome-liquid.gif"
+                  alt="Saving"
+                  className="h-20 w-20 object-contain mb-3"
+                />
+                <span className="text-sm font-medium text-text-secondary">
+                  {editingTag ? 'Updating tag...' : 'Creating tag...'}
+                </span>
+              </div>
+            )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
@@ -1243,6 +1278,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
               </button>
             </div>
           </form>
+          </div>
         )}
       </div>
 
