@@ -29,6 +29,7 @@ export async function GET() {
         id: category.id,
         name: category.name,
         slug: category.slug,
+        color: category.color,
         canBeCorrectAnswer: category.canBeCorrectAnswer,
         allowLinks: category.allowLinks,
         order: category.order,

@@ -439,7 +439,7 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
   return (
     <div 
       ref={filterBarRef}
-      className="relative"
+      className="sticky top-[72px] z-40"
     >
       {/* Filter Bar Content - Always Visible */}
       <div
