@@ -383,7 +383,7 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     <LayoutGroup>
       <div className="relative min-h-screen">
         {/* Filter Bar - Sticky below header, no gap */}
-        <div className="sticky top-[88px] z-30">
+        <div className="sticky top-[88px] z-40">
           <VideoFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
