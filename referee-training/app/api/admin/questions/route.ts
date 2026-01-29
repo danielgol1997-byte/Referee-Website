@@ -30,6 +30,7 @@ export async function GET(req: Request) {
   const onlyVar = searchParams.get("onlyVar") === "true";
   const upToDate = searchParams.get("upToDate") === "true";
   const outdated = searchParams.get("outdated") === "true";
+  const isActive = searchParams.get("isActive");
   const isIfab = searchParams.get("isIfab");
 
   const where: Prisma.QuestionWhereInput = {};
@@ -46,6 +47,13 @@ export async function GET(req: Request) {
     where.isUpToDate = true;
   } else if (outdated) {
     where.isUpToDate = false;
+  }
+
+  // Active filtering
+  if (isActive === "true") {
+    where.isActive = true;
+  } else if (isActive === "false") {
+    where.isActive = false;
   }
 
   // IFAB filtering

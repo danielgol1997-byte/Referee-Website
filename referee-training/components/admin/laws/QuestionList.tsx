@@ -60,12 +60,19 @@ const UP_TO_DATE_FILTER_OPTIONS = [
   { value: "outdated", label: "Outdated" },
 ];
 
+const ACTIVE_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
+
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const modal = useModal();
   const [selectedLawTags, setSelectedLawTags] = useState<number[]>([]);
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
   const [upToDateFilter, setUpToDateFilter] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
   const [includeIfabFilter, setIncludeIfabFilter] = useState(true);
   const [includeCustomFilter, setIncludeCustomFilter] = useState(true);
   const [questions, setQuestions] = useState<QuestionWithRelations[]>([]);
@@ -121,6 +128,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       
       if (upToDateFilter === "upToDate") params.set("upToDate", "true");
       if (upToDateFilter === "outdated") params.set("outdated", "true");
+      
+      if (activeFilter === "active") params.set("isActive", "true");
+      if (activeFilter === "inactive") params.set("isActive", "false");
       
       // Apply source filtering
       if (includeIfabFilter && !includeCustomFilter) {
@@ -300,7 +310,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, selectedLawTags, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter]);
+  }, [refreshKey, selectedLawTags, varFilter, upToDateFilter, activeFilter, includeIfabFilter, includeCustomFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
@@ -330,7 +340,27 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedLawTags, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter, perPage, lawSortOrder]);
+  }, [search, selectedLawTags, varFilter, upToDateFilter, activeFilter, includeIfabFilter, includeCustomFilter, perPage, lawSortOrder]);
+
+  const resetFilters = () => {
+    setSelectedLawTags([]);
+    setVarFilter("exclude");
+    setUpToDateFilter("all");
+    setActiveFilter("all");
+    setIncludeIfabFilter(true);
+    setIncludeCustomFilter(true);
+    setSearch("");
+    setLawSortOrder(null);
+  };
+
+  const hasActiveFilters = 
+    selectedLawTags.length > 0 ||
+    varFilter !== "exclude" ||
+    upToDateFilter !== "all" ||
+    activeFilter !== "all" ||
+    !includeIfabFilter ||
+    !includeCustomFilter ||
+    search !== "";
 
   const isEditFormValid = () => {
     return (
@@ -358,9 +388,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
           
           {/* Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-wrap items-end gap-4">
             {/* Law Tags Filter */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 flex-1 min-w-[200px]">
               <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -390,23 +420,36 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                 value={varFilter}
                 onChange={setVarFilter}
                 options={VAR_FILTER_OPTIONS}
-                className="w-full"
               />
             </div>
 
-            {/* Status Filter */}
+            {/* Up to Date Status Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Status
+                Up to Date
               </label>
               <SegmentedControl
                 value={upToDateFilter}
                 onChange={setUpToDateFilter}
                 options={UP_TO_DATE_FILTER_OPTIONS}
-                className="w-full"
+              />
+            </div>
+
+            {/* Active Status Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Active Status
+              </label>
+              <SegmentedControl
+                value={activeFilter}
+                onChange={setActiveFilter}
+                options={ACTIVE_FILTER_OPTIONS}
               />
             </div>
 
@@ -423,9 +466,28 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                 includeCustom={includeCustomFilter}
                 onIfabChange={setIncludeIfabFilter}
                 onCustomChange={setIncludeCustomFilter}
-                className="w-full"
               />
             </div>
+
+            {/* Reset Button */}
+            {hasActiveFilters && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-transparent uppercase tracking-wider">
+                  &nbsp;
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetFilters}
+                  className="whitespace-nowrap"
+                >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Reset Filters
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Results info and per-page selector */}
