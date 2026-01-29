@@ -468,73 +468,6 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
                 />
               );
             })}
-
-            {/* Settings Gear */}
-            <div className="relative" ref={settingsRef}>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="px-2 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-secondary hover:text-accent hover:border-accent transition-colors self-start"
-                title="Customize Filters"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-
-              {showSettings && (
-                <div className="absolute top-full right-0 mt-2 w-64 rounded-lg bg-dark-900 border border-dark-600 shadow-2xl z-50 p-4">
-                  <h4 className="text-sm font-semibold text-text-primary mb-3">
-                    Customize Filters
-                  </h4>
-                  <div className="space-y-2">
-                    {filterOrder.map(type => {
-                      const config = getFilterConfig(type);
-                      if (!config) return null; // Skip invalid filter types
-                      return (
-                      <div
-                        key={type}
-                        draggable
-                        onDragStart={() => handleDragStart(type)}
-                        onDragOver={(e) => handleDragOver(e, type)}
-                        onDragEnd={handleDragEnd}
-                        className={cn(
-                          "flex items-center gap-3 p-2 rounded-lg transition-colors",
-                          (type === 'category' && visibleFilters.includes('criteria')) && "opacity-50 cursor-not-allowed",
-                          draggedFilter === type ? "opacity-50" : "hover:bg-dark-800 cursor-move"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleFilters.includes(type)}
-                          onChange={() => toggleFilterVisibility(type)}
-                          disabled={type === 'category' && visibleFilters.includes('criteria')}
-                          className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-accent focus:ring-accent flex-shrink-0"
-                        />
-                        <div className="flex items-center gap-2 flex-1">
-                          <div 
-                            className="w-3 h-3 rounded flex-shrink-0"
-                            style={{ backgroundColor: config.color }}
-                          />
-                          <span className="text-sm text-text-primary">
-                            {config.label}
-                          </span>
-                        </div>
-                        
-                        {/* Drag Handle */}
-                        <svg className="w-4 h-4 text-text-muted flex-shrink-0 cursor-grab active:cursor-grabbing hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M4 15h16" />
-                        </svg>
-                      </div>
-                    );
-                    })}
-                  </div>
-                  <p className="text-xs text-text-muted mt-3 italic">
-                    * Can't remove Category while Criteria is visible
-                  </p>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Clear All */}
@@ -552,6 +485,73 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
             </div>
           )}
         </div>
+      </div>
+
+      {/* Settings Gear - Fixed bottom-right */}
+      <div className="fixed bottom-6 right-6 z-50" ref={settingsRef}>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="px-3 py-3 rounded-full bg-dark-900 border border-dark-600 text-text-secondary hover:text-accent hover:border-accent transition-colors shadow-lg shadow-black/30"
+          title="Customize Filters"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+
+        {showSettings && (
+          <div className="absolute bottom-full right-0 mb-2 w-64 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto rounded-lg bg-dark-900 border border-dark-600 shadow-2xl p-4">
+            <h4 className="text-sm font-semibold text-text-primary mb-3">
+              Customize Filters
+            </h4>
+            <div className="space-y-2">
+              {filterOrder.map(type => {
+                const config = getFilterConfig(type);
+                if (!config) return null; // Skip invalid filter types
+                return (
+                <div
+                  key={type}
+                  draggable
+                  onDragStart={() => handleDragStart(type)}
+                  onDragOver={(e) => handleDragOver(e, type)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                    (type === 'category' && visibleFilters.includes('criteria')) && "opacity-50 cursor-not-allowed",
+                    draggedFilter === type ? "opacity-50" : "hover:bg-dark-800 cursor-move"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleFilters.includes(type)}
+                    onChange={() => toggleFilterVisibility(type)}
+                    disabled={type === 'category' && visibleFilters.includes('criteria')}
+                    className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-accent focus:ring-accent flex-shrink-0"
+                  />
+                  <div className="flex items-center gap-2 flex-1">
+                    <div 
+                      className="w-3 h-3 rounded flex-shrink-0"
+                      style={{ backgroundColor: config.color }}
+                    />
+                    <span className="text-sm text-text-primary">
+                      {config.label}
+                    </span>
+                  </div>
+                  
+                  {/* Drag Handle */}
+                  <svg className="w-4 h-4 text-text-muted flex-shrink-0 cursor-grab active:cursor-grabbing hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M4 15h16" />
+                  </svg>
+                </div>
+              );
+              })}
+            </div>
+            <p className="text-xs text-text-muted mt-3 italic">
+              * Can't remove Category while Criteria is visible
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

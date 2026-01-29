@@ -382,8 +382,8 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   return (
     <LayoutGroup>
       <div className="relative min-h-screen">
-        {/* Filter Bar - Sticky below header, no gap */}
-        <div className="sticky top-[88px] z-40">
+        {/* Filter Bar - Fixed below header */}
+        <div className="fixed top-[88px] left-0 right-0 z-50">
           <VideoFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
@@ -391,7 +391,7 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
         </div>
 
         {/* Video Gallery Grid - No extra padding */}
-        <div className="py-8 px-4 max-w-screen-2xl mx-auto">
+        <div className="pt-24 pb-8 px-4 max-w-screen-2xl mx-auto">
           {filteredVideos.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-text-secondary text-lg mb-4">
