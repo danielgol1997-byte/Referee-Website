@@ -38,7 +38,16 @@ interface AdminVideoFilterBarProps {
 type FilterType = `custom:${string}`;
 
 const CUSTOM_FILTER_PREFIX = 'custom:';
-const DEFAULT_VISIBLE_FILTERS: FilterType[] = [];
+const CATEGORY_TAG_CATEGORY_SLUG = 'category';
+const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+const RESTARTS_TAG_CATEGORY_SLUG = 'restarts';
+const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
+const DEFAULT_VISIBLE_FILTERS: FilterType[] = [
+  'custom:category' as FilterType,
+  'custom:criteria' as FilterType,
+  'custom:sanction' as FilterType,
+  'custom:restarts' as FilterType,
+];
 const GROUP_COLORS: Record<string, string> = {
   laws: '#9B72CB',
   category: '#FF6B6B',
@@ -79,7 +88,10 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
         setVisibleFilters(JSON.parse(savedVisible));
       } catch (e) {
         console.error('Failed to load filter preferences');
+        setVisibleFilters(DEFAULT_VISIBLE_FILTERS);
       }
+    } else {
+      setVisibleFilters(DEFAULT_VISIBLE_FILTERS);
     }
 
     const savedOrder = localStorage.getItem('adminVideoFilterOrder');
@@ -122,6 +134,22 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
     () => tagCategories.map(category => `${CUSTOM_FILTER_PREFIX}${category.slug}` as FilterType),
     [tagCategories]
   );
+
+  const categoryGroup = tagCategoryMap[CATEGORY_TAG_CATEGORY_SLUG];
+  const criteriaGroup = tagCategoryMap[CRITERIA_TAG_CATEGORY_SLUG];
+
+  // Get selected category tags
+  const selectedCategoryTags = filters.customTagFilters?.[CATEGORY_TAG_CATEGORY_SLUG] || [];
+  
+  // Get filtered criteria based on selected categories
+  const filteredCriteriaTags = selectedCategoryTags.length > 0 && criteriaGroup?.tags
+    ? criteriaGroup.tags.filter(tag => {
+        const selectedCategoryNames = selectedCategoryTags
+          .map(slug => categoryGroup?.tags.find(c => c.slug === slug)?.name)
+          .filter(Boolean);
+        return tag.parentCategory && selectedCategoryNames.includes(tag.parentCategory);
+      })
+    : [];
 
   // Initialize filter order when tag categories load
   useEffect(() => {
@@ -182,13 +210,20 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
     if (isCustomFilter(type)) {
       const slug = getCustomSlug(type);
       const currentValues = filters.customTagFilters?.[slug] || [];
-      onFiltersChange({
+      const newFilters = {
         ...filters,
         customTagFilters: {
           ...(filters.customTagFilters || {}),
           [slug]: currentValues.filter((v: any) => v !== value),
         },
-      });
+      };
+      
+      // Clear criteria when last category is removed
+      if (slug === CATEGORY_TAG_CATEGORY_SLUG && newFilters.customTagFilters[CATEGORY_TAG_CATEGORY_SLUG].length === 0) {
+        newFilters.customTagFilters[CRITERIA_TAG_CATEGORY_SLUG] = [];
+      }
+      
+      onFiltersChange(newFilters);
     }
   };
 
@@ -200,9 +235,22 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
   };
 
   const toggleFilterVisibility = (type: FilterType) => {
-    const newVisible = visibleFilters.includes(type)
-      ? visibleFilters.filter(f => f !== type)
-      : [...visibleFilters, type];
+    let newVisible: FilterType[];
+    
+    if (visibleFilters.includes(type)) {
+      // Don't allow removing category if criteria is visible
+      if (type === `${CUSTOM_FILTER_PREFIX}${CATEGORY_TAG_CATEGORY_SLUG}` && visibleFilters.includes(`${CUSTOM_FILTER_PREFIX}${CRITERIA_TAG_CATEGORY_SLUG}` as FilterType)) {
+        return;
+      }
+      newVisible = visibleFilters.filter(f => f !== type);
+    } else {
+      // When adding criteria, also add category
+      if (type === `${CUSTOM_FILTER_PREFIX}${CRITERIA_TAG_CATEGORY_SLUG}` && !visibleFilters.includes(`${CUSTOM_FILTER_PREFIX}${CATEGORY_TAG_CATEGORY_SLUG}` as FilterType)) {
+        newVisible = [...visibleFilters, `${CUSTOM_FILTER_PREFIX}${CATEGORY_TAG_CATEGORY_SLUG}` as FilterType, type];
+      } else {
+        newVisible = [...visibleFilters, type];
+      }
+    }
     
     setVisibleFilters(newVisible);
     localStorage.setItem('adminVideoFilterPreferences', JSON.stringify(newVisible));
@@ -231,9 +279,9 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
   return (
     <div className="space-y-4">
       {/* Basic Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         {/* Search */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 flex-1 min-w-[200px]">
           <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -261,7 +309,6 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
             value={filters.activeStatus}
             onChange={(val) => onFiltersChange({ ...filters, activeStatus: val as any })}
             options={ACTIVE_STATUS_OPTIONS}
-            className="w-full"
           />
         </div>
 
@@ -277,7 +324,6 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
             value={filters.featuredStatus}
             onChange={(val) => onFiltersChange({ ...filters, featuredStatus: val as any })}
             options={FEATURED_STATUS_OPTIONS}
-            className="w-full"
           />
         </div>
       </div>
@@ -301,6 +347,7 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
                 isOpen={activeDropdown === type}
                 onToggle={() => setActiveDropdown(activeDropdown === type ? null : type)}
                 onClose={() => setActiveDropdown(null)}
+                filteredCriteriaTags={filteredCriteriaTags}
               />
             );
           })}
@@ -331,15 +378,23 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
                 {filterOrder.map(type => {
                   const config = getFilterConfig(type);
                   if (!config) return null;
+                  const isCategoryFilter = type === `${CUSTOM_FILTER_PREFIX}${CATEGORY_TAG_CATEGORY_SLUG}`;
+                  const isCriteriaVisible = visibleFilters.includes(`${CUSTOM_FILTER_PREFIX}${CRITERIA_TAG_CATEGORY_SLUG}` as FilterType);
+                  const isDisabled = isCategoryFilter && isCriteriaVisible;
+                  
                   return (
                     <div
                       key={type}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-dark-800 transition-colors"
+                      className={cn(
+                        "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                        isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-dark-800"
+                      )}
                     >
                       <input
                         type="checkbox"
                         checked={visibleFilters.includes(type)}
                         onChange={() => toggleFilterVisibility(type)}
+                        disabled={isDisabled}
                         className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-cyan-500 focus:ring-cyan-500 flex-shrink-0"
                       />
                       <div className="flex items-center gap-2 flex-1">
@@ -355,6 +410,9 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
                   );
                 })}
               </div>
+              <p className="text-xs text-text-muted mt-3 italic">
+                * Can't remove Category while Criteria is visible
+              </p>
               {customFilterCount > 0 && (
                 <button
                   onClick={clearAllTagFilters}
@@ -389,7 +447,8 @@ function FilterDropdown({
   onRemove,
   isOpen,
   onToggle,
-  onClose
+  onClose,
+  filteredCriteriaTags
 }: {
   type: FilterType;
   config: { label: string; color: string; customSlug?: string };
@@ -401,6 +460,7 @@ function FilterDropdown({
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
+  filteredCriteriaTags: Tag[];
 }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -416,7 +476,13 @@ function FilterDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
-  const options = config.customSlug ? (tagCategoryMap[config.customSlug]?.tags || []) : [];
+  const isCriteriaFilter = config.customSlug === CRITERIA_TAG_CATEGORY_SLUG;
+  const selectedCategoryTags = filters.customTagFilters?.[CATEGORY_TAG_CATEGORY_SLUG] || [];
+  const isCriteriaDisabled = isCriteriaFilter && selectedCategoryTags.length === 0;
+  
+  // Use filtered criteria if this is criteria filter, otherwise use normal tags
+  const rawOptions = isCriteriaFilter ? filteredCriteriaTags : (config.customSlug ? (tagCategoryMap[config.customSlug]?.tags || []) : []);
+  const options = rawOptions;
   const selectedValues = config.customSlug ? (filters.customTagFilters?.[config.customSlug] || []) : [];
 
   // Get selected items
@@ -434,13 +500,14 @@ function FilterDropdown({
       {/* Dropdown Button */}
       <button
         onClick={onToggle}
-        disabled={isLoading}
+        disabled={isLoading || isCriteriaDisabled}
         className={cn(
           "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-sm font-medium",
-          isLoading
+          isLoading || isCriteriaDisabled
             ? "bg-dark-900/50 border-dark-700 text-text-muted cursor-not-allowed"
             : "bg-dark-900 border-dark-600 text-text-primary hover:border-cyan-500/50"
         )}
+        title={isCriteriaDisabled ? "Select a category first to enable criteria filtering" : undefined}
       >
         <div 
           className="w-3 h-3 rounded"
