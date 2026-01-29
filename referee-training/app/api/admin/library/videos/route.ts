@@ -88,18 +88,20 @@ export async function GET(request: Request) {
           },
         },
         tags: {
-          where: {
-            tag: {
-              category: {
-                slug: 'category',
-              },
-            },
-          },
           select: {
             tag: {
               select: {
                 id: true,
                 name: true,
+                slug: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    canBeCorrectAnswer: true,
+                  },
+                },
               },
             },
           },
@@ -117,9 +119,11 @@ export async function GET(request: Request) {
     const formattedVideos = videos.map(video => ({
       ...video,
       categoryTagLabel: video.tags
-        ?.map(tagRelation => tagRelation.tag?.name)
+        ?.filter(tagRelation => tagRelation.tag?.category?.slug === 'category')
+        .map(tagRelation => tagRelation.tag?.name)
         .filter(Boolean)
         .join(', ') || null,
+      tags: video.tags?.map(tagRelation => tagRelation.tag).filter(Boolean) || [],
     }));
 
     return NextResponse.json({ 

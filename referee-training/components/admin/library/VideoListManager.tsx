@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/components/ui/modal";
+import { AdminVideoFilterBar, AdminVideoFilters } from "./AdminVideoFilterBar";
 
 interface Video {
   id: string;
@@ -17,6 +18,17 @@ interface Video {
   categoryTagLabel?: string | null;
   videoCategory?: { name: string };
   createdAt: string;
+  tags?: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      canBeCorrectAnswer: boolean;
+    } | null;
+  }>;
 }
 
 interface VideoListManagerProps {
@@ -32,8 +44,6 @@ interface VideoListManagerProps {
     totalPages: number;
   };
   onPageChange?: (page: number) => void;
-  searchQuery?: string;
-  onSearchChange?: (query: string) => void;
 }
 
 export function VideoListManager({ 
@@ -44,20 +54,41 @@ export function VideoListManager({
   onVideoUpdate,
   pagination,
   onPageChange,
-  searchQuery = '',
-  onSearchChange,
 }: VideoListManagerProps) {
   const modal = useModal();
-  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
-  const [filterFeatured, setFilterFeatured] = useState<'all' | 'featured' | 'normal'>('all');
+  const [filters, setFilters] = useState<AdminVideoFilters>({
+    search: '',
+    activeStatus: 'all',
+    featuredStatus: 'all',
+    customTagFilters: {},
+  });
 
-  // Client-side filtering for status/featured (server handles search)
+  // Client-side filtering for all criteria
   const filteredVideos = videos.filter(video => {
-    if (filterActive === 'active' && !video.isActive) return false;
-    if (filterActive === 'inactive' && video.isActive) return false;
-    if (filterFeatured === 'featured' && !video.isFeatured) return false;
-    if (filterFeatured === 'normal' && video.isFeatured) return false;
+    // Search filter
+    if (filters.search && !video.title.toLowerCase().includes(filters.search.toLowerCase())) {
+      return false;
+    }
+
+    // Active status filter
+    if (filters.activeStatus === 'active' && !video.isActive) return false;
+    if (filters.activeStatus === 'inactive' && video.isActive) return false;
+    
+    // Featured status filter
+    if (filters.featuredStatus === 'featured' && !video.isFeatured) return false;
+    if (filters.featuredStatus === 'normal' && video.isFeatured) return false;
+
+    // Tag filters
+    if (filters.customTagFilters) {
+      const videoTagSlugs = video.tags?.map(t => t.slug) || [];
+      for (const [categorySlug, selectedTags] of Object.entries(filters.customTagFilters)) {
+        if (selectedTags.length > 0) {
+          const hasMatch = selectedTags.some(tagSlug => videoTagSlugs.includes(tagSlug));
+          if (!hasMatch) return false;
+        }
+      }
+    }
+
     return true;
   }).sort((a, b) => {
     // Sort: Active videos first, then by featured, then by creation date
@@ -65,11 +96,6 @@ export function VideoListManager({
     if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearchChange?.(localSearchQuery);
-  };
 
   const handleDelete = async (videoId: string, videoTitle: string) => {
     const confirmed = await modal.showConfirm(
@@ -178,62 +204,28 @@ export function VideoListManager({
           overflow: hidden;
         }
       `}</style>
-      {/* Search & Filters */}
+      {/* Filters */}
       <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={localSearchQuery}
-                onChange={(e) => setLocalSearchQuery(e.target.value)}
-                placeholder="Search videos..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
+        <AdminVideoFilterBar
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
 
-          <div className="flex gap-2">
-            <select
-              value={filterActive}
-              onChange={(e) => setFilterActive(e.target.value as any)}
-              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
-
-            <select
-              value={filterFeatured}
-              onChange={(e) => setFilterFeatured(e.target.value as any)}
-              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary focus:outline-none focus:border-cyan-500"
-            >
-              <option value="all">All Videos</option>
-              <option value="featured">Featured Only</option>
-              <option value="normal">Non-Featured</option>
-            </select>
-
-            <button
-              onClick={onRefresh}
-              className="px-4 py-2 rounded-lg bg-dark-900 border border-dark-600 text-text-primary hover:bg-dark-800 hover:border-cyan-500/50 transition-all"
-              title="Refresh list"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-4 flex items-center justify-between text-sm text-text-muted">
+        <div className="mt-4 flex items-center justify-between text-sm text-text-muted border-t border-dark-600 pt-4">
           <div>
-            Showing {filteredVideos.length} of {pagination?.total ?? videos.length} videos
+            Showing {filteredVideos.length} of {videos.length} videos
             {pagination && ` (Page ${pagination.page} of ${pagination.totalPages})`}
           </div>
+          <button
+            onClick={onRefresh}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-600 text-text-primary hover:bg-dark-800 hover:border-cyan-500/50 transition-all text-xs font-medium"
+            title="Refresh list"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
         </div>
       </div>
 

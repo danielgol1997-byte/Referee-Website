@@ -27,7 +27,7 @@ export function SegmentedControl({ value, onChange, options, className }: Segmen
             "relative px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap",
             "hover:bg-dark-700/50 flex items-center gap-1.5",
             value === option.value
-              ? "bg-accent text-white shadow-lg"
+              ? "bg-accent text-dark-900 shadow-lg font-bold"
               : "text-text-secondary"
           )}
         >

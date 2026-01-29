@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return unauthorized();
 
   const { searchParams } = new URL(req.url);
-  const lawNumber = searchParams.get("lawNumber");
+  const lawNumberParams = searchParams.getAll("lawNumber");
   const lawNumbers = searchParams.get("lawNumbers");
   const categorySlug = searchParams.get("categorySlug");
   const type = searchParams.get("type") as QuestionType | null;
@@ -64,22 +64,20 @@ export async function GET(req: Request) {
     }
   }
 
-  // Handle lawNumbers filter (multiple laws)
-  if (lawNumbers) {
-    const lawNumberArray = lawNumbers.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+  // Handle lawNumbers filter (multiple laws from URL params)
+  if (lawNumberParams.length > 0) {
+    const lawNumberArray = lawNumberParams
+      .map(num => parseInt(num.trim()))
+      .filter(num => !isNaN(num));
     if (lawNumberArray.length > 0) {
       // Find questions that contain ANY of the specified law numbers
       where.lawNumbers = { hasSome: lawNumberArray };
     }
-  } else if (lawNumber) {
-    if (lawNumber === "unassigned") {
-      where.lawNumbers = { equals: [] };
-    } else {
-      // Legacy support for single lawNumber parameter
-      const parsed = Number(lawNumber);
-      if (!Number.isNaN(parsed)) {
-        where.lawNumbers = { has: parsed };
-      }
+  } else if (lawNumbers) {
+    // Legacy support for comma-separated lawNumbers parameter
+    const lawNumberArray = lawNumbers.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+    if (lawNumberArray.length > 0) {
+      where.lawNumbers = { hasSome: lawNumberArray };
     }
   }
 

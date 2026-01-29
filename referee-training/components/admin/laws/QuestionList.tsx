@@ -51,7 +51,7 @@ type EditForm = {
 const VAR_FILTER_OPTIONS = [
   { value: "exclude", label: "Exclude" },
   { value: "include", label: "Include" },
-  { value: "only", label: "Only" },
+  { value: "only", label: "VAR Only" },
 ];
 
 const UP_TO_DATE_FILTER_OPTIONS = [
@@ -62,7 +62,7 @@ const UP_TO_DATE_FILTER_OPTIONS = [
 
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const modal = useModal();
-  const [lawFilter, setLawFilter] = useState<number | string>("");
+  const [selectedLawTags, setSelectedLawTags] = useState<number[]>([]);
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
   const [upToDateFilter, setUpToDateFilter] = useState<string>("all");
@@ -99,15 +99,6 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     { value: 50, label: "50" },
   ];
 
-  const lawFilterOptions = useMemo(
-    () => [
-      { value: "", label: isLoadingLawTags ? "Loading laws..." : "All" },
-      { value: "unassigned", label: "No Law Assigned" },
-      ...lawTags.map((tag) => ({ value: tag.number, label: tag.name })),
-    ],
-    [lawTags, isLoadingLawTags]
-  );
-
   const lawMultiSelectOptions = useMemo(
     () => lawTags.map((tag) => ({ value: tag.number, label: tag.name })),
     [lawTags]
@@ -119,7 +110,11 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
     try {
       const params = new URLSearchParams();
       params.set("type", "LOTG_TEXT");
-      if (lawFilter !== "") params.set("lawNumber", String(lawFilter));
+      
+      // Handle multiple law filters
+      selectedLawTags.forEach(lawNum => {
+        params.append("lawNumber", String(lawNum));
+      });
       
       if (varFilter === "include") params.set("includeVar", "true");
       if (varFilter === "only") params.set("onlyVar", "true");
@@ -305,7 +300,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, lawFilter, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter]);
+  }, [refreshKey, selectedLawTags, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
@@ -335,7 +330,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, lawFilter, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter, perPage, lawSortOrder]);
+  }, [search, selectedLawTags, varFilter, upToDateFilter, includeIfabFilter, includeCustomFilter, perPage, lawSortOrder]);
 
   const isEditFormValid = () => {
     return (
@@ -363,23 +358,23 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
           </div>
           
           {/* Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Law Filter */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Law Tags Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                Law
+                Laws
               </label>
-              <Select
-                value={lawFilter}
+              <MultiSelect
+                value={selectedLawTags}
                 onChange={(val) => {
-                  setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
+                  setSelectedLawTags(val as number[]);
                   setLawSortOrder(null);
                 }}
-                options={lawFilterOptions}
-                className="w-full"
+                options={lawMultiSelectOptions}
+                placeholder="Select laws..."
               />
             </div>
 

@@ -15,20 +15,16 @@ export function VideoLibraryContent() {
   const [tagCategories, setTagCategories] = useState<any[]>([]);
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingVideos, setIsLoadingVideos] = useState(true);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
 
-  const fetchVideos = async (page = 1, search = '') => {
+  const fetchVideos = async (page = 1) => {
     try {
       setIsLoadingVideos(true);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
       });
-      if (search) {
-        params.append('search', search);
-      }
 
       const videosRes = await fetch(`/api/admin/library/videos?${params}`);
       const videosData = await videosRes.json();
@@ -81,7 +77,7 @@ export function VideoLibraryContent() {
   const fetchData = async () => {
     try {
       await Promise.all([
-        fetchVideos(1, searchQuery),
+        fetchVideos(1),
         fetchCategoriesAndTags(),
       ]);
     } catch (error) {
@@ -125,7 +121,7 @@ export function VideoLibraryContent() {
   const handleUploadSuccess = () => {
     setEditingVideo(null);
     setActiveSubTab('videos');
-    fetchVideos(pagination.page, searchQuery);
+    fetchVideos(pagination.page);
   };
 
   const handleDeleteVideo = (videoId: string) => {
@@ -209,16 +205,11 @@ export function VideoLibraryContent() {
               videos={videos}
               onEdit={handleEditVideo}
               onDelete={handleDeleteVideo}
-              onRefresh={() => fetchVideos(pagination.page, searchQuery)}
+              onRefresh={() => fetchVideos(pagination.page)}
               onVideoUpdate={handleVideoUpdate}
               pagination={pagination}
               onPageChange={(page) => {
-                fetchVideos(page, searchQuery);
-              }}
-              searchQuery={searchQuery}
-              onSearchChange={(query) => {
-                setSearchQuery(query);
-                fetchVideos(1, query);
+                fetchVideos(page);
               }}
             />
           )}
