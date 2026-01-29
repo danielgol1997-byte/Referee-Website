@@ -28,6 +28,8 @@ export async function GET(req: Request) {
   const ids = searchParams.get("ids");
   const includeVar = searchParams.get("includeVar") === "true";
   const onlyVar = searchParams.get("onlyVar") === "true";
+  const upToDate = searchParams.get("upToDate") === "true";
+  const outdated = searchParams.get("outdated") === "true";
 
   const where: Prisma.QuestionWhereInput = {};
 
@@ -36,6 +38,13 @@ export async function GET(req: Request) {
     where.isVar = true;
   } else if (!includeVar) {
     where.isVar = false;
+  }
+
+  // Up to date filtering
+  if (upToDate) {
+    where.isUpToDate = true;
+  } else if (outdated) {
+    where.isUpToDate = false;
   }
 
 

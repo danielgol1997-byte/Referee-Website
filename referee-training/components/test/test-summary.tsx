@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useLawTags } from "@/components/hooks/useLawTags";
 
 type SummaryResponse = {
   session: {
     id: string;
     score: number | null;
     totalQuestions: number;
+    mandatoryTest?: {
+      passingScore: number | null;
+      title: string;
+    } | null;
     testAnswers: Array<{
       id: string;
       isCorrect: boolean;
@@ -17,6 +22,7 @@ type SummaryResponse = {
         id: string;
         text: string;
         explanation: string;
+        lawNumbers: number[];
         answerOptions: Array<{ id: string; label: string; isCorrect: boolean }>;
       };
     }>;
@@ -34,6 +40,7 @@ export function TestSummary({
 }) {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { lawTagMap, getLawLabel } = useLawTags();
 
   useEffect(() => {
     const load = async () => {
@@ -70,7 +77,9 @@ export function TestSummary({
 
   const score = data.session.score ?? data.correctCount;
   const percentage = Math.round((score / data.session.totalQuestions) * 100);
-  const passed = percentage >= 70;
+  const passingScore = data.session.mandatoryTest?.passingScore;
+  const passed = passingScore ? score >= passingScore : percentage >= 70;
+  const hasPassingScore = passingScore !== null && passingScore !== undefined;
 
   return (
     <div className="space-y-8">
@@ -110,20 +119,44 @@ export function TestSummary({
           </div>
 
           {/* Pass/Fail Indicator */}
-          {passed ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-status-success/10 border border-status-success/30 shadow-lg shadow-status-success/10">
-              <svg className="w-4 h-4 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm font-semibold text-status-success">Great work!</span>
-            </div>
+          {hasPassingScore ? (
+            passed ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-status-success/10 border border-status-success/30 shadow-lg shadow-status-success/10">
+                <svg className="w-5 h-5 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-left">
+                  <div className="text-sm font-bold text-status-success uppercase tracking-wide">PASSED</div>
+                  <div className="text-xs text-status-success/80">Required: {passingScore}/{data.session.totalQuestions}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-status-danger/10 border border-status-danger/30 shadow-lg shadow-status-danger/10">
+                <svg className="w-5 h-5 text-status-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <div className="text-left">
+                  <div className="text-sm font-bold text-status-danger uppercase tracking-wide">FAILED</div>
+                  <div className="text-xs text-status-danger/80">Required: {passingScore}/{data.session.totalQuestions}</div>
+                </div>
+              </div>
+            )
           ) : (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="text-sm font-semibold text-amber-400">Keep practicing!</span>
-            </div>
+            passed ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-status-success/10 border border-status-success/30 shadow-lg shadow-status-success/10">
+                <svg className="w-4 h-4 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-semibold text-status-success">Great work!</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm font-semibold text-amber-400">Keep practicing!</span>
+              </div>
+            )
           )}
 
           {/* Action Button */}
@@ -170,7 +203,7 @@ export function TestSummary({
                   : 'bg-status-danger/10 border-status-danger/30'
                 }
               `}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <div className={`
                     flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
                     ${answer.isCorrect 
@@ -191,9 +224,45 @@ export function TestSummary({
                   <span className="text-sm font-semibold text-white">
                     Question {index + 1}
                   </span>
+                  
+                  {/* Law Numbers */}
+                  {answer.question.lawNumbers && answer.question.lawNumbers.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {answer.question.lawNumbers.map((lawNum) => {
+                        const lawTag = lawTagMap.get(lawNum);
+                        const lawLabel = getLawLabel(lawNum);
+                        
+                        if (lawTag?.linkUrl) {
+                          return (
+                            <a
+                              key={lawNum}
+                              href={lawTag.linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 hover:border-accent transition-all text-xs font-medium"
+                            >
+                              {lawLabel}
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          );
+                        }
+                        
+                        return (
+                          <span
+                            key={lawNum}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-accent/10 border border-accent/30 text-accent text-xs font-medium"
+                          >
+                            {lawLabel}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <span className={`
-                  text-xs font-bold uppercase tracking-wider
+                  text-xs font-bold uppercase tracking-wider flex-shrink-0
                   ${answer.isCorrect ? 'text-status-success' : 'text-status-danger'}
                 `}>
                   {answer.isCorrect ? 'Correct' : 'Incorrect'}

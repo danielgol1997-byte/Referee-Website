@@ -37,6 +37,8 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({});
   const [backfillSuccess, setBackfillSuccess] = useState<string | null>(null);
+  const [availableQuestions, setAvailableQuestions] = useState<number | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const { lawOptions, getLawLabel, isLoading: isLoadingLawTags } = useLawTags();
   const lawOptionsMemo = useMemo(() => lawOptions, [lawOptions]);
 
@@ -132,12 +134,14 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
       dueDate: test.dueDate ? new Date(test.dueDate).toISOString().split('T')[0] : "",
       isActive: test.isActive,
       isMandatory: test.isMandatory,
+      includeVar: test.includeVar || false,
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditForm({});
+    setAvailableQuestions(null);
   };
 
   const saveEdit = async (id: string) => {
@@ -157,15 +161,30 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
           dueDate: editForm.dueDate || null,
           isActive: editForm.isActive,
           isMandatory: editForm.isMandatory,
+          includeVar: editForm.includeVar || false,
         }),
       });
-      if (!res.ok) throw new Error("Failed to update test");
+      
+      if (!res.ok) {
+        const data = await res.json();
+        // Display the detailed error message from the backend
+        throw new Error(data?.error || "Failed to update test");
+      }
+      
       await fetchTests();
       setEditingId(null);
       setEditForm({});
+      setAvailableQuestions(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update test";
       setError(message);
+      // Auto-scroll to error message
+      setTimeout(() => {
+        const errorElement = document.querySelector('[data-error-message]');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
     } finally {
       setActionLoading(null);
     }
@@ -176,12 +195,75 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
+  // Check available questions when editing and laws change (only for random mode)
+  useEffect(() => {
+    if (!editingId || editForm.selectionMode !== "random") {
+      setAvailableQuestions(null);
+      return;
+    }
+
+    const checkAvailability = async () => {
+      setCheckingAvailability(true);
+      try {
+        const params = new URLSearchParams();
+        params.append('type', 'LOTG_TEXT');
+        params.append('categorySlug', 'laws-of-the-game');
+        params.append('isActive', 'true');
+        if (!editForm.includeVar) params.append('excludeVar', 'true');
+        if (editForm.lawNumbers && editForm.lawNumbers.length > 0) {
+          editForm.lawNumbers.forEach(law => params.append('lawNumbers', law.toString()));
+        }
+
+        const res = await fetch(`/api/admin/questions/count?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableQuestions(data.count);
+          
+          // Auto-adjust totalQuestions if it exceeds available
+          if (data.count < (editForm.totalQuestions || 0)) {
+            setEditForm(prev => ({ ...prev, totalQuestions: data.count }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check question availability:', err);
+      } finally {
+        setCheckingAvailability(false);
+      }
+    };
+
+    // Debounce the check
+    const timer = setTimeout(checkAvailability, 300);
+    return () => clearTimeout(timer);
+  }, [editingId, editForm.lawNumbers, editForm.includeVar, editForm.selectionMode]);
+
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 relative">
       {loading && <p className="text-sm text-text-secondary">Loading tests…</p>}
-      {error && <p className="text-sm text-status-danger">{error}</p>}
+      {error && (
+        <div 
+          data-error-message
+          className="p-4 rounded-lg bg-status-danger/10 border border-status-danger/30"
+        >
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-status-danger flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-status-danger">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-status-danger hover:text-status-danger/80 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       {backfillSuccess && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/30">
           <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,7 +299,7 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border border-dark-600">
+          <div className={`rounded-lg border border-dark-600 ${editingId ? 'overflow-visible' : 'overflow-hidden'}`}>
           <table className="min-w-full divide-y divide-dark-600">
             <thead className="bg-dark-800/50">
               <tr>
@@ -251,7 +333,7 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                 if (isEditing) {
                   return (
                     <tr key={test.id} className="bg-dark-800/50">
-                      <td colSpan={7} className="px-4 py-4">
+                      <td colSpan={7} className="px-4 py-4 relative" style={{ overflow: 'visible' }}>
                         <div className="space-y-4">
                           {/* Mandatory Toggle - Top of Edit Form */}
                           <div className="flex items-center justify-between p-4 rounded-lg border border-dark-600 bg-dark-800/30">
@@ -325,7 +407,32 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-sm font-medium text-white">Question Selection</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium text-white">Question Selection</label>
+                              {editForm.selectionMode === "random" && (
+                                <div className="flex items-center gap-2">
+                                  <label className="text-sm text-white cursor-pointer" htmlFor="edit-var-toggle">
+                                    Include VAR
+                                  </label>
+                                  <button
+                                    id="edit-var-toggle"
+                                    type="button"
+                                    onClick={() => setEditForm({ ...editForm, includeVar: !editForm.includeVar })}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900 ${
+                                      editForm.includeVar ? "bg-accent" : "bg-dark-600"
+                                    }`}
+                                    role="switch"
+                                    aria-checked={editForm.includeVar}
+                                  >
+                                    <span
+                                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                                        editForm.includeVar ? "translate-x-6" : "translate-x-1"
+                                      }`}
+                                    />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer group">
                                 <input
@@ -370,12 +477,12 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                             <>
                               <div className="space-y-1">
                                 <label className="text-sm font-medium text-white">Select laws</label>
-                                <p className="text-xs text-text-secondary mb-2">Questions will be randomly selected from these laws</p>
+                                <p className="text-xs text-text-secondary mb-2">Leave empty to include all laws. Questions will be randomly selected from selected laws (or all laws if none selected)</p>
                                 <MultiSelect
                                   value={editForm.lawNumbers || []}
                                   onChange={(val) => setEditForm({ ...editForm, lawNumbers: val as number[] })}
                                   options={lawOptionsMemo}
-                                  placeholder="Add Law"
+                                  placeholder="Select laws (or leave empty for all)"
                                 />
                                 {lawOptionsMemo.length === 0 && (
                                   <p className="text-xs text-text-muted">
@@ -386,27 +493,55 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
 
                               <div className="flex items-center gap-4">
                                 <div className="space-y-1">
-                                  <label className="text-sm font-medium text-white">Questions</label>
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-white">Questions</label>
+                                    {checkingAvailability && (
+                                      <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                                    )}
+                                  </div>
                                   <NumberInput
                                     value={editForm.totalQuestions || 10}
-                                    onChange={(val) => setEditForm({ ...editForm, totalQuestions: val })}
+                                    onChange={(val) => {
+                                      setEditForm({ 
+                                        ...editForm, 
+                                        totalQuestions: val,
+                                        // Adjust passing score if it exceeds new total
+                                        passingScore: editForm.passingScore && editForm.passingScore > val 
+                                          ? val 
+                                          : editForm.passingScore
+                                      });
+                                    }}
                                     min={1}
-                                    max={50}
+                                    max={availableQuestions || 50}
                                     required
                                     className="w-24"
                                   />
+                                  {availableQuestions !== null && (
+                                    <p className="text-xs mt-1">
+                                      {availableQuestions > 0 ? (
+                                        <span className="text-accent">{availableQuestions} available</span>
+                                      ) : (
+                                        <span className="text-status-danger">No questions available</span>
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
-                                <div className="space-y-1">
-                                  <label className="text-sm font-medium text-white">Passing score (optional)</label>
-                                  <NumberInput
-                                    value={editForm.passingScore ?? 0}
-                                    onChange={(val) => setEditForm({ ...editForm, passingScore: val > 0 ? val : null })}
-                                    min={0}
-                                    max={editForm.totalQuestions || 50}
-                                    placeholder="None"
-                                    className="w-24"
-                                  />
-                                </div>
+                                {editForm.isMandatory && (
+                                  <div className="space-y-1">
+                                    <label className="text-sm font-medium text-white">Passing score (optional)</label>
+                                    <NumberInput
+                                      value={editForm.passingScore ?? 0}
+                                      onChange={(val) => setEditForm({ 
+                                        ...editForm, 
+                                        passingScore: val > 0 && val <= (editForm.totalQuestions || 50) ? val : null 
+                                      })}
+                                      min={0}
+                                      max={editForm.totalQuestions || 50}
+                                      placeholder="None"
+                                      className="w-24"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </>
                           ) : (
@@ -420,17 +555,25 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                                 />
                               </div>
 
-                              <div className="space-y-1">
-                                <label className="text-sm font-medium text-white">Passing score (optional)</label>
-                                <NumberInput
-                                  value={editForm.passingScore ?? 0}
-                                  onChange={(val) => setEditForm({ ...editForm, passingScore: val > 0 ? val : null })}
-                                  min={0}
-                                  max={(editForm.questionIds?.length || 0) || 50}
-                                  placeholder="None"
-                                  className="w-24"
-                                />
-                              </div>
+                              {editForm.isMandatory && (
+                                <div className="space-y-1">
+                                  <label className="text-sm font-medium text-white">Passing score (optional)</label>
+                                  <NumberInput
+                                    value={editForm.passingScore ?? 0}
+                                    onChange={(val) => {
+                                      const maxScore = editForm.questionIds?.length || 50;
+                                      setEditForm({ 
+                                        ...editForm, 
+                                        passingScore: val > 0 && val <= maxScore ? val : null 
+                                      });
+                                    }}
+                                    min={0}
+                                    max={editForm.questionIds?.length || 50}
+                                    placeholder="None"
+                                    className="w-24"
+                                  />
+                                </div>
+                              )}
                             </>
                           )}
 
@@ -440,7 +583,6 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                               disabled={
                                 actionLoading === test.id || 
                                 !editForm.title || 
-                                (editForm.selectionMode === "random" && (editForm.lawNumbers?.length || 0) === 0) ||
                                 (editForm.selectionMode === "specific" && (editForm.questionIds?.length || 0) === 0)
                               }
                             >

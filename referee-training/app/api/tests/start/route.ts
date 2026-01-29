@@ -18,14 +18,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { session: testSession, questions } = await createTestSession({
+    const { session: testSession } = await createTestSession({
       userId: session.user.id,
       type: type as QuestionType,
       categorySlug,
       categoryType: categoryType as CategoryType | undefined,
       totalQuestions: totalQuestions ?? 10,
     });
-    return NextResponse.json({ session: testSession, questions });
+    return NextResponse.json({ session: testSession });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to start test";
     return NextResponse.json({ error: message }, { status: 400 });

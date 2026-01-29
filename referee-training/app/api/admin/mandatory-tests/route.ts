@@ -70,6 +70,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "totalQuestions is required and must be at least 1." }, { status: 400 });
     }
 
+    // Validate passing score
+    if (passingScore !== null && passingScore !== undefined) {
+      if (passingScore < 1) {
+        return NextResponse.json({ error: "passingScore must be at least 1 or null." }, { status: 400 });
+      }
+      if (passingScore > totalQuestions) {
+        return NextResponse.json({ error: "passingScore cannot exceed totalQuestions." }, { status: 400 });
+      }
+    }
+
     let category = categoryId as string | null;
     if (!category && categorySlug) {
       const found = await prisma.category.findUnique({ where: { slug: categorySlug } });
@@ -77,6 +87,37 @@ export async function POST(req: Request) {
     }
     if (!category) {
       return NextResponse.json({ error: "Category not found." }, { status: 400 });
+    }
+
+    // For random mode, validate that enough questions are available
+    if (!questionIds || questionIds.length === 0) {
+      // Build the same query criteria that will be used when creating test sessions
+      const questionWhere: any = { 
+        type: "LOTG_TEXT",
+        categoryId: category,
+        isActive: true,
+        isUpToDate: true  // Only count up-to-date questions
+      };
+      
+      if (!includeVar) {
+        questionWhere.isVar = false;
+      }
+      
+      if (lawNumbers && lawNumbers.length > 0) {
+        questionWhere.lawNumbers = { hasSome: lawNumbers };
+      }
+
+      const availableCount = await prisma.question.count({ where: questionWhere });
+      
+      if (availableCount < totalQuestions) {
+        const lawsText = lawNumbers && lawNumbers.length > 0 
+          ? `for Law(s) ${lawNumbers.join(", ")}` 
+          : "for all laws";
+        return NextResponse.json({ 
+          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText}${includeVar ? " (including VAR)" : " (excluding VAR)"}. Please reduce the number of questions to ${availableCount} or fewer.`,
+          availableCount 
+        }, { status: 400 });
+      }
     }
 
     // Respect the isUserGenerated flag from the request

@@ -20,6 +20,8 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [availableQuestions, setAvailableQuestions] = useState<number | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   
   // New: Question selection mode
   const [selectionMode, setSelectionMode] = useState<"random" | "specific">("random");
@@ -76,7 +78,10 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       });
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data?.error ?? "Failed to create test");
+      if (!res.ok) {
+        // Display the detailed error message from the backend
+        throw new Error(data?.error ?? "Failed to create test");
+      }
       setTitle("");
       setDescription("");
       setLawNumbers([]);
@@ -108,6 +113,55 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
       return () => clearTimeout(timer);
     }
   }, [isMandatory]);
+
+  // Adjust passing score if it exceeds total questions
+  useEffect(() => {
+    const maxQuestions = selectionMode === "specific" ? selectedQuestionIds.length : totalQuestions;
+    if (passingScore && passingScore > maxQuestions) {
+      setPassingScore(maxQuestions);
+    }
+  }, [totalQuestions, selectedQuestionIds.length, selectionMode, passingScore]);
+
+  // Check available questions when laws or includeVar change (only for random mode)
+  useEffect(() => {
+    if (selectionMode !== "random") {
+      setAvailableQuestions(null);
+      return;
+    }
+
+    const checkAvailability = async () => {
+      setCheckingAvailability(true);
+      try {
+        const params = new URLSearchParams();
+        params.append('type', 'LOTG_TEXT');
+        params.append('categorySlug', 'laws-of-the-game');
+        params.append('isActive', 'true');
+        if (!includeVar) params.append('excludeVar', 'true');
+        if (lawNumbers.length > 0) {
+          lawNumbers.forEach(law => params.append('lawNumbers', law.toString()));
+        }
+
+        const res = await fetch(`/api/admin/questions/count?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableQuestions(data.count);
+          
+          // Auto-adjust totalQuestions if it exceeds available
+          if (data.count < totalQuestions) {
+            setTotalQuestions(data.count);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check question availability:', err);
+      } finally {
+        setCheckingAvailability(false);
+      }
+    };
+
+    // Debounce the check
+    const timer = setTimeout(checkAvailability, 300);
+    return () => clearTimeout(timer);
+  }, [lawNumbers, includeVar, selectionMode]);
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -264,13 +318,33 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
 
           <div className="flex items-center gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-white">Questions</label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-white">Questions</label>
+                {checkingAvailability && (
+                  <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                )}
+              </div>
               <CompactSpinner
                 value={totalQuestions}
-                onChange={setTotalQuestions}
+                onChange={(val) => {
+                  setTotalQuestions(val);
+                  // Auto-adjust passing score if it exceeds new total
+                  if (passingScore && passingScore > val) {
+                    setPassingScore(val);
+                  }
+                }}
                 min={1}
-                max={1000}
+                max={availableQuestions || 1000}
               />
+              {availableQuestions !== null && (
+                <p className="text-xs text-text-secondary mt-1">
+                  {availableQuestions > 0 ? (
+                    <span className="text-accent">{availableQuestions} questions available</span>
+                  ) : (
+                    <span className="text-status-danger">No questions available for selected criteria</span>
+                  )}
+                </p>
+              )}
             </div>
             {isMandatory && (
               <div 
@@ -280,12 +354,12 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
                     : 'border-2 border-transparent'
                 }`}
               >
-                <label className="text-sm font-medium text-white">Passing score</label>
+                <label className="text-sm font-medium text-white">Passing score (optional)</label>
                 <CompactSpinner
                   value={passingScore ?? 0}
-                  onChange={(val) => setPassingScore(val > 0 ? val : undefined)}
+                  onChange={(val) => setPassingScore(val > 0 && val <= totalQuestions ? val : undefined)}
                   min={0}
-                  max={1000}
+                  max={totalQuestions}
                 />
               </div>
             )}
@@ -310,12 +384,12 @@ export function MandatoryTestForm({ onCreated }: { onCreated?: () => void }) {
                   : 'border-2 border-transparent'
               }`}
             >
-              <label className="text-sm font-medium text-white">Passing score</label>
+              <label className="text-sm font-medium text-white">Passing score (optional)</label>
               <CompactSpinner
                 value={passingScore ?? 0}
-                onChange={(val) => setPassingScore(val > 0 ? val : undefined)}
+                onChange={(val) => setPassingScore(val > 0 && val <= selectedQuestionIds.length ? val : undefined)}
                 min={0}
-                max={1000}
+                max={selectedQuestionIds.length}
               />
             </div>
           )}

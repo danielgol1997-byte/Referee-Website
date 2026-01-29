@@ -18,21 +18,31 @@ interface MultiSelectProps {
 
 export function MultiSelect({ value, onChange, options, placeholder, className }: MultiSelectProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [openUpward, setOpenUpward] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
 
   const availableOptions = options.filter(opt => !value.includes(opt.value));
   const selectedOptions = options.filter(opt => value.includes(opt.value));
+  
+  // Filter options based on search query
+  const filteredOptions = availableOptions.filter(opt => 
+    opt.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchQuery("");
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsOpen(false);
+        setSearchQuery("");
       }
     };
 
@@ -49,12 +59,50 @@ export function MultiSelect({ value, onChange, options, placeholder, className }
 
   const addValue = (val: string | number) => {
     onChange([...value, val]);
+    setSearchQuery("");
     setIsOpen(false);
   };
 
   const removeValue = (val: string | number) => {
     onChange(value.filter(v => v !== val));
   };
+
+  // Calculate dropdown position when opening
+  React.useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - buttonRect.bottom;
+      const spaceAbove = buttonRect.top;
+      const dropdownHeight = 350; // Estimated max dropdown height including search
+      
+      // Open upward if not enough space below but enough space above
+      setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > spaceBelow);
+    }
+  }, [isOpen]);
+
+  // Update position on scroll or resize
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      if (buttonRef.current) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - buttonRect.bottom;
+        const spaceAbove = buttonRect.top;
+        const dropdownHeight = 350;
+        
+        setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > spaceBelow);
+      }
+    };
+
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen]);
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -85,6 +133,7 @@ export function MultiSelect({ value, onChange, options, placeholder, className }
       {availableOptions.length > 0 && (
         <div className="relative" ref={dropdownRef}>
           <button
+            ref={buttonRef}
             type="button"
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
@@ -102,30 +151,65 @@ export function MultiSelect({ value, onChange, options, placeholder, className }
           {isOpen && (
             <div
               className={cn(
-                "absolute top-full mt-2 z-50 min-w-[200px] rounded-lg border border-dark-600 bg-dark-800 shadow-elevated",
+                "fixed min-w-[240px] max-w-[320px] rounded-lg border border-dark-600 bg-dark-800 shadow-2xl",
                 "animate-in fade-in-0 zoom-in-95 duration-200",
-                "max-h-60 overflow-auto"
+                "z-[9999]"
               )}
               style={{
-                overscrollBehavior: 'contain',
-                touchAction: 'pan-y',
-                WebkitOverflowScrolling: 'touch',
+                top: buttonRef.current ? 
+                  `${buttonRef.current.getBoundingClientRect().bottom + 8}px`
+                  : undefined,
+                left: buttonRef.current ? `${buttonRef.current.getBoundingClientRect().left}px` : undefined,
+                transform: openUpward ? 'translateY(-100%) translateY(-48px)' : undefined,
               }}
             >
-              <div className="p-1">
-                {availableOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => addValue(option.value)}
-                    className={cn(
-                      "w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
-                      "text-text-secondary hover:text-white hover:bg-dark-700"
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+              {/* Search Input */}
+              {availableOptions.length > 5 && (
+                <div className="p-2 border-b border-dark-600">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="w-full px-3 py-2 pl-9 text-sm bg-dark-900 border border-dark-600 rounded-lg text-white placeholder:text-text-muted focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
+                      autoFocus
+                    />
+                    <svg className="absolute left-2.5 top-2.5 w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+              
+              {/* Options List */}
+              <div 
+                className="max-h-[280px] overflow-y-auto p-1"
+                style={{
+                  overscrollBehavior: 'contain',
+                  touchAction: 'pan-y',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => addValue(option.value)}
+                      className={cn(
+                        "w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                        "text-text-secondary hover:text-white hover:bg-dark-700"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center text-sm text-text-muted">
+                    No results found
+                  </div>
+                )}
               </div>
             </div>
           )}

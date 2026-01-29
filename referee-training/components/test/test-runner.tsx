@@ -177,20 +177,25 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
     setSubmitting(true);
     setError(null);
     try {
-      // Submit all answers
-      for (const questionId in answers) {
-        const answer = answers[questionId];
-        if (answer.selectedOptionId) {
-          await fetch(`/api/tests/${sessionId}/answer`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              questionId,
-              selectedOptionId: answer.selectedOptionId,
-            }),
-          });
-        }
+      // Prepare all answers for batch submission
+      const answersList = Object.entries(answers)
+        .filter(([, answer]) => answer.selectedOptionId)
+        .map(([questionId, answer]) => ({
+          questionId,
+          selectedOptionId: answer.selectedOptionId!,
+        }));
+
+      // Submit all answers in a single batch request
+      const response = await fetch(`/api/tests/${sessionId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: answersList }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit test");
       }
+
       // Navigate to results
       router.push(resultsHref);
     } catch {

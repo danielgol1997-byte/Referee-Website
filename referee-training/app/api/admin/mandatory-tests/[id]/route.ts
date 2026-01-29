@@ -41,20 +41,85 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const body = await req.json();
-    const { title, description, lawNumbers, questionIds, totalQuestions, passingScore, dueDate, isActive, isMandatory } = body;
+    const { 
+      title, 
+      description, 
+      lawNumbers, 
+      questionIds, 
+      totalQuestions, 
+      passingScore, 
+      dueDate, 
+      isActive, 
+      isMandatory,
+      includeVar 
+    } = body;
 
     // Build update data dynamically
     const updateData: any = {};
     
+    // Fields that any authorized user can update (super admin or owner of user-generated test)
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (lawNumbers !== undefined) updateData.lawNumbers = lawNumbers;
     if (questionIds !== undefined) updateData.questionIds = questionIds;
     if (totalQuestions !== undefined) updateData.totalQuestions = totalQuestions;
-    if (passingScore !== undefined) updateData.passingScore = passingScore;
     if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (includeVar !== undefined) updateData.includeVar = includeVar;
     
-    // Only super admins can change these fields
+    // Validate and set passing score
+    if (passingScore !== undefined) {
+      const maxQuestions = totalQuestions !== undefined ? totalQuestions : existingTest.totalQuestions;
+      
+      if (passingScore !== null) {
+        if (passingScore < 1) {
+          return NextResponse.json({ error: "Passing score must be at least 1 or null." }, { status: 400 });
+        }
+        if (passingScore > maxQuestions) {
+          return NextResponse.json({ error: "Passing score cannot exceed total questions." }, { status: 400 });
+        }
+      }
+      
+      updateData.passingScore = passingScore;
+    }
+    
+    // For random mode tests, validate that enough questions are available
+    const finalLawNumbers = lawNumbers !== undefined ? lawNumbers : existingTest.lawNumbers;
+    const finalTotalQuestions = totalQuestions !== undefined ? totalQuestions : existingTest.totalQuestions;
+    const finalIncludeVar = includeVar !== undefined ? includeVar : existingTest.includeVar;
+    const finalQuestionIds = questionIds !== undefined ? questionIds : existingTest.questionIds;
+
+    // Only validate for random mode (no specific question IDs)
+    if (!finalQuestionIds || finalQuestionIds.length === 0) {
+      const questionWhere: any = { 
+        type: "LOTG_TEXT",
+        categoryId: existingTest.categoryId,
+        isActive: true,
+        isUpToDate: true  // Only count up-to-date questions
+      };
+      
+      if (!finalIncludeVar) {
+        questionWhere.isVar = false;
+      }
+      
+      if (finalLawNumbers && finalLawNumbers.length > 0) {
+        questionWhere.lawNumbers = { hasSome: finalLawNumbers };
+      }
+
+      const availableCount = await prisma.question.count({ where: questionWhere });
+      
+      if (availableCount < finalTotalQuestions) {
+        const lawsText = finalLawNumbers && finalLawNumbers.length > 0 
+          ? `for Law(s) ${finalLawNumbers.join(", ")}` 
+          : "for all laws";
+        return NextResponse.json({ 
+          error: `Not enough questions available. Only ${availableCount} question(s) exist ${lawsText}${finalIncludeVar ? " (including VAR)" : " (excluding VAR)"}. Please reduce the number of questions to ${availableCount} or fewer, or add more laws.`,
+          availableCount 
+        }, { status: 400 });
+      }
+    }
+    
+    // Fields that ONLY super admins can update
+    // Regular users cannot make tests mandatory or change visibility
     if (isSuperAdmin) {
       if (isActive !== undefined) updateData.isActive = isActive;
       if (isMandatory !== undefined) updateData.isMandatory = isMandatory;

@@ -50,11 +50,18 @@ const VAR_FILTER_OPTIONS = [
   { value: "only", label: "Only VAR" },
 ];
 
+const UP_TO_DATE_FILTER_OPTIONS = [
+  { value: "all", label: "All Questions" },
+  { value: "upToDate", label: "Up to Date" },
+  { value: "outdated", label: "Outdated" },
+];
+
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   const modal = useModal();
   const [lawFilter, setLawFilter] = useState<number | string>("");
   const [lawSortOrder, setLawSortOrder] = useState<"asc" | "desc" | null>(null);
   const [varFilter, setVarFilter] = useState<string>("exclude");
+  const [upToDateFilter, setUpToDateFilter] = useState<string>("all");
   const [questions, setQuestions] = useState<QuestionWithRelations[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +114,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       if (varFilter === "include") params.set("includeVar", "true");
       if (varFilter === "only") params.set("onlyVar", "true");
       
+      if (upToDateFilter === "upToDate") params.set("upToDate", "true");
+      if (upToDateFilter === "outdated") params.set("outdated", "true");
+      
       params.set("categorySlug", "laws-of-the-game");
       const res = await fetch(`/api/admin/questions?${params.toString()}`);
       const data = await res.json();
@@ -127,6 +137,24 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !currentStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update question");
+      await fetchQuestions();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to toggle active";
+      setError(message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const toggleUpToDate = async (id: string, currentStatus: boolean) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/questions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isUpToDate: !currentStatus }),
       });
       if (!res.ok) throw new Error("Failed to update question");
       await fetchQuestions();
@@ -288,7 +316,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   useEffect(() => {
     fetchQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, lawFilter, varFilter]);
+  }, [refreshKey, lawFilter, varFilter, upToDateFilter]);
 
   const filtered = search
     ? questions.filter((q) => q.text.toLowerCase().includes(search.toLowerCase()))
@@ -318,7 +346,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, lawFilter, varFilter, perPage, lawSortOrder]);
+  }, [search, lawFilter, varFilter, upToDateFilter, perPage, lawSortOrder]);
 
   const isEditFormValid = () => {
     return (
@@ -334,22 +362,30 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="rounded-lg border border-accent/20 bg-dark-800/50 p-4">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-text-secondary">Law</label>
-              <Select
-                value={lawFilter}
-                onChange={(val) => {
-                  setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
-                  setLawSortOrder(null); // Reset sort order when manually changing filter
-                }}
-                options={lawFilterOptions}
-                className="w-48"
-              />
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Law</label>
+                <Select
+                  value={lawFilter}
+                  onChange={(val) => {
+                    setLawFilter(val === "" || val === "unassigned" ? val : Number(val));
+                    setLawSortOrder(null); // Reset sort order when manually changing filter
+                  }}
+                  options={lawFilterOptions}
+                  className="w-48"
+                />
+              </div>
               <Select
                 value={varFilter}
                 onChange={(val) => setVarFilter(String(val))}
                 options={VAR_FILTER_OPTIONS}
-                className="w-40"
+                className="w-36"
+              />
+              <Select
+                value={upToDateFilter}
+                onChange={(val) => setUpToDateFilter(String(val))}
+                options={UP_TO_DATE_FILTER_OPTIONS}
+                className="w-36"
               />
             </div>
             <Input
@@ -423,6 +459,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '100px' }}>
                     Status
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '90px' }}>
+                    Current
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-accent/80" style={{ width: '130px' }}>
                     Actions
                   </th>
@@ -436,7 +475,7 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                   if (isEditing) {
                     return (
                       <tr key={q.id} className="bg-dark-800/50">
-                        <td colSpan={5} className="px-4 py-4">
+                        <td colSpan={6} className="px-4 py-4">
                           <div className="space-y-4">
                             <div className="grid gap-4 md:grid-cols-3">
                               <div className="space-y-1">
@@ -640,6 +679,26 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                         ) : (
                           <span className="rounded-full bg-dark-700 px-2 py-1 text-xs text-text-secondary">Inactive</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 text-center" style={{ width: '90px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => toggleUpToDate(q.id, (q as any).isUpToDate || false)}
+                          disabled={actionLoading === q.id}
+                          className={cn(
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 disabled:opacity-50",
+                            (q as any).isUpToDate 
+                              ? "bg-status-success shadow-sm shadow-status-success/20" 
+                              : "bg-status-danger shadow-sm shadow-status-danger/20"
+                          )}
+                          title={(q as any).isUpToDate ? "Up to date" : "Outdated"}
+                        >
+                          <span
+                            className={cn(
+                              "inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200",
+                              (q as any).isUpToDate ? "translate-x-5" : "translate-x-1"
+                            )}
+                          />
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-white" style={{ width: '130px' }}>
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>

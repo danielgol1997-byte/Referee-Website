@@ -127,6 +127,7 @@ model Question {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   isActive      Boolean        @default(true)
+  isUpToDate    Boolean        @default(false)
   lawNumbers    Int[]          @default([])
   isVar         Boolean        @default(false)
   answerOptions AnswerOption[]
@@ -134,6 +135,10 @@ model Question {
   videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id])
   testAnswers   TestAnswer[]
   favorites     QuestionFavorite[]
+
+  @@index([categoryId, type, isActive])
+  @@index([lawNumbers])
+  @@index([isUpToDate, isActive])
 }
 
 model AnswerOption {
@@ -164,6 +169,9 @@ model TestSession {
   mandatoryTest   MandatoryTest?      @relation(fields: [mandatoryTestId], references: [id])
   user            User                @relation(fields: [userId], references: [id])
   completion      UserTestCompletion?
+
+  @@index([userId, createdAt])
+  @@index([mandatoryTestId])
 }
 
 model TestAnswer {

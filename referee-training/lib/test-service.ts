@@ -61,6 +61,7 @@ export async function createTestSession({
         where: {
           id: { in: mandatoryTest.questionIds },
           isActive: true,
+          isUpToDate: true,  // Only show up-to-date questions to users
         },
         include: { answerOptions: true },
       });
@@ -79,7 +80,8 @@ export async function createTestSession({
     const questionWhere: Prisma.QuestionWhereInput = { 
       type, 
       categoryId: category.id,
-      isActive: true 
+      isActive: true,
+      isUpToDate: true  // Only show up-to-date questions to users
     };
     
     // Filter out VAR questions by default unless requested
@@ -267,6 +269,7 @@ export async function getSessionSummary(userId: string, sessionId: string) {
         },
       },
       category: true,
+      mandatoryTest: true,
     },
   });
 
