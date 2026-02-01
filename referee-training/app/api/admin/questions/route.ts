@@ -161,6 +161,8 @@ export async function POST(req: Request) {
         explanation,
         difficulty,
         isIfab,
+        isActive: true,      // Default to active/visible
+        isUpToDate: true,    // Default to current
         answerOptions: {
           create: (answerOptions as Array<{ label: string; code?: string; isCorrect?: boolean; order?: number }>).map(
             (opt, idx) => ({

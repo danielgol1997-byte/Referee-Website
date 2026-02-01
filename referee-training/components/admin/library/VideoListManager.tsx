@@ -308,7 +308,7 @@ export function VideoListManager({
                           ? "bg-green-500/10 border border-green-500/30 text-green-500"
                           : "bg-red-500/10 border border-red-500/30 text-red-500"
                       )}>
-                        {video.isActive ? 'Active' : 'Inactive'}
+                        {video.isActive ? 'Visible' : 'Invisible'}
                       </span>
                       {/* Toggle Switch */}
                       <button
@@ -320,7 +320,7 @@ export function VideoListManager({
                         style={{ 
                           backgroundColor: (updatingVideoId === video.id ? !video.isActive : video.isActive) ? '#10b981' : '#ef4444' 
                         }}
-                        title={`Click to ${video.isActive ? 'deactivate' : 'activate'}`}
+                        title={`Click to ${video.isActive ? 'make invisible' : 'make visible'}`}
                       >
                         <span
                           className={cn(

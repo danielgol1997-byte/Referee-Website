@@ -59,8 +59,8 @@ const GROUP_COLORS: Record<string, string> = {
 
 const ACTIVE_STATUS_OPTIONS = [
   { value: "all", label: "All Status" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
+  { value: "active", label: "Visible" },
+  { value: "inactive", label: "Invisible" },
 ];
 
 const FEATURED_STATUS_OPTIONS = [

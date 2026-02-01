@@ -923,7 +923,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                 "text-sm font-medium transition-colors",
                 isActive ? "text-green-500" : "text-text-muted"
               )}>
-                Active
+                Visible
               </span>
               {/* Toggle Switch */}
               <button

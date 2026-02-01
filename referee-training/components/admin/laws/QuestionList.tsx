@@ -62,8 +62,8 @@ const UP_TO_DATE_FILTER_OPTIONS = [
 
 const ACTIVE_FILTER_OPTIONS = [
   { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
+  { value: "active", label: "Visible" },
+  { value: "inactive", label: "Invisible" },
 ];
 
 export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
@@ -581,36 +581,49 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                               />
                             </div>
 
-                            <div className="space-y-2 p-3 rounded-lg border border-dark-600 bg-dark-900/50">
-                              <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                  <label className="text-sm font-medium text-white">Question Source</label>
-                                  <p className="text-xs text-text-muted">
-                                    IFAB questions appear in study mode. Custom questions are for tests only.
-                                  </p>
-                                </div>
+                            <div className="space-y-3 p-4 rounded-lg border border-dark-600 bg-dark-900/50">
+                              <div className="space-y-1">
+                                <label className="text-sm font-medium text-white">Question Source</label>
+                                <p className="text-xs text-text-muted">
+                                  IFAB questions are official and appear in study mode. Custom questions are only for tests.
+                                </p>
+                              </div>
+                              
+                              {/* Source Toggle */}
+                              <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full border border-dark-600 bg-dark-900">
+                                <span className={cn(
+                                  "text-xs font-medium transition-colors",
+                                  !editForm.isIfab ? "text-purple-400" : "text-text-muted"
+                                )}>
+                                  Custom
+                                </span>
+                                
                                 <button
                                   type="button"
                                   onClick={() => setEditForm({ ...editForm, isIfab: !editForm.isIfab })}
                                   className={cn(
-                                    "relative inline-flex h-6 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent/20",
-                                    editForm.isIfab ? "bg-accent" : "bg-dark-700"
+                                    "relative inline-flex h-5 w-10 items-center rounded-full transition-colors duration-200",
+                                    "focus:outline-none focus:ring-2",
+                                    editForm.isIfab 
+                                      ? "bg-green-500 focus:ring-green-500/20" 
+                                      : "bg-purple-500 focus:ring-purple-500/20"
                                   )}
+                                  role="switch"
+                                  aria-checked={editForm.isIfab}
+                                  aria-label="Toggle question source"
                                 >
                                   <span
                                     className={cn(
-                                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                                      editForm.isIfab ? "translate-x-7" : "translate-x-1"
+                                      "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
+                                      editForm.isIfab ? "translate-x-5" : "translate-x-0.5"
                                     )}
                                   />
                                 </button>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className={cn("text-xs font-medium", !editForm.isIfab ? "text-accent" : "text-text-muted")}>
-                                  Custom
-                                </span>
-                                <div className="flex-1 h-px bg-dark-600" />
-                                <span className={cn("text-xs font-medium", editForm.isIfab ? "text-accent" : "text-text-muted")}>
+                                
+                                <span className={cn(
+                                  "text-xs font-medium transition-colors",
+                                  editForm.isIfab ? "text-green-400" : "text-text-muted"
+                                )}>
                                   IFAB Official
                                 </span>
                               </div>
@@ -735,9 +748,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                       </td>
                       <td className="px-4 py-3 text-sm" style={{ width: '100px' }}>
                         {isActive ? (
-                          <span className="rounded-full bg-accent/20 border border-accent/30 px-2 py-1 text-xs text-accent">Active</span>
+                          <span className="rounded-full bg-accent/20 border border-accent/30 px-2 py-1 text-xs text-accent">Visible</span>
                         ) : (
-                          <span className="rounded-full bg-dark-700 px-2 py-1 text-xs text-text-secondary">Inactive</span>
+                          <span className="rounded-full bg-dark-700 px-2 py-1 text-xs text-text-secondary">Invisible</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center" style={{ width: '90px' }} onClick={(e) => e.stopPropagation()}>
@@ -776,16 +789,16 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                             onClick={() => toggleActive(q.id, isActive)}
                             disabled={actionLoading === q.id}
                             className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-dark-700 transition-colors disabled:opacity-50"
-                            title={isActive ? "Deactivate" : "Activate"}
+                            title={isActive ? "Make Invisible" : "Make Visible"}
                           >
                             {isActive ? (
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                               </svg>
                             ) : (
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                             )}
                           </button>
@@ -910,9 +923,9 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                       </span>
                     )}
                     {isActive ? (
-                      <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">Active</span>
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">Visible</span>
                     ) : (
-                      <span className="px-2 py-0.5 text-xs font-semibold bg-dark-700 text-text-secondary rounded-full">Inactive</span>
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-dark-700 text-text-secondary rounded-full">Invisible</span>
                     )}
                   </div>
                   <h3 className="text-sm font-medium text-white leading-relaxed">
