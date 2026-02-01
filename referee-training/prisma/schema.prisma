@@ -183,7 +183,7 @@ model TestAnswer {
   selectedOptionId String?
   isCorrect        Boolean
   createdAt        DateTime      @default(now())
-  question         Question      @relation(fields: [questionId], references: [id])
+  question         Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selectedOption   AnswerOption? @relation(fields: [selectedOptionId], references: [id])
   testSession      TestSession   @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
 }
