@@ -104,67 +104,42 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
         </div>
         
         {/* Source Toggle */}
-        <div className="inline-flex items-center gap-4 px-4 py-2.5 rounded-full border border-dark-600 bg-dark-900">
-          {/* IFAB Side */}
-          <div className="flex items-center gap-2">
-            <span className={cn(
-              "text-xs font-medium transition-colors",
-              isIfab ? "text-green-400" : "text-text-muted"
-            )}>
-              IFAB Official
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsIfab(true)}
+        <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full border border-dark-600 bg-dark-900">
+          <span className={cn(
+            "text-xs font-medium transition-colors",
+            !isIfab ? "text-purple-400" : "text-text-muted"
+          )}>
+            Custom
+          </span>
+          
+          <button
+            type="button"
+            onClick={() => setIsIfab(!isIfab)}
+            className={cn(
+              "relative inline-flex h-5 w-10 items-center rounded-full transition-colors duration-200",
+              "focus:outline-none focus:ring-2",
+              isIfab 
+                ? "bg-green-500 focus:ring-green-500/20" 
+                : "bg-purple-500 focus:ring-purple-500/20"
+            )}
+            role="switch"
+            aria-checked={isIfab}
+            aria-label="Toggle question source"
+          >
+            <span
               className={cn(
-                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200",
-                "focus:outline-none focus:ring-2 focus:ring-green-500/20",
-                isIfab ? "bg-green-500" : "bg-dark-700"
+                "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
+                isIfab ? "translate-x-5.5" : "translate-x-0.5"
               )}
-              role="switch"
-              aria-checked={isIfab}
-              aria-label="Toggle IFAB source"
-            >
-              <span
-                className={cn(
-                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
-                  isIfab ? "translate-x-5" : "translate-x-0.5"
-                )}
-              />
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="h-6 w-px bg-dark-600" />
-
-          {/* Custom Side */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsIfab(false)}
-              className={cn(
-                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200",
-                "focus:outline-none focus:ring-2 focus:ring-purple-500/20",
-                !isIfab ? "bg-purple-500" : "bg-dark-700"
-              )}
-              role="switch"
-              aria-checked={!isIfab}
-              aria-label="Toggle custom source"
-            >
-              <span
-                className={cn(
-                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
-                  !isIfab ? "translate-x-5" : "translate-x-0.5"
-                )}
-              />
-            </button>
-            <span className={cn(
-              "text-xs font-medium transition-colors",
-              !isIfab ? "text-purple-400" : "text-text-muted"
-            )}>
-              Custom
-            </span>
-          </div>
+            />
+          </button>
+          
+          <span className={cn(
+            "text-xs font-medium transition-colors",
+            isIfab ? "text-green-400" : "text-text-muted"
+          )}>
+            IFAB Official
+          </span>
         </div>
       </div>
 
