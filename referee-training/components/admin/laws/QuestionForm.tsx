@@ -95,38 +95,76 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
         />
       </div>
 
-      <div className="space-y-2 p-4 rounded-lg border border-dark-600 bg-dark-900/50">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-white">Question Source</label>
-            <p className="text-xs text-text-muted">
-              IFAB questions are official and appear in study mode. Custom questions are only for tests.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsIfab(!isIfab)}
-            className={cn(
-              "relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent/20",
-              isIfab ? "bg-accent" : "bg-dark-700"
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-5 w-5 transform rounded-full bg-white transition-transform",
-                isIfab ? "translate-x-8" : "translate-x-1"
-              )}
-            />
-          </button>
+      <div className="space-y-3 p-4 rounded-lg border border-dark-600 bg-dark-900/50">
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-white">Question Source</label>
+          <p className="text-xs text-text-muted">
+            IFAB questions are official and appear in study mode. Custom questions are only for tests.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={cn("text-xs font-medium", !isIfab ? "text-accent" : "text-text-muted")}>
-            Custom
-          </span>
-          <div className="flex-1 h-px bg-dark-600" />
-          <span className={cn("text-xs font-medium", isIfab ? "text-accent" : "text-text-muted")}>
-            IFAB Official
-          </span>
+        
+        {/* Source Toggle */}
+        <div className="inline-flex items-center gap-4 px-4 py-2.5 rounded-full border border-dark-600 bg-dark-900">
+          {/* IFAB Side */}
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-xs font-medium transition-colors",
+              isIfab ? "text-green-400" : "text-text-muted"
+            )}>
+              IFAB Official
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsIfab(true)}
+              className={cn(
+                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200",
+                "focus:outline-none focus:ring-2 focus:ring-green-500/20",
+                isIfab ? "bg-green-500" : "bg-dark-700"
+              )}
+              role="switch"
+              aria-checked={isIfab}
+              aria-label="Toggle IFAB source"
+            >
+              <span
+                className={cn(
+                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
+                  isIfab ? "translate-x-5" : "translate-x-0.5"
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="h-6 w-px bg-dark-600" />
+
+          {/* Custom Side */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsIfab(false)}
+              className={cn(
+                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200",
+                "focus:outline-none focus:ring-2 focus:ring-purple-500/20",
+                !isIfab ? "bg-purple-500" : "bg-dark-700"
+              )}
+              role="switch"
+              aria-checked={!isIfab}
+              aria-label="Toggle custom source"
+            >
+              <span
+                className={cn(
+                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
+                  !isIfab ? "translate-x-5" : "translate-x-0.5"
+                )}
+              />
+            </button>
+            <span className={cn(
+              "text-xs font-medium transition-colors",
+              !isIfab ? "text-purple-400" : "text-text-muted"
+            )}>
+              Custom
+            </span>
+          </div>
         </div>
       </div>
 
