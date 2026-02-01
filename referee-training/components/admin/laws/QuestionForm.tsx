@@ -129,7 +129,7 @@ export function QuestionForm({ onCreated }: { onCreated?: () => void }) {
             <span
               className={cn(
                 "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200",
-                isIfab ? "translate-x-5.5" : "translate-x-0.5"
+                isIfab ? "translate-x-5" : "translate-x-0.5"
               )}
             />
           </button>
