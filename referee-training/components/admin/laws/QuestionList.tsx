@@ -727,7 +727,14 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-white">
-                        <div className="line-clamp-3">{q.text}</div>
+                        <div className="flex items-start gap-2">
+                          {(q as any).isIfab && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/10 border border-green-500/30 text-green-400 flex-shrink-0">
+                              IFAB
+                            </span>
+                          )}
+                          <div className="line-clamp-3 flex-1">{q.text}</div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-white" style={{ width: '300px' }}>
                         <div className="flex flex-wrap gap-1.5">
@@ -926,6 +933,11 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
                       <span className="px-2 py-0.5 text-xs font-semibold bg-accent/20 text-accent rounded-full border border-accent/30">Visible</span>
                     ) : (
                       <span className="px-2 py-0.5 text-xs font-semibold bg-dark-700 text-text-secondary rounded-full">Invisible</span>
+                    )}
+                    {(viewingQuestion as any).isIfab && (
+                      <span className="px-2 py-0.5 text-xs font-semibold bg-green-500/10 border border-green-500/30 text-green-400 rounded-full">
+                        IFAB
+                      </span>
                     )}
                   </div>
                   <h3 className="text-sm font-medium text-white leading-relaxed">
