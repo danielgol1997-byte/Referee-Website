@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import * as React from "react";
 import Link from "next/link";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { MandatoryTestsSection } from "@/components/laws/MandatoryTestsSection";
 import { PoolTestsCarousel } from "@/components/laws/PoolTestsCarousel";
 import { TestConfiguration } from "@/components/laws/TestConfiguration";
@@ -16,10 +15,7 @@ type MandatoryTest = {
 
 export default function LawsTestStartPage() {
   const [earliestDueDate, setEarliestDueDate] = useState<string | null>(null);
-  const [openTab, setOpenTab] = useState<"mandatory" | "available" | "build" | null>(null);
-  const mandatoryRef = React.useRef<HTMLDivElement>(null);
-  const availableRef = React.useRef<HTMLDivElement>(null);
-  const buildRef = React.useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<"available" | "mandatory" | "build">("available");
 
   useEffect(() => {
     const fetchMandatoryTests = async () => {
@@ -69,27 +65,10 @@ export default function LawsTestStartPage() {
     fetchMandatoryTests();
   }, []);
 
-  // Scroll to section when it opens
-  useEffect(() => {
-    if (!openTab) return;
-    
-    const ref = openTab === "mandatory" ? mandatoryRef : openTab === "available" ? availableRef : buildRef;
-    
-    if (ref.current) {
-      setTimeout(() => {
-        const element = ref.current;
-        if (!element) return;
-        
-        const y = element.getBoundingClientRect().top + window.pageYOffset - 100;
-        window.scrollTo({ top: y, behavior: "smooth" });
-      }, 150);
-    }
-  }, [openTab]);
-
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-4">
-      {/* Back Button */}
-      <div className="mb-4">
+    <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
+      {/* Header with Back Button and Tabs */}
+      <div className="space-y-6">
         <Link 
           href="/laws"
           className="px-4 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white hover:border-cyan-500/50 transition-all cursor-pointer flex items-center gap-2 w-fit"
@@ -99,59 +78,75 @@ export default function LawsTestStartPage() {
           </svg>
           Back
         </Link>
+
+        {/* Admin-style Tabs */}
+        <div className="flex gap-2 p-1 bg-dark-800/50 border border-dark-600 rounded-xl overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("available")}
+            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
+              activeTab === "available"
+                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900"
+                : "text-text-secondary hover:text-text-primary hover:bg-dark-700"
+            }`}
+          >
+            Tests
+          </button>
+          
+          <button
+            onClick={() => setActiveTab("mandatory")}
+            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap relative ${
+              activeTab === "mandatory"
+                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900"
+                : "text-text-secondary hover:text-text-primary hover:bg-dark-700"
+            }`}
+          >
+            Mandatory Tests
+            {earliestDueDate && (
+              <span 
+                className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  activeTab === "mandatory" 
+                    ? "bg-red-500 text-white border-red-600" 
+                    : "bg-red-500/20 text-red-500 border-red-500/30"
+                }`}
+              >
+                {earliestDueDate}
+              </span>
+            )}
+          </button>
+          
+          <button
+            onClick={() => setActiveTab("build")}
+            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
+              activeTab === "build"
+                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900"
+                : "text-text-secondary hover:text-text-primary hover:bg-dark-700"
+            }`}
+          >
+            Build Your Own Test
+          </button>
+        </div>
       </div>
 
-      {/* Mandatory Tests Section */}
-      <CollapsibleSection
-        ref={mandatoryRef}
-        title="Mandatory Tests"
-        isOpen={openTab === "mandatory"}
-        onToggle={() => setOpenTab(openTab === "mandatory" ? null : "mandatory")}
-        icon={
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        }
-        badge={
-          earliestDueDate ? (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold text-white border border-red-500/30 shadow-lg shadow-red-500/30" style={{ backgroundColor: '#FF1744' }}>
-              {earliestDueDate}
-            </span>
-          ) : undefined
-        }
-      >
-        <MandatoryTestsSection />
-      </CollapsibleSection>
+      {/* Content Area */}
+      <div className="min-h-[500px]">
+        {activeTab === "available" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <PoolTestsCarousel />
+          </div>
+        )}
 
-      {/* Available Tests Section */}
-      <CollapsibleSection
-        ref={availableRef}
-        title="Available Tests"
-        isOpen={openTab === "available"}
-        onToggle={() => setOpenTab(openTab === "available" ? null : "available")}
-        icon={
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        }
-      >
-        <PoolTestsCarousel />
-      </CollapsibleSection>
+        {activeTab === "mandatory" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <MandatoryTestsSection />
+          </div>
+        )}
 
-      {/* Build Your Own Test Section */}
-      <CollapsibleSection
-        ref={buildRef}
-        title="Build Your Own Test"
-        isOpen={openTab === "build"}
-        onToggle={() => setOpenTab(openTab === "build" ? null : "build")}
-        icon={
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-        }
-      >
-        <TestConfiguration />
-      </CollapsibleSection>
+        {activeTab === "build" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <TestConfiguration />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

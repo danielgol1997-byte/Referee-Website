@@ -251,10 +251,10 @@ async function createQuestions() {
         text: "A substitute enters the field during kicks from the penalty mark and takes a kick. What is the correct decision?",
         explanation: "Only eligible players may take part. The kick is retaken and the substitute is cautioned.",
         answers: [
-          { label: "Allow the goal", isCorrect: false },
-          { label: "Retake the kick and caution the substitute", isCorrect: true },
-          { label: "Retake the kick without caution", isCorrect: false },
-          { label: "Award an indirect free kick to the opponents", isCorrect: false },
+          { label: "The kick is retaken and the substitute is cautioned (yellow card) for entering without permission", isCorrect: true },
+          { label: "The goal stands if the ball entered the goal; the substitute is cautioned afterwards", isCorrect: false },
+          { label: "The kick is retaken with no disciplinary sanction against the substitute", isCorrect: false },
+          { label: "Indirect free kick to the opposing team; the kick is not retaken", isCorrect: false },
         ],
       },
       {
@@ -262,10 +262,10 @@ async function createQuestions() {
         text: "A defender denies an obvious goal-scoring opportunity with a handball in the penalty area while attempting to play the ball. What is the correct sanction?",
         explanation: "Penalty kick and caution (attempt to play the ball).",
         answers: [
-          { label: "Penalty + Yellow", isCorrect: true },
-          { label: "Penalty + Red", isCorrect: false },
-          { label: "Indirect free kick", isCorrect: false },
-          { label: "Play on", isCorrect: false },
+          { label: "Penalty kick; caution (yellow card) — not sent off — because the defender made a genuine attempt to play the ball", isCorrect: true },
+          { label: "Penalty kick; sending-off (red card) for denying an obvious goal-scoring opportunity by handball", isCorrect: false },
+          { label: "Indirect free kick; the goalkeeper handling offence applies", isCorrect: false },
+          { label: "Play continues; the handball was accidental during an attempt to play the ball", isCorrect: false },
         ],
       },
     ];

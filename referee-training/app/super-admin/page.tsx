@@ -2,6 +2,7 @@ import { TabNavigation } from "@/components/admin/TabNavigation";
 import { LawsAdminPanel } from "@/components/admin/laws/LawsAdminPanel";
 import { VideoLibraryContent } from "@/components/admin/library/VideoLibraryContent";
 import { UserManagementPanel } from "@/components/admin/users/UserManagementPanel";
+import { VideoTestsAdminPanel } from "@/components/admin/video-tests/VideoTestsAdminPanel";
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
@@ -31,12 +32,8 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
         {/* Laws of the Game - Manage text-based quiz questions */}
         {activeTab === "laws" && <LawsAdminPanel />}
         
-        {/* Coming Soon: Referees Practice - Video scenarios */}
-        {activeTab === "referee" && (
-          <p className="text-sm text-text-secondary">
-            Referees practice management will allow clip uploads, challenge configuration, and scoring rubrics.
-          </p>
-        )}
+        {/* Referees Practice - Create and manage video tests (mandatory, public) */}
+        {activeTab === "referee" && <VideoTestsAdminPanel />}
         
         {/* Coming Soon: VAR Practice */}
         {activeTab === "var" && (

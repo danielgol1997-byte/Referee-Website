@@ -32,6 +32,9 @@ model User {
   testCompletions       UserTestCompletion[]
   uploadedVideos        VideoClip[]
   questionFavorites     QuestionFavorite[]
+  videoTestsCreated     VideoTest[]
+  videoTestSessions     VideoTestSession[]
+  videoTestCompletions  VideoTestCompletion[]
 }
 
 model Account {
@@ -110,6 +113,7 @@ model VideoClip {
   uploadedBy          User?           @relation(fields: [uploadedById], references: [id])
   videoCategory       VideoCategory?  @relation(fields: [videoCategoryId], references: [id])
   tags                VideoTag[]
+  videoTestClips      VideoTestClip[]
 
   @@index([videoCategoryId, order])
   @@index([lawNumbers])
@@ -425,4 +429,97 @@ enum OffsideReason {
   INTERFERING_WITH_OPPONENT    // Active interference with opponent
   GAINING_ADVANTAGE            // Gaining advantage from position
   NOT_OFFSIDE                  // Not in offside position / Not offside
+}
+
+enum VideoTestType {
+  MANDATORY  // Admin-created, user must complete by due date
+  PUBLIC     // Admin-created, available to all
+  USER       // User-created, saved to "My Tests"
+}
+
+model VideoTest {
+  id              String         @id @default(cuid())
+  name            String
+  description     String?
+  type            VideoTestType
+  totalClips      Int            @default(10)
+  passingScore    Int?
+  dueDate         DateTime?
+  isActive        Boolean        @default(true)
+  createdById     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       User?          @relation(fields: [createdById], references: [id])
+  clips           VideoTestClip[]
+  sessions        VideoTestSession[]
+  completions     VideoTestCompletion[]
+
+  @@index([type, isActive])
+  @@index([createdById])
+}
+
+model VideoTestClip {
+  id           String    @id @default(cuid())
+  videoTestId  String
+  videoClipId  String
+  order        Int       @default(0)
+  videoTest    VideoTest @relation(fields: [videoTestId], references: [id], onDelete: Cascade)
+  videoClip    VideoClip @relation(fields: [videoClipId], references: [id], onDelete: Cascade)
+
+  @@unique([videoTestId, videoClipId])
+  @@index([videoTestId])
+  @@index([videoClipId])
+}
+
+model VideoTestSession {
+  id              String           @id @default(cuid())
+  userId          String
+  videoTestId     String
+  clipIds         String[]         // ordered video clip IDs
+  totalClips      Int              @default(0)
+  score           Int?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  videoTest       VideoTest       @relation(fields: [videoTestId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers         VideoTestAnswer[]
+  completion      VideoTestCompletion?
+
+  @@index([userId, createdAt])
+  @@index([videoTestId])
+}
+
+model VideoTestAnswer {
+  id               String           @id @default(cuid())
+  videoTestSessionId String
+  videoClipId      String
+  playOnNoOffence Boolean          @default(false)
+  restartTagId     String?
+  sanctionTagId    String?
+  criteriaTagIds   String[]         @default([])
+  isCorrect        Boolean          // full match
+  isPartial        Boolean          @default(false) // at least one category correct
+  session          VideoTestSession @relation(fields: [videoTestSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([videoTestSessionId, videoClipId])
+  @@index([videoTestSessionId])
+}
+
+model VideoTestCompletion {
+  id              String           @id @default(cuid())
+  userId          String
+  videoTestId     String
+  videoTestSessionId String        @unique
+  completedAt     DateTime?
+  score           Int?
+  passed          Boolean?
+  createdAt       DateTime        @default(now())
+  videoTest       VideoTest       @relation(fields: [videoTestId], references: [id], onDelete: Cascade)
+  session         VideoTestSession @relation(fields: [videoTestSessionId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoTestId])
+  @@index([userId])
+  @@index([videoTestId])
 }

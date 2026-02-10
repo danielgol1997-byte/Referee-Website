@@ -5,19 +5,19 @@
     "lawNumbers": [],
     "answerOptions": [
       {
-        "label": "Dropped ball",
+        "label": "Goal awarded; the attacker did not play the ball so there is no offside offence",
         "isCorrect": false
       },
       {
-        "label": "Indirect free kick",
+        "label": "Goal disallowed; indirect free kick for offside — the attacker interfered with an opponent by clearly impacting the defender's ability to play the ball",
         "isCorrect": true
       },
       {
-        "label": "Direct free kick",
+        "label": "Goal disallowed; direct free kick to the defending team for impeding an opponent without contact",
         "isCorrect": false
       },
       {
-        "label": "Play continues",
+        "label": "Goal awarded; the attacker allowed the ball to pass through and did not interfere with play",
         "isCorrect": false
       }
     ]
@@ -32,19 +32,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Corner kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Penalty kick",
+        "label": "Penalty kick; caution (yellow card) the defender for a reckless challenge",
         "isCorrect": true
       },
       {
-        "label": "Award the goal",
+        "label": "Penalty kick; no disciplinary sanction as the tackle was only careless",
         "isCorrect": false
       },
       {
-        "label": "Play continues",
+        "label": "Direct free kick from outside the penalty area; caution (yellow card) the defender",
+        "isCorrect": false
+      },
+      {
+        "label": "Penalty kick; sending-off (red card) for serious foul play",
         "isCorrect": false
       }
     ]
@@ -58,19 +58,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Retake the restart",
+        "label": "Throw-in retaken by Team A; caution (yellow card) the Team B player for delaying the restart of play",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick to Team A from the location of the throw-in",
+        "isCorrect": false
+      },
+      {
+        "label": "Throw-in retaken by Team A from the same position; no disciplinary sanction",
         "isCorrect": true
       },
       {
-        "label": "Direct free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Indirect free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Play continues",
+        "label": "Play continues; the throw-in was taken and the ball is in play",
         "isCorrect": false
       }
     ]
@@ -83,20 +83,20 @@
     ],
     "answerOptions": [
       {
-        "label": "Penalty kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Play continues",
-        "isCorrect": false
-      },
-      {
-        "label": "Indirect free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Direct free kick",
+        "label": "Direct free kick to the defending team; no disciplinary sanction",
         "isCorrect": true
+      },
+      {
+        "label": "Direct free kick to the defending team; caution (yellow card) for deliberately handling the ball",
+        "isCorrect": false
+      },
+      {
+        "label": "Corner kick to the attacking team; the ball was clearly about to leave the field of play",
+        "isCorrect": false
+      },
+      {
+        "label": "Indirect free kick to the defending team; the handling was not an attempt to score or prevent a goal",
+        "isCorrect": false
       }
     ]
   },
@@ -109,19 +109,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Dropped ball",
+        "label": "Throw-in to Team B; caution (yellow card) for delaying the restart of play",
         "isCorrect": false
       },
       {
-        "label": "Retake the restart",
-        "isCorrect": false
-      },
-      {
-        "label": "Yellow card (Caution)",
+        "label": "Throw-in to Team B; no disciplinary sanction, but the referee must add the time lost to additional time",
         "isCorrect": true
       },
       {
-        "label": "Award the goal",
+        "label": "Indirect free kick to Team B; caution (yellow card) for unsporting behaviour",
+        "isCorrect": false
+      },
+      {
+        "label": "Throw-in to Team B; caution (yellow card) for unsporting behaviour (time-wasting)",
         "isCorrect": false
       }
     ]
@@ -134,20 +134,20 @@
     ],
     "answerOptions": [
       {
-        "label": "See explanation for correct ruling",
+        "label": "Goal disallowed; indirect free kick for offside — the attacker was in an offside position when the through ball was played",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal disallowed; the attacker gained an advantage from being in an offside position during the initial pass",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal disallowed; indirect free kick — both players were part of the same phase of play",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal awarded; a new phase of play began when the winger played the ball, and the attacker was onside when receiving the pass",
         "isCorrect": true
-      },
-      {
-        "label": "Penalty kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Indirect free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Goal kick",
-        "isCorrect": false
       }
     ]
   },
@@ -159,19 +159,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Direct free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Award the goal",
+        "label": "Goal awarded; the attacker was not preventing the goalkeeper from releasing the ball",
         "isCorrect": true
       },
       {
-        "label": "Penalty kick",
+        "label": "Indirect free kick to the goalkeeper's team; the attacker impeded the goalkeeper from releasing the ball from their hands",
         "isCorrect": false
       },
       {
-        "label": "Dropped ball",
+        "label": "Goal disallowed; dropped ball for the goalkeeper's team inside their penalty area",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal kick; the ball rebounded unintentionally and cannot count as a deliberate play on goal",
         "isCorrect": false
       }
     ]
@@ -184,19 +184,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Play continues",
+        "label": "Goal awarded; the deflection off the Team B player creates a new phase of play",
         "isCorrect": false
       },
       {
-        "label": "Penalty kick",
+        "label": "Goal awarded; the ball was last deliberately played by a Team A defender, not an attacker",
         "isCorrect": false
       },
       {
-        "label": "Indirect free kick",
+        "label": "Goal disallowed; indirect free kick for offside — a deflection (whether accidental or deliberate) does not create a new phase of play",
         "isCorrect": true
       },
       {
-        "label": "Direct free kick",
+        "label": "Goal disallowed; direct free kick for the offside offence from where the attacker received the ball",
         "isCorrect": false
       }
     ]
@@ -210,19 +210,19 @@
     ],
     "answerOptions": [
       {
-        "label": "Retake the restart",
+        "label": "Verbal warning only; the captain is the designated player to approach the referee on behalf of the team",
         "isCorrect": false
       },
       {
-        "label": "Award the goal",
-        "isCorrect": false
-      },
-      {
-        "label": "Yellow card (Caution)",
+        "label": "Caution (yellow card) for dissent; a team captain has no special privilege and is subject to the same sanctions as any other player",
         "isCorrect": true
       },
       {
-        "label": "Red card (Sending-off)",
+        "label": "No disciplinary sanction; the captain is permitted to approach the referee to discuss decisions",
+        "isCorrect": false
+      },
+      {
+        "label": "Sending-off (red card) for using offensive, insulting or abusive language towards the referee",
         "isCorrect": false
       }
     ]
@@ -235,20 +235,20 @@
     ],
     "answerOptions": [
       {
-        "label": "Retake the restart",
+        "label": "Goal awarded; the attacker did not make contact with the ball so there is no offside offence",
         "isCorrect": false
       },
       {
-        "label": "Indirect free kick",
+        "label": "Goal disallowed; direct free kick for unsporting behaviour by the attacker for deliberately distracting the goalkeeper",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal awarded; the goalkeeper's failure to save is not caused by the offside-position attacker",
+        "isCorrect": false
+      },
+      {
+        "label": "Goal disallowed; indirect free kick for offside — the attacker clearly attempted to play the ball close to the goalkeeper, impacting the opponent",
         "isCorrect": true
-      },
-      {
-        "label": "Direct free kick",
-        "isCorrect": false
-      },
-      {
-        "label": "Penalty kick",
-        "isCorrect": false
       }
     ]
   }
