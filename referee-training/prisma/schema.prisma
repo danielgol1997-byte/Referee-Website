@@ -444,7 +444,9 @@ model VideoTest {
   type            VideoTestType
   totalClips      Int            @default(10)
   passingScore    Int?
+  maxViewsPerClip Int?
   dueDate         DateTime?
+  adminFilters    Json?
   isActive        Boolean        @default(true)
   createdById     String?
   createdAt       DateTime       @default(now())
@@ -477,6 +479,8 @@ model VideoTestSession {
   videoTestId     String
   clipIds         String[]         // ordered video clip IDs
   totalClips      Int              @default(0)
+  maxViewsPerClip Int?
+  clipViewCounts  Json?
   score           Int?
   completedAt     DateTime?
   createdAt       DateTime        @default(now())

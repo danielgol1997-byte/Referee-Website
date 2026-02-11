@@ -16,7 +16,7 @@ import {
 
 const navItems = [
   { href: "/laws", label: "Laws Of The Game" },
-  { href: "/practice", label: "Referees Practice" },
+  { href: "/practice", label: "Referee Practice" },
   { href: "/practice/var", label: "VAR Practice" },
   { href: "/practice/ar", label: "A.R. Practice" },
   { href: "/library/videos", label: "Video Library" },

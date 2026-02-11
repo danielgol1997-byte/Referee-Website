@@ -57,9 +57,19 @@ export function buildVideoClipWhereForUser(filters: VideoTagFilters) {
   } satisfies Prisma.VideoClipWhereInput;
 }
 
-export function buildVideoClipWhereForAdmin(filters: AdminVideoTagFilters) {
+export function buildVideoClipWhereForAdmin(
+  filters: AdminVideoTagFilters,
+  options?: { excludeTagCategory?: string }
+) {
+  const { excludeTagCategory } = options ?? {};
+  const customTagFilters = filters.customTagFilters ?? {};
+  const filtersToApply =
+    excludeTagCategory && customTagFilters[excludeTagCategory]
+      ? { ...customTagFilters, [excludeTagCategory]: undefined }
+      : customTagFilters;
+
   const clauses = buildTagClauses({
-    customTagFilters: filters.customTagFilters,
+    customTagFilters: filtersToApply,
   });
 
   const where: Prisma.VideoClipWhereInput = {

@@ -682,7 +682,7 @@ export function MandatoryTestList({ refreshKey = 0 }: { refreshKey?: number }) {
                           onClick={() => toggleActive(test.id, test.isActive)}
                           disabled={actionLoading === test.id}
                           className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-dark-700 transition-colors disabled:opacity-50"
-                          title={test.isActive ? "Hide Test (Draft Mode)" : "Show Test (Make Visible)"}
+                          title={test.isActive ? "Currently visible — click to hide" : "Currently hidden — click to show"}
                         >
                           {test.isActive ? (
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

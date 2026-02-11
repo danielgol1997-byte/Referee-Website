@@ -16,6 +16,7 @@ export default function PracticePage() {
   const [earliestDueDate, setEarliestDueDate] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"available" | "mandatory" | "create">("available");
   const [poolRefreshKey, setPoolRefreshKey] = useState(0);
+  const [focusMyTestId, setFocusMyTestId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/tests/videos/mandatory")
@@ -44,6 +45,7 @@ export default function PracticePage() {
       {/* Admin-style Tabs */}
       <div className="flex gap-2 p-1 bg-dark-800/50 border border-dark-600 rounded-xl overflow-x-auto">
         <button
+          type="button"
           onClick={() => setActiveTab("available")}
           className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
             activeTab === "available"
@@ -55,6 +57,7 @@ export default function PracticePage() {
         </button>
         
         <button
+          type="button"
           onClick={() => setActiveTab("mandatory")}
           className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap relative ${
             activeTab === "mandatory"
@@ -77,6 +80,7 @@ export default function PracticePage() {
         </button>
         
         <button
+          type="button"
           onClick={() => setActiveTab("create")}
           className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
             activeTab === "create"
@@ -91,7 +95,7 @@ export default function PracticePage() {
       <div className="min-h-[500px]">
         {activeTab === "available" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <PoolVideoTestsSection refreshKey={poolRefreshKey} />
+            <PoolVideoTestsSection refreshKey={poolRefreshKey} focusMyTestId={focusMyTestId} />
           </div>
         )}
 
@@ -103,7 +107,13 @@ export default function PracticePage() {
 
         {activeTab === "create" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <CreateVideoTestSection onCreated={() => setPoolRefreshKey((k) => k + 1)} />
+            <CreateVideoTestSection
+              onCreated={(testId) => {
+                setPoolRefreshKey((k) => k + 1);
+                if (testId) setFocusMyTestId(testId);
+                setActiveTab("available");
+              }}
+            />
           </div>
         )}
       </div>

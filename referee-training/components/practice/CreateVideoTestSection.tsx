@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { VideoCategoryFilter, type CategoryFilterValue } from "./VideoCategoryFilter";
 
-export function CreateVideoTestSection({ onCreated }: { onCreated?: () => void }) {
+export function CreateVideoTestSection({ onCreated }: { onCreated?: (testId: string) => void }) {
   const [name, setName] = useState("");
   const [filters, setFilters] = useState<CategoryFilterValue>({ categoryTags: [] });
   const [availableCount, setAvailableCount] = useState(0);
   const [loadingCount, setLoadingCount] = useState(false);
   const [totalClips, setTotalClips] = useState(10);
-  const [passingScore, setPassingScore] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -67,17 +66,16 @@ export function CreateVideoTestSection({ onCreated }: { onCreated?: () => void }
         body: JSON.stringify({
           name: name.trim(),
           totalClips,
-          passingScore: passingScore.trim() ? Number(passingScore) : null,
           filters,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Failed to create test");
       setName("");
-      setPassingScore("");
+      setFilters({ categoryTags: [] });
       setTotalClips(10);
       setSuccess("Test created. Find it under Public & my tests.");
-      onCreated?.();
+      onCreated?.(data?.test?.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create test");
     } finally {
@@ -86,85 +84,74 @@ export function CreateVideoTestSection({ onCreated }: { onCreated?: () => void }
   };
 
   return (
-    <form onSubmit={submit} className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-6 space-y-4">
+    <div className="flex justify-center">
+      <form onSubmit={submit} className="w-full max-w-md space-y-5">
+        <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-5 space-y-4">
+          {/* Test name */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Test name</label>
+            <label className="block text-xs font-medium text-text-muted mb-1.5 uppercase tracking-wider">
+              Test name
+            </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My practice test"
               required
-              className="bg-dark-800 border-dark-600 text-white"
+              className="bg-dark-900 border-dark-600 text-white text-sm"
             />
           </div>
 
+          {/* Category filter */}
           <VideoCategoryFilter value={filters} onChange={setFilters} />
 
-          <div className="flex items-center justify-between rounded-xl border border-dark-600 bg-dark-900/60 px-4 py-3">
-            <div>
-              <p className="text-sm font-medium text-text-secondary">Total videos</p>
-              <p className="text-xs text-text-muted">
-                {loadingCount ? "Checking availability…" : `${availableCount} available`}
+          {/* Total videos + Points — side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-dark-600 bg-dark-900/60 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-1.5">
+                Total videos
+              </p>
+              <CompactSpinner
+                value={totalClips}
+                onChange={(val) => setTotalClips(val)}
+                min={1}
+                max={availableCount > 0 ? availableCount : 50}
+              />
+              <p className="text-[10px] text-text-muted mt-1">
+                {loadingCount ? "Checking…" : `${availableCount} available`}
               </p>
             </div>
-            <CompactSpinner
-              value={totalClips}
-              onChange={(val) => setTotalClips(val)}
-              min={1}
-              max={availableCount > 0 ? availableCount : 50}
-            />
-          </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-dark-600 bg-dark-900/60 px-4 py-3">
-            <div>
-              <p className="text-sm font-medium text-text-secondary">Passing score (optional)</p>
-              <p className="text-xs text-text-muted">0–100%</p>
+            <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2.5">
+              <p className="text-[10px] font-medium text-cyan-400 uppercase tracking-wider mb-1.5">
+                Points per question
+              </p>
+              <p className="text-lg font-bold text-white tabular-nums leading-tight">
+                {totalClips > 0 ? (100 / totalClips).toFixed(1) : "—"}
+              </p>
+              <p className="text-[10px] text-text-muted mt-0.5">
+                {totalClips > 0 ? `${totalClips} questions = 100 pts` : "Set at least 1"}
+              </p>
             </div>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={passingScore}
-              onChange={(e) => setPassingScore(e.target.value)}
-              placeholder="70"
-              className="w-24 bg-dark-800 border-dark-600 text-right"
-            />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-6 space-y-3">
-          <p className="text-sm font-medium text-text-secondary">How it works</p>
-          <div className="rounded-xl border border-dark-700 bg-dark-900/60 px-4 py-3 space-y-1">
-            <p className="text-sm text-text-secondary">Randomized selection</p>
-            <p className="text-xs text-text-muted">
-              Videos are randomly chosen from your selected categories.
-            </p>
-          </div>
-          <div className="rounded-xl border border-dark-700 bg-dark-900/60 px-4 py-3 space-y-1">
-            <p className="text-sm text-text-secondary">No spoilers</p>
-            <p className="text-xs text-text-muted">
-              You won’t see the clips before the test starts.
-            </p>
-          </div>
-        </div>
-      </div>
+        {error && <p className="text-sm text-status-danger">{error}</p>}
+        {success && <p className="text-sm text-status-success">{success}</p>}
 
-      {error && <p className="text-sm text-status-danger">{error}</p>}
-      {success && <p className="text-sm text-status-success">{success}</p>}
-      <Button
-        type="submit"
-        disabled={
-          loading ||
-          !hasCategory ||
-          availableCount === 0 ||
-          totalClips <= 0 ||
-          totalClips > availableCount
-        }
-      >
-        {loading ? "Creating…" : "Create and save to my tests"}
-      </Button>
-    </form>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            loading ||
+            !hasCategory ||
+            availableCount === 0 ||
+            totalClips <= 0 ||
+            totalClips > availableCount
+          }
+        >
+          {loading ? "Creating…" : "Create and save to my tests"}
+        </Button>
+      </form>
+    </div>
   );
 }

@@ -34,6 +34,80 @@ interface VideoTestResultsOverlayProps {
   item: Item;
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  restarts: "#4A90E2",
+  sanction: "#EC4899",
+  criteria: "#FFD93D",
+};
+
+function DecisionCard({
+  label,
+  color,
+  userAnswer,
+  expectedAnswer,
+  isCorrect,
+}: {
+  label: string;
+  color: string;
+  userAnswer: string;
+  expectedAnswer: string;
+  isCorrect: boolean;
+}) {
+  return (
+    <div
+      className="rounded-lg p-4 border transition-colors"
+      style={{ borderColor: `${color}30`, backgroundColor: `${color}08` }}
+    >
+      <div
+        className="text-xs font-bold uppercase tracking-widest mb-3 text-center"
+        style={{ color }}
+      >
+        {label}
+      </div>
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
+            Your answer
+          </div>
+          <div
+            className={cn(
+              "text-sm font-medium rounded-md px-2.5 py-1.5 border",
+              isCorrect
+                ? "bg-status-success/10 border-status-success/30 text-status-success"
+                : "bg-status-danger/10 border-status-danger/30 text-status-danger"
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              {isCorrect ? (
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              {userAnswer}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
+            Expected
+          </div>
+          <div
+            className="text-sm font-medium rounded-md px-2.5 py-1.5"
+            style={{ backgroundColor: `${color}12`, color, borderLeft: `3px solid ${color}` }}
+          >
+            {expectedAnswer}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResultsOverlayProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,87 +120,176 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
   if (!isOpen || !item.clip || !item.answer) return null;
 
   const { clip, answer } = item;
-  const correctRestart = clip.correctRestart?.name ?? (clip.playOn || clip.noOffence ? "Play on / No offence" : "—");
+
+  // Did the user select play-on?
+  const userSelectedPlayOn = answer.playOnNoOffence;
+  // Is the correct answer actually play-on/no-offence?
+  const correctIsPlayOn = !!(clip.playOn || clip.noOffence);
+
+  // Expected answers per category (for when the answer is NOT play-on)
+  const correctRestart = clip.correctRestart?.name ?? "—";
   const correctSanction = clip.correctSanction?.name ?? "—";
   const correctCriteria = clip.correctCriteria?.map((t) => t.name).join(", ") || "—";
-  const userRestart = answer.playOnNoOffence ? "Play on / No offence" : (answer.userRestartTag?.name ?? "—");
-  const userSanction = answer.playOnNoOffence ? "—" : (answer.userSanctionTag?.name ?? "—");
-  const userCriteria = answer.playOnNoOffence ? "—" : (answer.userCriteriaTags?.map((t) => t.name).join(", ") || "—");
 
-  const restartOk = answer.playOnNoOffence ? (clip.playOn || clip.noOffence) : (answer.restartTagId && clip.correctRestart ? answer.restartTagId === clip.correctRestart.id : !clip.correctRestart && !answer.restartTagId);
-  const sanctionOk = answer.playOnNoOffence ? true : (answer.sanctionTagId && clip.correctSanction ? answer.sanctionTagId === clip.correctSanction.id : !clip.correctSanction && !answer.sanctionTagId);
+  // User answers per category (only meaningful if user didn't select play-on)
+  const userRestart = answer.userRestartTag?.name ?? "—";
+  const userSanction = answer.userSanctionTag?.name ?? "—";
+  const userCriteria = answer.userCriteriaTags?.map((t) => t.name).join(", ") || "—";
+
+  // Per-category correctness (only when user did NOT select play-on)
+  const restartOk = !userSelectedPlayOn &&
+    (answer.restartTagId && clip.correctRestart ? answer.restartTagId === clip.correctRestart.id : !clip.correctRestart && !answer.restartTagId);
+  const sanctionOk = !userSelectedPlayOn &&
+    (answer.sanctionTagId && clip.correctSanction ? answer.sanctionTagId === clip.correctSanction.id : !clip.correctSanction && !answer.sanctionTagId);
   const criteriaCorrectSet = new Set(clip.correctCriteria?.map((c) => c.id) ?? []);
   const userCriteriaSet = new Set(answer.criteriaTagIds ?? []);
-  const criteriaOk = answer.playOnNoOffence ? true : (criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) || (criteriaCorrectSet.size === userCriteriaSet.size && [...criteriaCorrectSet].every((id) => userCriteriaSet.has(id)));
+  const criteriaOk = !userSelectedPlayOn &&
+    ((criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) || (criteriaCorrectSet.size === userCriteriaSet.size && [...criteriaCorrectSet].every((id) => userCriteriaSet.has(id))));
+
+  // Overall play-on correctness
+  const playOnOk = userSelectedPlayOn && correctIsPlayOn;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100100]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100100] transition-opacity" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto z-[100110]">
         <div
           className={cn(
-            "relative w-full max-w-3xl backdrop-blur-xl bg-gradient-to-br from-[#0F1419]/70 to-[#1E293B]/80",
-            "rounded-lg shadow-2xl border-2",
-            answer.isCorrect ? "border-status-success/60" : answer.isPartial ? "border-amber-500/60" : "border-status-danger/60"
+            "relative w-full max-w-2xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
+            "rounded-xl shadow-2xl border",
+            "animate-in fade-in zoom-in-95 duration-200",
+            answer.isCorrect ? "border-status-success/40" : "border-status-danger/40"
           )}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Header */}
           <div className={cn(
-            "px-8 pt-8 pb-4 border-b-4",
-            answer.isCorrect ? "border-status-success" : answer.isPartial ? "border-amber-500" : "border-status-danger"
+            "px-6 pt-6 pb-3 border-b-2",
+            answer.isCorrect ? "border-status-success/60" : "border-status-danger/60"
           )}>
-            <h2 className="text-xl font-bold uppercase tracking-wider text-center text-white">
+            <h2 className="text-lg font-bold text-center text-white line-clamp-2">
               {clip.title}
             </h2>
-            <p className={cn(
-              "text-center text-sm font-semibold mt-1",
-              answer.isCorrect ? "text-status-success" : answer.isPartial ? "text-amber-400" : "text-status-danger"
-            )}>
-              {answer.isCorrect ? "Correct" : answer.isPartial ? "Partially correct" : "Incorrect"}
-            </p>
-          </div>
-
-          <div className="px-8 py-6 space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 text-center">Restart</div>
-                <div className="space-y-1 text-sm">
-                  <div className={cn(restartOk ? "text-status-success" : "text-status-danger")}>
-                    Your answer: {userRestart}
-                  </div>
-                  {!restartOk && <div className="text-status-success">Correct: {correctRestart}</div>}
-                  {restartOk && <div className="text-status-success">Correct</div>}
-                </div>
-              </div>
-              <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 text-center">Sanction</div>
-                <div className="space-y-1 text-sm">
-                  <div className={cn(sanctionOk ? "text-status-success" : "text-status-danger")}>
-                    Your answer: {userSanction}
-                  </div>
-                  {!sanctionOk && <div className="text-status-success">Correct: {correctSanction}</div>}
-                  {sanctionOk && <div className="text-status-success">Correct</div>}
-                </div>
-              </div>
-              <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 text-center">Criteria</div>
-                <div className="space-y-1 text-sm">
-                  <div className={cn(criteriaOk ? "text-status-success" : "text-status-danger")}>
-                    Your answer: {userCriteria || "—"}
-                  </div>
-                  {!criteriaOk && <div className="text-status-success">Correct: {correctCriteria}</div>}
-                  {criteriaOk && <div className="text-status-success">Correct</div>}
-                </div>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                  answer.isCorrect
+                    ? "bg-status-success/15 text-status-success border border-status-success/30"
+                    : "bg-status-danger/15 text-status-danger border border-status-danger/30"
+                )}
+              >
+                {answer.isCorrect ? (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+                {answer.isCorrect ? "Correct" : "Incorrect"}
               </div>
             </div>
           </div>
 
-          <div className="px-8 py-6 border-t border-accent/20 flex justify-end">
+          <div className="px-6 py-5 space-y-4">
+            {/* ─── Play on / No offence — shown when user selected it ─── */}
+            {userSelectedPlayOn && (
+              <div className="rounded-lg border border-dark-600 bg-dark-800/60 p-4">
+                <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center text-white">
+                  Your answer
+                </div>
+                <div
+                  className={cn(
+                    "text-sm font-semibold rounded-md px-3 py-2 border flex items-center justify-center gap-2",
+                    playOnOk
+                      ? "bg-status-success/10 border-status-success/30 text-status-success"
+                      : "bg-status-danger/10 border-status-danger/30 text-status-danger"
+                  )}
+                >
+                  {playOnOk ? (
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  Play on / No offence
+                </div>
+              </div>
+            )}
+
+            {/* ─── Per-category cards ─── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {userSelectedPlayOn ? (
+                <>
+                  {/* User chose play-on — show expected answers in each category */}
+                  <DecisionCard
+                    label="Restart"
+                    color={CATEGORY_COLORS.restarts}
+                    userAnswer="Play on / No offence"
+                    expectedAnswer={correctIsPlayOn ? "Play on / No offence" : correctRestart}
+                    isCorrect={playOnOk}
+                  />
+                  <DecisionCard
+                    label="Sanction"
+                    color={CATEGORY_COLORS.sanction}
+                    userAnswer="—"
+                    expectedAnswer={correctIsPlayOn ? "—" : correctSanction}
+                    isCorrect={playOnOk}
+                  />
+                  <DecisionCard
+                    label="Criteria"
+                    color={CATEGORY_COLORS.criteria}
+                    userAnswer="—"
+                    expectedAnswer={correctIsPlayOn ? "—" : correctCriteria}
+                    isCorrect={playOnOk}
+                  />
+                </>
+              ) : (
+                <>
+                  {/* User answered with categories */}
+                  <DecisionCard
+                    label="Restart"
+                    color={CATEGORY_COLORS.restarts}
+                    userAnswer={userRestart}
+                    expectedAnswer={correctIsPlayOn ? "Play on / No offence" : correctRestart}
+                    isCorrect={correctIsPlayOn ? false : !!restartOk}
+                  />
+                  <DecisionCard
+                    label="Sanction"
+                    color={CATEGORY_COLORS.sanction}
+                    userAnswer={userSanction}
+                    expectedAnswer={correctIsPlayOn ? "—" : correctSanction}
+                    isCorrect={correctIsPlayOn ? false : !!sanctionOk}
+                  />
+                  <DecisionCard
+                    label="Criteria"
+                    color={CATEGORY_COLORS.criteria}
+                    userAnswer={userCriteria || "—"}
+                    expectedAnswer={correctIsPlayOn ? "—" : correctCriteria}
+                    isCorrect={correctIsPlayOn ? false : !!criteriaOk}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-dark-600 flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-3 bg-accent hover:bg-accent/90 text-dark-900 font-semibold text-sm uppercase tracking-wide rounded-lg"
+              className={cn(
+                "px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all duration-200",
+                "bg-accent hover:bg-accent/90 text-dark-900",
+                "hover:shadow-lg hover:shadow-accent/20"
+              )}
             >
-              Close (I)
+              Close
+              <kbd className="ml-2 text-[10px] font-mono opacity-60 bg-dark-900/20 px-1.5 py-0.5 rounded">I</kbd>
             </button>
           </div>
         </div>

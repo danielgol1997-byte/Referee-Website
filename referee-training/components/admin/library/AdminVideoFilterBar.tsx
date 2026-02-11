@@ -77,6 +77,7 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
   const [filterOrder, setFilterOrder] = useState<FilterType[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
+  const [optionCounts, setOptionCounts] = useState<Record<string, Record<string, number>>>({});
   const settingsRef = useRef<HTMLDivElement>(null);
 
   // Load saved preferences after hydration
@@ -174,6 +175,25 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
       return next;
     });
   }, [customFilterTypes]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/library/filter-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope: "admin", filters }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setOptionCounts(data?.countsByCategory ?? {});
+      } catch {
+        // Keep UI functional even if counts fail
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   // Close settings on click outside
   useEffect(() => {
@@ -348,6 +368,7 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
                 onToggle={() => setActiveDropdown(activeDropdown === type ? null : type)}
                 onClose={() => setActiveDropdown(null)}
                 filteredCriteriaTags={filteredCriteriaTags}
+                optionCounts={optionCounts}
               />
             );
           })}
@@ -356,6 +377,7 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
         {/* Settings Gear */}
         <div className="relative flex-shrink-0" ref={settingsRef}>
           <button
+            type="button"
             onClick={() => setShowSettings(!showSettings)}
             className={cn(
               "p-2 rounded-lg bg-dark-900 border border-dark-600 transition-colors",
@@ -415,6 +437,7 @@ export function AdminVideoFilterBar({ filters, onFiltersChange }: AdminVideoFilt
               </p>
               {customFilterCount > 0 && (
                 <button
+                  type="button"
                   onClick={clearAllTagFilters}
                   className="mt-3 w-full text-xs font-semibold text-cyan-500 hover:text-cyan-400 transition-colors uppercase tracking-wider"
                 >
@@ -448,7 +471,8 @@ function FilterDropdown({
   isOpen,
   onToggle,
   onClose,
-  filteredCriteriaTags
+  filteredCriteriaTags,
+  optionCounts,
 }: {
   type: FilterType;
   config: { label: string; color: string; customSlug?: string };
@@ -461,6 +485,7 @@ function FilterDropdown({
   onToggle: () => void;
   onClose: () => void;
   filteredCriteriaTags: Tag[];
+  optionCounts: Record<string, Record<string, number>>;
 }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -476,13 +501,25 @@ function FilterDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
+  const isCategoryFilter = config.customSlug === CATEGORY_TAG_CATEGORY_SLUG;
   const isCriteriaFilter = config.customSlug === CRITERIA_TAG_CATEGORY_SLUG;
   const selectedCategoryTags = filters.customTagFilters?.[CATEGORY_TAG_CATEGORY_SLUG] || [];
   const isCriteriaDisabled = isCriteriaFilter && selectedCategoryTags.length === 0;
-  
-  // Use filtered criteria if this is criteria filter, otherwise use normal tags
+
+  // Category: always show all options. Restarts/Criteria/Sanctions: when categories selected, only show options that exist in those videos.
   const rawOptions = isCriteriaFilter ? filteredCriteriaTags : (config.customSlug ? (tagCategoryMap[config.customSlug]?.tags || []) : []);
-  const options = rawOptions;
+  const counts = optionCounts[config.customSlug || ""] ?? {};
+
+  const options = isCategoryFilter
+    ? rawOptions
+    : rawOptions.filter((opt: Tag) => {
+        const count = counts[opt.slug] ?? 0;
+        const isSelected = (filters.customTagFilters?.[config.customSlug || ""] || []).includes(opt.slug);
+        // Always include selected values so user can remove them
+        if (isSelected) return true;
+        // When categories selected, only show options with videos in the filtered set
+        return selectedCategoryTags.length === 0 || count > 0;
+      });
   const selectedValues = config.customSlug ? (filters.customTagFilters?.[config.customSlug] || []) : [];
 
   // Get selected items
@@ -496,9 +533,10 @@ function FilterDropdown({
   }).filter(Boolean);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* Dropdown Button */}
       <button
+        type="button"
         onClick={onToggle}
         disabled={isLoading || isCriteriaDisabled}
         className={cn(
@@ -543,6 +581,7 @@ function FilterDropdown({
               }}
             >
               <button
+                type="button"
                 onClick={() => onRemove(type, item.value)}
                 className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg hover:scale-110 transition-transform"
                 style={{ backgroundColor: item.color }}
@@ -558,6 +597,7 @@ function FilterDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div 
+          ref={dropdownRef}
           className="absolute z-50 mt-1 w-64 max-h-80 overflow-y-auto rounded-lg bg-dark-900 border-2 shadow-2xl"
           style={{ 
             borderColor: config.color,
@@ -571,9 +611,11 @@ function FilterDropdown({
                 const label = option.name;
                 const itemColor = option.color || config.color;
                 const isSelected = selectedValues.includes(value);
+                const count = optionCounts[config.customSlug || ""]?.[value] ?? 0;
 
                 return (
                   <button
+                    type="button"
                     key={value}
                     onClick={() => {
                       if (isSelected) {
@@ -595,6 +637,7 @@ function FilterDropdown({
                       style={{ backgroundColor: itemColor }}
                     />
                     <span className="text-sm text-text-primary flex-1">{label}</span>
+                    <span className="text-xs text-text-muted tabular-nums">({count})</span>
                     {isSelected && (
                       <svg className="w-4 h-4" style={{ color: itemColor }} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

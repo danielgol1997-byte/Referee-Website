@@ -8,6 +8,9 @@ interface CompactSpinnerProps {
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  allowInfinity?: boolean;
+  infinityValue?: number;
+  infinitySymbol?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -17,6 +20,9 @@ export function CompactSpinner({
   onChange,
   min = 1,
   max = 100,
+  allowInfinity = false,
+  infinityValue = 0,
+  infinitySymbol = "∞",
   disabled = false,
   className,
 }: CompactSpinnerProps) {
@@ -31,22 +37,38 @@ export function CompactSpinner({
   // Sync input value with prop
   React.useEffect(() => {
     if (!isEditing) {
-      setInputValue(value.toString());
+      if (allowInfinity && value === infinityValue) {
+        setInputValue("");
+      } else {
+        setInputValue(value.toString());
+      }
     }
-  }, [value, isEditing]);
+  }, [value, isEditing, allowInfinity, infinityValue]);
 
-  const clamp = (val: number) => Math.max(min, Math.min(max, Math.round(val)));
+  const minFinite = allowInfinity ? Math.max(infinityValue + 1, min) : min;
+  const clamp = (val: number) => {
+    const rounded = Math.round(val);
+    if (allowInfinity && rounded <= infinityValue) return infinityValue;
+    return Math.max(minFinite, Math.min(max, rounded));
+  };
 
   const increment = () => {
-    if (!disabled && value < max) {
-      onChange(clamp(value + 1));
+    if (disabled) return;
+    if (allowInfinity && value === infinityValue) {
+      onChange(minFinite);
+      return;
     }
+    if (value < max) onChange(clamp(value + 1));
   };
 
   const decrement = () => {
-    if (!disabled && value > min) {
-      onChange(clamp(value - 1));
+    if (disabled) return;
+    if (allowInfinity && value === infinityValue) return;
+    if (allowInfinity && value <= minFinite) {
+      onChange(infinityValue);
+      return;
     }
+    if (value > minFinite) onChange(clamp(value - 1));
   };
 
   // Handle wheel scroll - locks scroll when hovering
@@ -56,10 +78,20 @@ export function CompactSpinner({
       e.preventDefault();
       e.stopPropagation();
       
+      if (allowInfinity && value === infinityValue) {
+        if (e.deltaY < 0) onChange(minFinite);
+        return;
+      }
+
       const delta = e.deltaY > 0 ? -1 : 1;
-      onChange(clamp(value + delta));
+      const next = value + delta;
+      if (allowInfinity && next <= infinityValue) {
+        onChange(infinityValue);
+        return;
+      }
+      onChange(clamp(next));
     },
-    [disabled, value, onChange, min, max]
+    [allowInfinity, disabled, value, onChange, minFinite, infinityValue]
   );
 
   // Attach wheel listener with passive: false to prevent page scroll
@@ -111,11 +143,19 @@ export function CompactSpinner({
 
   const handleInputBlur = () => {
     setIsEditing(false);
+    if (allowInfinity && inputValue.trim() === "") {
+      onChange(infinityValue);
+      return;
+    }
     const numVal = parseInt(inputValue, 10);
     if (!isNaN(numVal)) {
       onChange(clamp(numVal));
     } else {
-      setInputValue(value.toString());
+      if (allowInfinity && value === infinityValue) {
+        setInputValue("");
+      } else {
+        setInputValue(value.toString());
+      }
     }
   };
 
@@ -123,7 +163,11 @@ export function CompactSpinner({
     if (e.key === "Enter") {
       inputRef.current?.blur();
     } else if (e.key === "Escape") {
-      setInputValue(value.toString());
+      if (allowInfinity && value === infinityValue) {
+        setInputValue("");
+      } else {
+        setInputValue(value.toString());
+      }
       setIsEditing(false);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -137,6 +181,11 @@ export function CompactSpinner({
   const handleDoubleClick = () => {
     if (disabled) return;
     setIsEditing(true);
+    if (allowInfinity && value === infinityValue) {
+      setInputValue("");
+    } else {
+      setInputValue(value.toString());
+    }
     setTimeout(() => {
       inputRef.current?.select();
     }, 0);
@@ -187,7 +236,7 @@ export function CompactSpinner({
           />
         ) : (
           <span className="text-lg font-bold text-accent">
-            {value}
+            {allowInfinity && value === infinityValue ? infinitySymbol : value}
           </span>
         )}
       </div>
@@ -197,7 +246,7 @@ export function CompactSpinner({
         <button
           type="button"
           onClick={increment}
-          disabled={disabled || value >= max}
+          disabled={disabled || (!allowInfinity && value >= max) || (allowInfinity && value !== infinityValue && value >= max)}
           className={cn(
             "flex items-center justify-center",
             "w-6 h-4 rounded",
@@ -217,7 +266,7 @@ export function CompactSpinner({
         <button
           type="button"
           onClick={decrement}
-          disabled={disabled || value <= min}
+          disabled={disabled || (allowInfinity ? value === infinityValue : value <= minFinite)}
           className={cn(
             "flex items-center justify-center",
             "w-6 h-4 rounded",

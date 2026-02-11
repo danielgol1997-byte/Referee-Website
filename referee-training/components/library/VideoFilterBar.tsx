@@ -126,6 +126,7 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
   }, []);
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
+  const [optionCounts, setOptionCounts] = useState<Record<string, Record<string, number>>>({});
   const settingsRef = useRef<HTMLDivElement>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
 
@@ -245,6 +246,24 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
       return prev;
     });
   }, [customFilterTypes]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/library/filter-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope: "user", filters }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setOptionCounts(data?.countsByCategory ?? {});
+      } catch {
+        // Keep UI functional if counts fetch fails
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   // Close settings on click outside
   useEffect(() => {
@@ -466,6 +485,7 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
                     isOpen={activeDropdown === type}
                     onToggle={() => setActiveDropdown(activeDropdown === type ? null : type)}
                     onClose={() => setActiveDropdown(null)}
+                    optionCounts={optionCounts}
                   />
                 );
               })}
@@ -572,7 +592,8 @@ function FilterDropdown({
   filteredCriteriaTags,
   isOpen,
   onToggle,
-  onClose
+  onClose,
+  optionCounts,
 }: {
   type: FilterType;
   config: { label: string; color: string; key: keyof VideoFilters; customSlug?: string };
@@ -585,6 +606,7 @@ function FilterDropdown({
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
+  optionCounts: Record<string, Record<string, number>>;
 }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -709,6 +731,19 @@ function FilterDropdown({
                 const label = option.name;
                 const itemColor = option.color || config.color;
                 const isSelected = selectedValues.includes(value);
+                const countCategory =
+                  type === 'category'
+                    ? CATEGORY_TAG_CATEGORY_SLUG
+                    : type === 'criteria'
+                      ? CRITERIA_TAG_CATEGORY_SLUG
+                      : type === 'restart'
+                        ? RESTARTS_TAG_CATEGORY_SLUG
+                        : type === 'sanction'
+                          ? SANCTION_TAG_CATEGORY_SLUG
+                          : type === 'scenario'
+                            ? SCENARIO_TAG_CATEGORY_SLUG
+                            : config.customSlug || '';
+                const count = optionCounts[countCategory]?.[value] ?? 0;
 
                 return (
                   <button
@@ -733,6 +768,7 @@ function FilterDropdown({
                       style={{ backgroundColor: itemColor }}
                     />
                     <span className="text-sm text-text-primary flex-1">{label}</span>
+                    <span className="text-xs text-text-muted tabular-nums">({count})</span>
                     {isSelected && (
                       <svg className="w-4 h-4" style={{ color: itemColor }} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

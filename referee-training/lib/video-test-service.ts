@@ -66,6 +66,8 @@ export async function createVideoTestSession(userId: string, videoTestId: string
       videoTestId,
       clipIds,
       totalClips: clipIds.length,
+      maxViewsPerClip: videoTest.maxViewsPerClip ?? null,
+      clipViewCounts: {},
     },
   });
   return { session };
@@ -92,8 +94,8 @@ function scoreAnswer(
     return { isCorrect: correct, isPartial: false };
   }
 
-  let restartOk = !correctRestart ? !answer.restartTagId : answer.restartTagId === correctRestart.tagId;
-  let sanctionOk = !correctSanction ? !answer.sanctionTagId : answer.sanctionTagId === correctSanction.tagId;
+  const restartOk = !correctRestart ? !answer.restartTagId : answer.restartTagId === correctRestart.tagId;
+  const sanctionOk = !correctSanction ? !answer.sanctionTagId : answer.sanctionTagId === correctSanction.tagId;
   const correctCriteriaIds = new Set(correctCriteria.map((c) => c.tagId));
   const userCriteriaSet = new Set(answer.criteriaTagIds ?? []);
   const criteriaOk =
@@ -101,9 +103,8 @@ function scoreAnswer(
       ? userCriteriaSet.size === 0
       : correctCriteriaIds.size === userCriteriaSet.size && [...correctCriteriaIds].every((id) => userCriteriaSet.has(id));
 
-  const matchCount = [restartOk, sanctionOk, criteriaOk].filter(Boolean).length;
-  const isCorrect = matchCount === 3;
-  const isPartial = matchCount >= 1 && !isCorrect;
+  const isCorrect = restartOk && sanctionOk && criteriaOk;
+  const isPartial = false;
   return { isCorrect, isPartial };
 }
 
@@ -146,8 +147,14 @@ export async function submitVideoTestAnswers(
 
   for (const clipId of clipIds) {
     const clip = clipMap.get(clipId);
-    const answer = answerMap.get(clipId);
-    if (!clip || !answer) continue;
+    if (!clip) continue;
+    const answer = answerMap.get(clipId) ?? {
+      videoClipId: clipId,
+      playOnNoOffence: false,
+      restartTagId: null,
+      sanctionTagId: null,
+      criteriaTagIds: [],
+    };
 
     const tagsForScoring = clip.tags.map((vt) => ({
       tagId: vt.tagId,
@@ -174,12 +181,19 @@ export async function submitVideoTestAnswers(
   await prisma.videoTestAnswer.createMany({ data: toCreate });
 
   const correctCount = toCreate.filter((a) => a.isCorrect).length;
+  const scorePercent = session.totalClips > 0 ? Math.round((correctCount / session.totalClips) * 100) : 0;
   await prisma.videoTestSession.update({
     where: { id: sessionId },
     data: { score: correctCount, completedAt: new Date() },
   });
 
   if (session.videoTest.type === VideoTestType.MANDATORY) {
+    const passingScore = session.videoTest.passingScore;
+    const passed =
+      typeof passingScore === "number"
+        ? scorePercent >= passingScore
+        : null;
+
     await prisma.videoTestCompletion.upsert({
       where: {
         userId_videoTestId: { userId, videoTestId: session.videoTestId },
@@ -190,17 +204,89 @@ export async function submitVideoTestAnswers(
         videoTestSessionId: sessionId,
         completedAt: new Date(),
         score: correctCount,
-        passed: undefined,
+        passed,
       },
       update: {
         videoTestSessionId: sessionId,
         completedAt: new Date(),
         score: correctCount,
+        passed,
       },
     });
   }
 
   return { correctCount, totalClips: session.totalClips };
+}
+
+export async function consumeClipView(
+  userId: string,
+  sessionId: string,
+  videoClipId: string
+) {
+  const session = await prisma.videoTestSession.findUnique({
+    where: { id: sessionId },
+    select: {
+      id: true,
+      userId: true,
+      clipIds: true,
+      maxViewsPerClip: true,
+      clipViewCounts: true,
+      completedAt: true,
+    },
+  });
+
+  if (!session || session.userId !== userId) {
+    throw new Error("Session not found");
+  }
+  if (session.completedAt) {
+    throw new Error("Session already submitted");
+  }
+  if (!session.clipIds.includes(videoClipId)) {
+    throw new Error("Clip is not part of this session");
+  }
+
+  const maxViews = session.maxViewsPerClip;
+  if (maxViews === null || maxViews === undefined || maxViews <= 0) {
+    return {
+      allowed: true,
+      remaining: null as number | null,
+      used: null as number | null,
+      maxViewsPerClip: null as number | null,
+    };
+  }
+
+  const existingCountsRaw = (session.clipViewCounts ?? {}) as Record<string, unknown>;
+  const existingCounts: Record<string, number> = {};
+  for (const [key, value] of Object.entries(existingCountsRaw)) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      existingCounts[key] = value;
+    }
+  }
+
+  const used = existingCounts[videoClipId] ?? 0;
+  if (used >= maxViews) {
+    return {
+      allowed: false,
+      remaining: 0,
+      used,
+      maxViewsPerClip: maxViews,
+    };
+  }
+
+  const updatedUsed = used + 1;
+  const nextCounts = { ...existingCounts, [videoClipId]: updatedUsed };
+
+  await prisma.videoTestSession.update({
+    where: { id: sessionId },
+    data: { clipViewCounts: nextCounts },
+  });
+
+  return {
+    allowed: true,
+    remaining: Math.max(maxViews - updatedUsed, 0),
+    used: updatedUsed,
+    maxViewsPerClip: maxViews,
+  };
 }
 
 export async function getVideoTestSessionSummary(userId: string, sessionId: string) {

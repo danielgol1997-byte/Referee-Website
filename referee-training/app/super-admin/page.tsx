@@ -6,7 +6,7 @@ import { VideoTestsAdminPanel } from "@/components/admin/video-tests/VideoTestsA
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
-  { label: "Referees Practice", value: "referee" },
+  { label: "Referee Practice", value: "referee" },
   { label: "VAR Practice", value: "var" },
   { label: "AR Practice", value: "ar" },
   { label: "Video Library", value: "library" },
@@ -32,7 +32,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
         {/* Laws of the Game - Manage text-based quiz questions */}
         {activeTab === "laws" && <LawsAdminPanel />}
         
-        {/* Referees Practice - Create and manage video tests (mandatory, public) */}
+        {/* Referee Practice - Create and manage video tests (mandatory, public) */}
         {activeTab === "referee" && <VideoTestsAdminPanel />}
         
         {/* Coming Soon: VAR Practice */}

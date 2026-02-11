@@ -1,10 +1,38 @@
 import { test as setup, expect } from '@playwright/test';
 import path from 'path';
+import { hash } from "bcryptjs";
+import { prisma } from "../lib/prisma";
 
 const authFile = path.join(__dirname, '../playwright/.auth/user.json');
 
 setup('authenticate as super admin', async ({ page, context }) => {
   console.log('Starting authentication setup...');
+  const email = process.env.PW_SUPER_ADMIN_EMAIL || "super@example.com";
+  const password = process.env.PW_SUPER_ADMIN_PASSWORD || "super123";
+
+  // Ensure deterministic credentials auth for Playwright.
+  const passwordHash = await hash(password, 10);
+  await prisma.user.upsert({
+    where: { email },
+    create: {
+      email,
+      name: "Playwright Super Admin",
+      password: passwordHash,
+      role: "SUPER_ADMIN",
+      authProvider: "credentials",
+      profileComplete: true,
+      country: "England",
+      isActive: true,
+    },
+    update: {
+      password: passwordHash,
+      role: "SUPER_ADMIN",
+      authProvider: "credentials",
+      profileComplete: true,
+      country: "England",
+      isActive: true,
+    },
+  });
   
   // Method: Use NextAuth callback URL with credentials to authenticate
   // This simulates what NextAuth does internally when you submit credentials
@@ -23,8 +51,8 @@ setup('authenticate as super admin', async ({ page, context }) => {
   // Step 3: Submit credentials with CSRF token
   const signinResponse = await context.request.post('http://localhost:3000/api/auth/callback/credentials', {
     form: {
-      email: 'super@example.com',
-      password: 'super123',
+      email,
+      password,
       csrfToken: csrfToken,
       callbackUrl: 'http://localhost:3000/super-admin',
       json: 'true',
@@ -32,6 +60,7 @@ setup('authenticate as super admin', async ({ page, context }) => {
   });
 
   console.log(`✓ Signin response status: ${signinResponse.status()}`);
+  expect(signinResponse.status()).toBe(200);
 
   // Step 4: Navigate to verify authentication
   await page.goto('http://localhost:3000/super-admin');

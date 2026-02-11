@@ -17,6 +17,11 @@ interface VideoTestCardProps {
   onStart: (test: VideoTestCardData) => void;
   isStarting?: boolean;
   dueDateLabel?: string | null;
+  canManage?: boolean;
+  onEdit?: (test: VideoTestCardData) => void;
+  onDelete?: (test: VideoTestCardData) => void;
+  isDeleting?: boolean;
+  highlighted?: boolean;
 }
 
 export const VideoTestCard = memo(function VideoTestCard({
@@ -24,6 +29,11 @@ export const VideoTestCard = memo(function VideoTestCard({
   onStart,
   isStarting = false,
   dueDateLabel,
+  canManage = false,
+  onEdit,
+  onDelete,
+  isDeleting = false,
+  highlighted = false,
 }: VideoTestCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -61,6 +71,7 @@ export const VideoTestCard = memo(function VideoTestCard({
         "group relative rounded-2xl overflow-hidden",
         "bg-dark-900 border border-dark-600",
         effectiveHover ? "border-accent/40 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "shadow-2xl",
+        highlighted && "ring-2 ring-cyan-400/80 border-cyan-400/80",
         "transform-gpu will-change-transform",
         "aspect-video min-h-[200px]"
       )}
@@ -101,11 +112,11 @@ export const VideoTestCard = memo(function VideoTestCard({
         </div>
         <button
           onClick={() => onStart(test)}
-          disabled={isStarting}
+          disabled={isStarting || isDeleting}
           className={cn(
             "mt-3 w-full py-2.5 rounded-lg font-semibold text-dark-900 transition-all",
             "bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20",
-            isStarting && "opacity-70 cursor-not-allowed"
+            (isStarting || isDeleting) && "opacity-70 cursor-not-allowed"
           )}
         >
           {isStarting ? (
@@ -117,6 +128,34 @@ export const VideoTestCard = memo(function VideoTestCard({
             "Start test"
           )}
         </button>
+        {canManage && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onEdit?.(test)}
+              disabled={isStarting || isDeleting}
+              className={cn(
+                "py-2 rounded-lg text-xs font-semibold uppercase tracking-wider border transition-colors",
+                "border-dark-500 text-text-secondary hover:text-white hover:border-cyan-500/60 hover:bg-dark-800/60",
+                (isStarting || isDeleting) && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete?.(test)}
+              disabled={isStarting || isDeleting}
+              className={cn(
+                "py-2 rounded-lg text-xs font-semibold uppercase tracking-wider border transition-colors",
+                "border-status-danger/50 text-status-danger hover:bg-status-danger/10",
+                (isStarting || isDeleting) && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

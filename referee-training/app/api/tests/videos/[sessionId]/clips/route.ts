@@ -17,6 +17,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const videoSession = await prisma.videoTestSession.findUnique({
     where: { id: resolvedParams.sessionId },
+    select: {
+      id: true,
+      userId: true,
+      clipIds: true,
+      totalClips: true,
+      maxViewsPerClip: true,
+      clipViewCounts: true,
+    },
   });
 
   if (!videoSession || videoSession.userId !== session.user.id) {
@@ -127,5 +135,7 @@ export async function GET(_request: Request, context: RouteContext) {
     clips: formattedClips.filter(Boolean),
     tagOptions,
     totalClips: videoSession.totalClips,
+    maxViewsPerClip: videoSession.maxViewsPerClip,
+    clipViewCounts: videoSession.clipViewCounts ?? {},
   });
 }

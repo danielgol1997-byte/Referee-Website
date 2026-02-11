@@ -28,14 +28,17 @@ export function VideoCategoryFilter({
   value,
   onChange,
   disabled = false,
+  countScope = "user",
 }: {
   value: CategoryFilterValue;
   onChange: (next: CategoryFilterValue) => void;
   disabled?: boolean;
+  countScope?: "user" | "admin";
 }) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [optionCounts, setOptionCounts] = useState<Record<string, number>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,6 +70,31 @@ export function VideoCategoryFilter({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  // Fetch category counts once on mount (independent of selection, since categories are OR-combined)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/library/filter-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope: countScope,
+            filters:
+              countScope === "admin"
+                ? { customTagFilters: {} }
+                : { categoryTags: [] },
+          }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setOptionCounts(data?.countsByCategory?.category ?? {});
+      } catch {
+        // Keep UI functional even if counts fail
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [countScope]);
+
   const categoryGroup = useMemo(
     () => tagCategories.find((category) => category.slug === CATEGORY_SLUG),
     [tagCategories]
@@ -96,26 +124,35 @@ export function VideoCategoryFilter({
   const labelColor = categoryGroup?.color || "#FF6B6B";
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div className="relative">
       <label className="block text-xs font-medium text-text-muted mb-1.5 uppercase tracking-wider">
-        Category
+        Categories
+        <span className="normal-case tracking-normal font-normal text-text-muted/60 ml-1">
+          (select multiple)
+        </span>
       </label>
       <button
         type="button"
         onClick={() => !disabled && !isLoading && setIsOpen((prev) => !prev)}
         disabled={disabled || isLoading}
         className={cn(
-          "w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 text-sm transition-all",
+          "flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 text-sm transition-all",
           disabled || isLoading
             ? "bg-dark-900/50 border-dark-700 text-text-muted cursor-not-allowed"
             : "bg-dark-900 text-text-primary hover:border-opacity-100 cursor-pointer"
         )}
         style={{ borderColor: `${labelColor}60` }}
       >
-        <span className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: labelColor }} />
-          {selectedItems.length > 0 ? `${selectedItems.length} selected` : "Select category..."}
-        </span>
+        <div className="w-3 h-3 rounded" style={{ backgroundColor: labelColor }} />
+        <span>{selectedItems.length > 0 ? `${selectedItems.length} selected` : "Select categories…"}</span>
+        {selectedItems.length > 0 && (
+          <span
+            className="px-1.5 py-0.5 rounded-full text-xs font-bold"
+            style={{ backgroundColor: `${labelColor}25`, color: labelColor }}
+          >
+            {selectedItems.length}
+          </span>
+        )}
         <svg
           className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")}
           fill="none"
@@ -154,6 +191,7 @@ export function VideoCategoryFilter({
 
       {isOpen && !disabled && (
         <div
+          ref={dropdownRef}
           className="absolute z-50 mt-1 w-64 max-h-80 overflow-y-auto rounded-lg bg-dark-900 border-2 shadow-2xl"
           style={{ borderColor: labelColor, overscrollBehavior: "contain" }}
         >
@@ -173,17 +211,22 @@ export function VideoCategoryFilter({
                     )}
                     style={isSelected ? { backgroundColor: `${itemColor}20` } : {}}
                   >
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: itemColor }} />
+                    {/* checkbox indicator */}
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                        isSelected ? "border-transparent" : "border-dark-500"
+                      )}
+                      style={isSelected ? { backgroundColor: itemColor } : {}}
+                    >
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
                     <span className="text-sm text-text-primary flex-1">{option.name}</span>
-                    {isSelected && (
-                      <svg className="w-4 h-4" style={{ color: itemColor }} fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
+                    <span className="text-xs text-text-muted tabular-nums">({optionCounts[option.slug] ?? 0})</span>
                   </button>
                 );
               })}

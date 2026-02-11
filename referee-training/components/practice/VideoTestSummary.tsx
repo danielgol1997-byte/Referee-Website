@@ -145,9 +145,7 @@ export function VideoTestSummary({
           const clip = item.clip;
           const frameClass = answer?.isCorrect
             ? "border-status-success ring-2 ring-status-success/50"
-            : answer?.isPartial
-              ? "border-amber-500 ring-2 ring-amber-500/50"
-              : "border-status-danger ring-2 ring-status-danger/50";
+            : "border-status-danger ring-2 ring-status-danger/50";
 
           return (
             <div key={clip?.id ?? index} className="rounded-xl border-2 border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden">
@@ -163,7 +161,7 @@ export function VideoTestSummary({
                   <div
                     className={cn(
                       "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-                      answer?.isCorrect ? "bg-status-success/20 text-status-success" : answer?.isPartial ? "bg-amber-500/20 text-amber-400" : "bg-status-danger/20 text-status-danger"
+                      answer?.isCorrect ? "bg-status-success/20 text-status-success" : "bg-status-danger/20 text-status-danger"
                     )}
                   >
                     {answer?.isCorrect ? (

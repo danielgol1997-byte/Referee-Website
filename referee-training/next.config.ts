@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    // Keep workspace root scoped to this app directory.
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       {

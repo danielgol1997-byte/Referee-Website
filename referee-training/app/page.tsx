@@ -125,7 +125,7 @@ function PostLoginPage() {
       backgroundImage: "/card-backgrounds/laws-bg.png"
     },
     { 
-      title: "Referees Practice", 
+      title: "Referee Practice", 
       href: "/practice", 
       description: "Video challenges for Offside, Handball, DOGSO/SPA, and more.",
       gif: "/logo/whistle-practice-new.gif",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type VideoTestAnswerValue = {
@@ -24,6 +24,196 @@ interface VideoTestAnswerOverlayProps {
   onChange: (value: VideoTestAnswerValue) => void;
 }
 
+// Colour palette matching the site's filter system
+const CATEGORY_COLORS: Record<string, string> = {
+  restarts: "#4A90E2",  // blue
+  sanction: "#EC4899",  // pink
+  criteria: "#FFD93D",  // yellow
+};
+
+/* ─── Custom searchable dropdown ─── */
+function FilterDropdown({
+  label,
+  color,
+  options,
+  selectedId,
+  onSelect,
+  disabled,
+}: {
+  label: string;
+  color: string;
+  options: TagOption[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(
+    () => options.filter((t) => t.name.toLowerCase().includes(query.toLowerCase())),
+    [options, query]
+  );
+
+  const selectedTag = useMemo(
+    () => options.find((t) => t.id === selectedId) ?? null,
+    [options, selectedId]
+  );
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Focus search when opened
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const handleSelect = useCallback(
+    (id: string | null) => {
+      onSelect(id);
+      setOpen(false);
+      setQuery("");
+    },
+    [onSelect]
+  );
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Category label */}
+      <div
+        className="text-xs font-bold uppercase tracking-widest mb-2 text-center"
+        style={{ color }}
+      >
+        {label}
+      </div>
+
+      {/* Trigger button */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => { if (!disabled) setOpen(!open); }}
+        className={cn(
+          "w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
+          "border bg-dark-800/80 backdrop-blur-sm",
+          disabled && "opacity-50 cursor-not-allowed",
+          open ? "border-opacity-100 shadow-lg" : "border-dark-600 hover:border-opacity-60"
+        )}
+        style={{
+          borderColor: open ? color : undefined,
+          boxShadow: open ? `0 0 0 1px ${color}40` : undefined,
+        }}
+      >
+        {selectedTag ? (
+          <span
+            className="truncate font-medium text-sm rounded px-1.5 py-0.5"
+            style={{ backgroundColor: `${color}20`, color }}
+          >
+            {selectedTag.name}
+          </span>
+        ) : (
+          <span className="text-text-secondary truncate">Select {label.toLowerCase()}…</span>
+        )}
+        <svg
+          className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-200", open && "rotate-180")}
+          style={{ color }}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div
+          className="absolute z-50 mt-1 w-full rounded-lg border bg-dark-900/95 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+          style={{ borderColor: `${color}40` }}
+        >
+          {/* Search inside the dropdown */}
+          <div className="p-2 border-b" style={{ borderColor: `${color}20` }}>
+            <div className="relative">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                style={{ color: `${color}80` }}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                className="w-full pl-8 pr-3 py-2 rounded-md bg-dark-800 border border-dark-600 text-white text-sm placeholder:text-text-secondary focus:outline-none focus:ring-1"
+                style={{ borderColor: query ? color : undefined, boxShadow: query ? `0 0 0 1px ${color}40` : undefined }}
+              />
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-48 overflow-y-auto overscroll-contain">
+            {/* Clear selection option */}
+            {selectedId && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-dark-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear selection
+              </button>
+            )}
+
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-text-secondary text-center">
+                No matches
+              </div>
+            ) : (
+              filtered.map((tag) => {
+                const isSelected = tag.id === selectedId;
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => handleSelect(tag.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2",
+                      isSelected ? "font-semibold" : "hover:bg-dark-700"
+                    )}
+                    style={isSelected ? { backgroundColor: `${color}15`, color } : {}}
+                  >
+                    {isSelected && (
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    <span className={cn(!isSelected && "text-white")}>{tag.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Main overlay ─── */
 export function VideoTestAnswerOverlay({
   isOpen,
   onClose,
@@ -55,109 +245,110 @@ export function VideoTestAnswerOverlay({
     });
   };
 
+  const criteriaTagId = value.criteriaTagIds[0] ?? null;
+
   return (
     <>
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
         style={{ zIndex: 100100 }}
         onClick={onClose}
       />
-      <div className="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto" style={{ zIndex: 100110 }}>
+      <div
+        className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto"
+        style={{ zIndex: 100110 }}
+      >
         <div
           className={cn(
-            "relative w-full max-w-3xl backdrop-blur-xl bg-gradient-to-br from-[#0F1419]/70 to-[#1E293B]/80",
-            "rounded-lg shadow-2xl border-2 border-accent/50",
+            "relative w-full max-w-2xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
+            "rounded-xl shadow-2xl border border-accent/30",
             "transform transition-all duration-300",
-            "scale-100 opacity-100"
+            "animate-in fade-in zoom-in-95 duration-200"
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-8 pt-8 pb-4 border-b-4 border-accent/50">
-            <h2 className="text-2xl font-bold uppercase tracking-wider text-center text-accent">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-3 border-b border-accent/20">
+            <h2 className="text-xl font-bold uppercase tracking-wider text-center text-accent">
               Your answer
             </h2>
           </div>
 
-          <div className="px-8 py-6 space-y-6">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={value.playOnNoOffence}
-                onChange={(e) => setPlayOnNoOffence(e.target.checked)}
-                className="w-5 h-5 rounded border-dark-500 bg-dark-700 text-accent focus:ring-accent"
-              />
+          {/* Body */}
+          <div className="px-6 py-5 space-y-5">
+            {/* Play on / No offence toggle */}
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className={cn(
+                "relative w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200",
+                value.playOnNoOffence
+                  ? "bg-accent border-accent"
+                  : "bg-dark-700 border-dark-500 group-hover:border-accent/50"
+              )}>
+                <input
+                  type="checkbox"
+                  checked={value.playOnNoOffence}
+                  onChange={(e) => setPlayOnNoOffence(e.target.checked)}
+                  className="sr-only"
+                />
+                {value.playOnNoOffence && (
+                  <svg className="w-3.5 h-3.5 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
               <span className="text-white font-medium">Play on / No offence</span>
             </label>
 
-            <div className={cn("grid grid-cols-3 gap-4", disabled && "opacity-50 pointer-events-none")}>
-              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
-                  Restart
-                </div>
-                <select
-                  value={value.restartTagId ?? ""}
-                  onChange={(e) => onChange({ ...value, restartTagId: e.target.value || null })}
+            {/* Filter dropdowns grid */}
+            <div className={cn(
+              "grid grid-cols-1 md:grid-cols-3 gap-4 transition-all duration-300",
+              disabled && "opacity-40 pointer-events-none"
+            )}>
+              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
+                <FilterDropdown
+                  label="Restart"
+                  color={CATEGORY_COLORS.restarts}
+                  options={tagOptions.restarts}
+                  selectedId={value.restartTagId}
+                  onSelect={(id) => onChange({ ...value, restartTagId: id })}
                   disabled={disabled}
-                  className="w-full px-3 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">—</option>
-                  {tagOptions.restarts.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                />
               </div>
-              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
-                  Sanction
-                </div>
-                <select
-                  value={value.sanctionTagId ?? ""}
-                  onChange={(e) => onChange({ ...value, sanctionTagId: e.target.value || null })}
+              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
+                <FilterDropdown
+                  label="Sanction"
+                  color={CATEGORY_COLORS.sanction}
+                  options={tagOptions.sanction}
+                  selectedId={value.sanctionTagId}
+                  onSelect={(id) => onChange({ ...value, sanctionTagId: id })}
                   disabled={disabled}
-                  className="w-full px-3 py-2 rounded-lg bg-dark-800 border border-dark-600 text-white text-sm focus:border-accent focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">—</option>
-                  {tagOptions.sanction.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                />
               </div>
-              <div className="bg-slate-800/20 backdrop-blur-sm rounded-lg p-4 border border-slate-700/30">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
-                  Criteria
-                </div>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {tagOptions.criteria.map((t) => {
-                    const selected = value.criteriaTagIds.includes(t.id);
-                    return (
-                      <label key={t.id} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={(e) => {
-                            const next = e.target.checked
-                              ? [...value.criteriaTagIds, t.id]
-                              : value.criteriaTagIds.filter((id) => id !== t.id);
-                            onChange({ ...value, criteriaTagIds: next });
-                          }}
-                          disabled={disabled}
-                          className="w-4 h-4 rounded border-dark-500 bg-dark-700 text-accent focus:ring-accent"
-                        />
-                        <span className="text-sm text-white">{t.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
+                <FilterDropdown
+                  label="Criteria"
+                  color={CATEGORY_COLORS.criteria}
+                  options={tagOptions.criteria}
+                  selectedId={criteriaTagId}
+                  onSelect={(id) => onChange({ ...value, criteriaTagIds: id ? [id] : [] })}
+                  disabled={disabled}
+                />
               </div>
             </div>
           </div>
 
-          <div className="px-8 py-6 border-t border-accent/20 flex justify-end">
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-accent/20 flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-3 bg-accent hover:bg-accent/90 text-dark-900 font-semibold text-sm uppercase tracking-wide rounded-lg transition-colors"
+              className={cn(
+                "px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all duration-200",
+                "bg-accent hover:bg-accent/90 text-dark-900",
+                "hover:shadow-lg hover:shadow-accent/20"
+              )}
             >
-              Close (I)
+              Close
+              <kbd className="ml-2 text-[10px] font-mono opacity-60 bg-dark-900/20 px-1.5 py-0.5 rounded">I</kbd>
             </button>
           </div>
         </div>

@@ -25,7 +25,7 @@ That's it! First run installs everything automatically (takes 3-5 minutes), then
 ## 🎯 Features
 
 - ⚖️ **Laws of the Game** - IFAB content + practice tests
-- 🎥 **Referees Practice** - Video challenges (Offside, Handball, DOGSO/SPA, etc.)
+- 🎥 **Referee Practice** - Video challenges (Offside, Handball, DOGSO/SPA, etc.)
 - 📹 **VAR Practice** - Decision scenarios with VAR recommendations
 - 🚩 **A.R. Practice** - Assistant referee training
 - 📚 **Video Library** - Reference materials and frameworks
