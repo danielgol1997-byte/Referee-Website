@@ -331,7 +331,6 @@ export function VideoTestsAdminPanel() {
           dueDate: dueDate || null,
           selectedClipIds,
           filters,
-          isActive,
         }),
       });
       const data = await res.json();
