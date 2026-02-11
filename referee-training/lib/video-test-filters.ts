@@ -63,10 +63,12 @@ export function buildVideoClipWhereForAdmin(
 ) {
   const { excludeTagCategory } = options ?? {};
   const customTagFilters = filters.customTagFilters ?? {};
-  const filtersToApply =
-    excludeTagCategory && customTagFilters[excludeTagCategory]
-      ? { ...customTagFilters, [excludeTagCategory]: undefined }
-      : customTagFilters;
+  let filtersToApply: Record<string, string[]> = customTagFilters;
+
+  if (excludeTagCategory && customTagFilters[excludeTagCategory]) {
+    const { [excludeTagCategory]: _omitted, ...remaining } = customTagFilters;
+    filtersToApply = remaining;
+  }
 
   const clauses = buildTagClauses({
     customTagFilters: filtersToApply,
