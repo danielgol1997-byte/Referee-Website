@@ -112,7 +112,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     let finalClipIds: string[] = [];
 
     if (filters) {
-      const where = buildVideoClipWhereForAdmin(filters);
+      const where = {
+        AND: [
+          buildVideoClipWhereForAdmin(filters),
+          { isEducational: false },
+        ],
+      };
       const eligible = await prisma.videoClip.findMany({
         where,
         select: { id: true },
@@ -148,7 +153,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json({ error: "Selected clips must be at least total clips count" }, { status: 400 });
       }
       const count = await prisma.videoClip.count({
-        where: { id: { in: uniqueChosen }, isActive: true },
+        where: { id: { in: uniqueChosen }, isActive: true, isEducational: false },
       });
       if (count !== uniqueChosen.length) {
         return NextResponse.json({ error: "Some selected clips are invalid or inactive" }, { status: 400 });
@@ -160,7 +165,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
 
       const count = await prisma.videoClip.count({
-        where: { id: { in: clipIds }, isActive: true },
+        where: { id: { in: clipIds }, isActive: true, isEducational: false },
       });
       if (count !== clipIds.length) {
         return NextResponse.json({ error: "Some clip IDs are invalid or inactive" }, { status: 400 });

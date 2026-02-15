@@ -13,30 +13,52 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const scope = body?.scope === "admin" ? "admin" : "user";
+  const scope =
+    body?.scope === "admin-video-tests"
+      ? "admin-video-tests"
+      : body?.scope === "user-video-tests"
+        ? "user-video-tests"
+      : body?.scope === "admin"
+        ? "admin"
+        : "user";
   const filters = body?.filters ?? {};
 
-  if (scope === "admin" && session.user.role !== "SUPER_ADMIN") {
+  if ((scope === "admin" || scope === "admin-video-tests") && session.user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const where =
-    scope === "admin"
-      ? buildVideoClipWhereForAdmin(filters)
-      : buildVideoClipWhereForUser(filters);
+    scope === "admin" || scope === "admin-video-tests"
+      ? {
+          AND: [
+            buildVideoClipWhereForAdmin(filters),
+            ...(scope === "admin-video-tests" ? [{ isEducational: false }] : []),
+          ],
+        }
+      : {
+          AND: [
+            buildVideoClipWhereForUser(filters),
+            ...(scope === "user-video-tests" ? [{ isEducational: false }] : []),
+          ],
+        };
 
   const videos = await prisma.videoClip.findMany({
     where,
     select: { id: true },
   });
 
-  if (scope === "admin") {
+  if (scope === "admin" || scope === "admin-video-tests") {
     // Admin: run two count sets
     // 1. categoryCounts: exclude category from filter so all categories always show with their counts
     // 2. countsByCategory: full filters for restarts/criteria/sanctions (only options in category-filtered videos)
-    const whereForCategoryCounts = buildVideoClipWhereForAdmin(filters, {
-      excludeTagCategory: "category",
-    });
+    const whereForCategoryCounts = {
+      AND: [
+        buildVideoClipWhereForAdmin(filters, {
+          excludeTagCategory: "category",
+        }),
+        ...(scope === "admin-video-tests" ? [{ isEducational: false }] : []),
+      ],
+    };
     const categoryVideos = await prisma.videoClip.findMany({
       where: whereForCategoryCounts,
       select: { id: true },

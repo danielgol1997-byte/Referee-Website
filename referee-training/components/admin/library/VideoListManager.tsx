@@ -59,7 +59,7 @@ export function VideoListManager({
   const [filters, setFilters] = useState<AdminVideoFilters>({
     search: '',
     activeStatus: 'all',
-    featuredStatus: 'all',
+    usageStatus: 'all',
     customTagFilters: {},
   });
 
@@ -74,10 +74,6 @@ export function VideoListManager({
     if (filters.activeStatus === 'active' && !video.isActive) return false;
     if (filters.activeStatus === 'inactive' && video.isActive) return false;
     
-    // Featured status filter
-    if (filters.featuredStatus === 'featured' && !video.isFeatured) return false;
-    if (filters.featuredStatus === 'normal' && video.isFeatured) return false;
-
     // Tag filters
     if (filters.customTagFilters) {
       const videoTagSlugs = video.tags?.map(t => t.slug) || [];

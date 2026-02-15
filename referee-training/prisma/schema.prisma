@@ -483,6 +483,8 @@ model VideoTestSession {
   clipViewCounts  Json?
   score           Int?
   completedAt     DateTime?
+  submittedAt     DateTime?
+  totalAnswerTimeMs Int?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   videoTest       VideoTest       @relation(fields: [videoTestId], references: [id], onDelete: Cascade)
@@ -502,6 +504,9 @@ model VideoTestAnswer {
   restartTagId     String?
   sanctionTagId    String?
   criteriaTagIds   String[]         @default([])
+  timeToAnswerMs   Int?
+  questionStartedAt DateTime?
+  questionAnsweredAt DateTime?
   isCorrect        Boolean          // full match
   isPartial        Boolean          @default(false) // at least one category correct
   session          VideoTestSession @relation(fields: [videoTestSessionId], references: [id], onDelete: Cascade)

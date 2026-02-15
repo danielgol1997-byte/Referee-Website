@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { VideoTestAnswerOverlay, type VideoTestAnswerValue } from "./VideoTestAnswerOverlay";
+import { useModal } from "@/components/ui/modal";
 
 type Clip = {
   id: string;
@@ -52,20 +53,28 @@ export function VideoTestRunner({
   resultsHref: string;
 }) {
   const router = useRouter();
+  const modal = useModal();
   const [clips, setClips] = useState<Clip[]>([]);
   const [tagOptions, setTagOptions] = useState<TagOptions>({ restarts: [], sanction: [], criteria: [] });
+  const [criteriaByClipId, setCriteriaByClipId] = useState<Record<string, TagOptions["criteria"]>>({});
+  const [isMandatory, setIsMandatory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, VideoTestAnswerValue>>({});
-  const [viewUsage, setViewUsage] = useState<Record<string, number>>({});
+  const [playedLoops, setPlayedLoops] = useState<Record<string, number>>({});
   const [maxViewsPerClip, setMaxViewsPerClip] = useState<number | null>(null);
   const [showAnswerOverlay, setShowAnswerOverlay] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isConsumingView, setIsConsumingView] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [clipLocked, setClipLocked] = useState<Record<string, boolean>>({});
+  const [questionStartedAt, setQuestionStartedAt] = useState<Record<string, number>>({});
+  const [answerDurationsMs, setAnswerDurationsMs] = useState<Record<string, number>>({});
+  const [volume, setVolume] = useState(0.5);
+  const [muted, setMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,20 +86,14 @@ export function VideoTestRunner({
         if (data.error) throw new Error(data.error);
         setClips(data.clips ?? []);
         setTagOptions(data.tagOptions ?? { restarts: [], sanction: [], criteria: [] });
+        setCriteriaByClipId(data.criteriaByClipId ?? {});
+        setIsMandatory(Boolean(data.isMandatory));
         // 0 or null means unlimited; only positive numbers are actual limits
         setMaxViewsPerClip(
           typeof data.maxViewsPerClip === "number" && data.maxViewsPerClip > 0
             ? data.maxViewsPerClip
             : null
         );
-        const rawCounts = (data.clipViewCounts ?? {}) as Record<string, unknown>;
-        const parsedCounts: Record<string, number> = {};
-        for (const [clipId, count] of Object.entries(rawCounts)) {
-          if (typeof count === "number" && Number.isFinite(count)) {
-            parsedCounts[clipId] = count;
-          }
-        }
-        setViewUsage(parsedCounts);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load clips");
@@ -102,13 +105,9 @@ export function VideoTestRunner({
   }, [sessionId]);
 
   const currentClip = clips[currentIndex] ?? null;
-  const currentClipUsedViews = currentClip ? viewUsage[currentClip.id] ?? 0 : 0;
-  const hasViewLimit = maxViewsPerClip !== null;
-  const remainingViews = useMemo(() => {
-    if (!currentClip || maxViewsPerClip === null) return null;
-    return Math.max(maxViewsPerClip - currentClipUsedViews, 0);
-  }, [currentClip, currentClipUsedViews, maxViewsPerClip]);
-  const viewsExhausted = hasViewLimit && remainingViews !== null && remainingViews <= 0;
+  const loopTarget = maxViewsPerClip && maxViewsPerClip > 0 ? maxViewsPerClip : 1;
+  const currentClipPlayedLoops = currentClip ? playedLoops[currentClip.id] ?? 0 : 0;
+  const remainingLoops = currentClip ? Math.max(loopTarget - currentClipPlayedLoops, 0) : 0;
   const currentAnswer = currentClip ? answers[currentClip.id] ?? emptyAnswer : emptyAnswer;
   // A clip is fully answered when EITHER play-on is checked OR all three fields are set
   const isFullyAnswered = (a: VideoTestAnswerValue | undefined): boolean => {
@@ -116,15 +115,7 @@ export function VideoTestRunner({
     if (a.playOnNoOffence) return true;
     return a.restartTagId !== null && a.sanctionTagId !== null && a.criteriaTagIds.length > 0;
   };
-  // Partially answered = at least one field set but not all three
-  const isPartiallyAnswered = (a: VideoTestAnswerValue | undefined): boolean => {
-    if (!a) return false;
-    if (a.playOnNoOffence) return false; // play-on = fully answered
-    const filled = [a.restartTagId !== null, a.sanctionTagId !== null, a.criteriaTagIds.length > 0].filter(Boolean).length;
-    return filled > 0 && filled < 3;
-  };
   const answeredCount = clips.filter((c) => isFullyAnswered(answers[c.id])).length;
-  const allAnswered = clips.length > 0 && answeredCount === clips.length;
   const progressPercent = clips.length > 0 ? (answeredCount / clips.length) * 100 : 0;
 
   const setCurrentAnswer = (value: VideoTestAnswerValue) => {
@@ -132,57 +123,110 @@ export function VideoTestRunner({
     setAnswers((prev) => ({ ...prev, [currentClip.id]: value }));
   };
 
-  const stopPlayback = useCallback(() => {
+  const stopPlayback = useCallback((preserveTime = true) => {
     if (!videoRef.current) return;
     videoRef.current.pause();
+    if (!preserveTime) {
+      videoRef.current.currentTime = 0;
+    }
     setIsPlaying(false);
   }, []);
 
   useEffect(() => {
-    stopPlayback();
+    if (typeof window === "undefined") return;
+    const savedVolume = window.localStorage.getItem("video-test-volume");
+    const savedMuted = window.localStorage.getItem("video-test-muted");
+
+    if (savedVolume !== null) {
+      const parsed = Number(savedVolume);
+      if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+        setVolume(parsed);
+      }
+    }
+    if (savedMuted !== null) {
+      setMuted(savedMuted === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("video-test-volume", String(volume));
+  }, [volume]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("video-test-muted", String(muted));
+  }, [muted]);
+
+  useEffect(() => {
+    stopPlayback(false);
     setShowAnswerOverlay(false);
-  }, [currentIndex, stopPlayback]);
-
-  const startPlayback = async () => {
-    if (!currentClip || isConsumingView || isPlaying) return;
-
-    if (maxViewsPerClip === null) {
-      // Unlimited views — just play
-      if (!videoRef.current) return;
-      videoRef.current.currentTime = 0;
-      await videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
+    if (currentClip && clipLocked[currentClip.id]) {
+      setCountdown(null);
       return;
     }
-
-    if (viewsExhausted) return;
-
-    setIsConsumingView(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/tests/videos/${sessionId}/consume-view`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoClipId: currentClip.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Could not start clip");
-      if (!data?.allowed) return;
-      setViewUsage((prev) => ({
-        ...prev,
-        [currentClip.id]:
-          typeof data.used === "number" ? data.used : (prev[currentClip.id] ?? 0) + 1,
-      }));
-      if (!videoRef.current) return;
-      videoRef.current.currentTime = 0;
-      await videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start clip");
-    } finally {
-      setIsConsumingView(false);
+    setCountdown(3);
+    if (currentClip) {
+      setQuestionStartedAt((prev) => prev[currentClip.id] ? prev : { ...prev, [currentClip.id]: Date.now() });
     }
-  };
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null) return prev;
+        if (prev <= 1) {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          if (videoRef.current && currentClip && !clipLocked[currentClip.id]) {
+            videoRef.current.currentTime = 0;
+            void videoRef.current.play().catch(() => {});
+          }
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, [currentIndex, currentClip, stopPlayback, clipLocked]);
+
+  useEffect(() => {
+    if (!showAnswerOverlay) return;
+    stopPlayback();
+    setCountdown(null);
+  }, [showAnswerOverlay, stopPlayback]);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.volume = volume;
+    videoRef.current.muted = muted;
+  }, [volume, muted, currentIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      const isTypingContext =
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT" ||
+        target?.isContentEditable;
+      if (isTypingContext) return;
+
+      if (event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        setMuted((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleConfirmSubmit = async () => {
     setSubmitting(true);
@@ -196,6 +240,12 @@ export function VideoTestRunner({
           restartTagId: a.restartTagId,
           sanctionTagId: a.sanctionTagId,
           criteriaTagIds: a.criteriaTagIds,
+          timeToAnswerMs: answerDurationsMs[c.id] ?? null,
+          questionStartedAt: questionStartedAt[c.id] ? new Date(questionStartedAt[c.id]).toISOString() : null,
+          questionAnsweredAt:
+            answerDurationsMs[c.id] && questionStartedAt[c.id]
+              ? new Date(questionStartedAt[c.id] + answerDurationsMs[c.id]).toISOString()
+              : null,
         };
       });
       const res = await fetch(`/api/tests/videos/${sessionId}/submit`, {
@@ -213,16 +263,36 @@ export function VideoTestRunner({
     }
   };
 
-  // Navigate to next clip (stops current playback)
-  const goNext = () => {
-    if (currentIndex < clips.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const handleOverlayAction = async () => {
+    if (!currentClip) return;
+    const answer = answers[currentClip.id] ?? emptyAnswer;
+    if (!isFullyAnswered(answer)) return;
+
+    stopPlayback();
+    setShowAnswerOverlay(false);
+    setClipLocked((prev) => ({ ...prev, [currentClip.id]: true }));
+    if (questionStartedAt[currentClip.id]) {
+      setAnswerDurationsMs((prev) => ({
+        ...prev,
+        [currentClip.id]: Math.max(Date.now() - questionStartedAt[currentClip.id], 0),
+      }));
     }
+
+    if (currentIndex === clips.length - 1) {
+      await handleConfirmSubmit();
+      return;
+    }
+    setCurrentIndex((prev) => prev + 1);
   };
-  const goPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
+
+  const handleExit = async () => {
+    const confirmed = await modal.showConfirm(
+      "Are you sure you want to exit? This attempt will be disqualified.",
+      "Exit Test",
+      "warning"
+    );
+    if (!confirmed) return;
+    router.push("/practice");
   };
 
   if (loading) {
@@ -233,7 +303,7 @@ export function VideoTestRunner({
     );
   }
 
-  if (error && !showConfirmation && !isPlaying) {
+  if (error && !isPlaying) {
     return (
       <div className="p-6 rounded-lg bg-status-dangerBg border border-status-danger/30">
         <p className="text-sm text-status-danger">{error}</p>
@@ -249,162 +319,118 @@ export function VideoTestRunner({
     );
   }
 
-  // Play button disabled state
-  const playDisabled = isConsumingView || isPlaying || viewsExhausted;
-
-  // Build play button label with view info baked in
-  let playLabel: React.ReactNode;
-  if (isConsumingView) {
-    playLabel = (
-      <span className="flex items-center gap-2">
-        <span className="w-4 h-4 border-2 border-dark-900/30 border-t-dark-900 rounded-full animate-spin" />
-        Starting…
-      </span>
-    );
-  } else if (isPlaying) {
-    playLabel = (
-      <span className="flex items-center gap-2">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-dark-900/60" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-dark-900" />
-        </span>
-        Playing…
-      </span>
-    );
-  } else if (viewsExhausted) {
-    playLabel = "No views left";
-  } else {
-    playLabel = "Play clip";
-  }
-
   return (
-    <div className="space-y-4 relative">
+    <div className="relative flex h-[calc(100vh-7.5rem)] flex-col gap-3 overflow-hidden">
       {/* ─── Header: title + answered counter ─── */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold text-white drop-shadow">
           Video {currentIndex + 1} <span className="text-text-secondary font-normal text-lg">/ {clips.length}</span>
         </h2>
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <span className="tabular-nums font-semibold text-white">{answeredCount}</span>
-          <span>of</span>
-          <span className="tabular-nums font-semibold text-white">{clips.length}</span>
-          <span>answered</span>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2 rounded-lg border border-dark-600 bg-dark-800/90 px-3 py-1.5">
+            <svg className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              {muted ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9v6h4l5 5V4l-5 5H9zm11 0l-5 6m0-6l5 6" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9v6h4l5 5V4l-5 5H9z" />
+              )}
+            </svg>
+            <button
+              type="button"
+              onClick={() => setMuted((prev) => !prev)}
+              className="rounded border border-dark-500 px-1.5 py-0.5 text-[10px] font-semibold text-text-secondary hover:text-white"
+              title="Mute/unmute (M)"
+              aria-label="Mute/unmute (M)"
+            >
+              {muted ? "Unmute" : "Mute"}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={muted ? 0 : volume}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setVolume(next);
+                if (next > 0 && muted) setMuted(false);
+              }}
+              className="w-28 accent-cyan-400"
+              aria-label="Volume"
+            />
+            <span className="w-9 text-right text-[11px] font-semibold tabular-nums text-text-muted">
+              {muted ? "0%" : `${Math.round(volume * 100)}%`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExit}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text-secondary border border-dark-600 hover:text-white hover:border-accent/40 transition-all duration-200"
+          >
+            Exit test
+          </button>
         </div>
       </div>
 
       {/* ─── Video player card ─── */}
-      <div className="rounded-xl border border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden shadow-xl">
-        <div className="relative aspect-video bg-black">
+      <div className="flex-1 rounded-xl border border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden shadow-xl">
+        <div className="relative h-full bg-black">
           <video
             ref={videoRef}
             src={currentClip.fileUrl}
             poster={currentClip.thumbnailUrl}
             preload="metadata"
             controls={false}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain select-none"
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
+            onEnded={() => {
+              setIsPlaying(false);
+              if (!currentClip || clipLocked[currentClip.id]) return;
+              setPlayedLoops((prev) => {
+                const nextPlayed = (prev[currentClip.id] ?? 0) + 1;
+                const updated = { ...prev, [currentClip.id]: nextPlayed };
+                if (nextPlayed < loopTarget && videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                  void videoRef.current.play().catch(() => {});
+                } else {
+                  setShowAnswerOverlay(true);
+                }
+                return updated;
+              });
+            }}
           />
+          {countdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="rounded-full border border-cyan-300/60 bg-dark-900/85 px-8 py-5 text-5xl font-black text-cyan-300 shadow-2xl animate-in zoom-in-95 duration-200">
+                {countdown}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ─── Controls bar ─── */}
         <div className="border-t border-dark-600 bg-dark-900/80 px-4 py-3">
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            {/* Play button with view-limit ring */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={startPlayback}
-                disabled={playDisabled}
-                className={cn(
-                  "relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200",
-                  viewsExhausted
-                    ? "bg-dark-700 text-text-secondary border border-dark-600 cursor-not-allowed"
-                    : isPlaying
-                      ? "bg-accent/20 text-accent border border-accent/40 cursor-default"
-                      : "bg-gradient-to-r from-accent via-cyan-400 to-accent text-dark-900 hover:shadow-lg hover:shadow-accent/30 hover:scale-[1.02] active:scale-[0.98]",
-                  (isConsumingView) && "opacity-70 cursor-not-allowed"
-                )}
-              >
-                {/* Play icon */}
-                {!isPlaying && !isConsumingView && !viewsExhausted && (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-                {playLabel}
-                {/* Views badge — only when there IS a view limit */}
-                {hasViewLimit && !viewsExhausted && !isPlaying && (
-                  <span className="ml-1 inline-flex items-center justify-center w-6 h-6 rounded-full bg-dark-900/40 text-[11px] font-bold tabular-nums">
-                    {remainingViews}
-                  </span>
-                )}
-              </button>
-
-              {/* Circular view-limit ring around the button */}
-              {hasViewLimit && maxViewsPerClip !== null && maxViewsPerClip > 0 && (
-                <div className="absolute -inset-[3px] rounded-xl pointer-events-none overflow-hidden">
-                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <rect
-                      x="1" y="1" width="98" height="98" rx="12" ry="12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className={cn(
-                        "transition-all duration-500",
-                        viewsExhausted ? "text-status-danger/40" : "text-accent/30"
-                      )}
-                      strokeDasharray={`${((currentClipUsedViews / maxViewsPerClip) * 392)} 392`}
-                    />
-                  </svg>
-                </div>
+            <div className="rounded-lg border border-dark-600 bg-dark-800 px-3 py-1.5 text-xs text-text-secondary">
+              Views this clip: <span className="font-semibold text-white tabular-nums">{Math.min(currentClipPlayedLoops, loopTarget)}</span> /{" "}
+              <span className="font-semibold text-white tabular-nums">{loopTarget}</span>
+              <span className="mx-1.5 text-dark-500">|</span>
+              {remainingLoops > 0 ? (
+                <>
+                  Replays left: <span className="font-semibold text-cyan-300 tabular-nums">{remainingLoops}</span>
+                </>
+              ) : (
+                <span className="font-semibold text-accent">Ready to answer</span>
               )}
             </div>
 
             <button
               type="button"
-              onClick={() => { stopPlayback(); setShowAnswerOverlay(true); }}
-              className={cn(
-                "px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200",
-                "bg-dark-700 text-white border border-dark-600 hover:border-accent/50 hover:bg-dark-600"
-              )}
-            >
-              Answer question
-            </button>
-
-            {/* Nav arrows */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={goPrev}
-                disabled={currentIndex === 0}
-                className="p-2.5 rounded-lg bg-dark-700 border border-dark-600 text-text-secondary hover:text-white hover:border-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-                title="Previous clip"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={currentIndex === clips.length - 1}
-                className="p-2.5 rounded-lg bg-dark-700 border border-dark-600 text-text-secondary hover:text-white hover:border-accent/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-                title="Next clip"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.push("/practice")}
+              onClick={handleExit}
               className="px-4 py-2.5 rounded-lg text-sm font-medium text-text-secondary border border-dark-600 hover:text-white hover:border-accent/40 transition-all duration-200"
             >
-              Exit
+              Exit test
             </button>
           </div>
         </div>
@@ -424,28 +450,23 @@ export function VideoTestRunner({
         </div>
       </div>
 
-      {/* ─── Clip index — centered ─── */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-2 overflow-visible pt-2 pb-1 max-w-full px-2 justify-center flex-wrap">
+      {/* ─── Clip index + answer action ─── */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="flex items-center gap-2 overflow-visible pt-2 pb-1 max-w-full px-2 justify-center md:justify-start flex-wrap">
           {clips.map((clip, idx) => {
             const a = answers[clip.id];
             const full = isFullyAnswered(a);
-            const partial = isPartiallyAnswered(a);
             const isCurrent = idx === currentIndex;
             return (
-              <button
+              <div
                 key={clip.id}
-                type="button"
-                onClick={() => setCurrentIndex(idx)}
                 className={cn(
-                  "relative flex-shrink-0 w-11 h-11 rounded-xl text-sm font-bold transition-all duration-200",
+                  "relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold leading-none tabular-nums transition-all duration-200",
                   isCurrent
                     ? "bg-accent text-dark-900 shadow-lg shadow-accent/30 scale-110"
                     : full
                       ? "bg-accent/15 text-accent border-2 border-accent/60 hover:border-accent hover:bg-accent/25"
-                      : partial
-                        ? "bg-amber-500/10 text-amber-400 border-2 border-amber-500/50 hover:border-amber-400"
-                        : "bg-dark-800 text-text-secondary border-2 border-dark-600 hover:border-accent/30"
+                      : "bg-dark-800 text-text-secondary border-2 border-dark-600"
                 )}
               >
                 {idx + 1}
@@ -457,87 +478,39 @@ export function VideoTestRunner({
                     </svg>
                   </span>
                 )}
-                {/* Partially answered — dot badge */}
-                {partial && !isCurrent && (
-                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/40" style={{ width: 14, height: 14 }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-dark-900" />
-                  </span>
-                )}
-              </button>
+              </div>
             );
           })}
         </div>
-
-        {/* Submit / Confirmation — centered under clip index */}
-        <div className="flex items-center justify-center">
-          {allAnswered && !showConfirmation && (
-            <div
-              onClick={() => { if (!submitting) setShowConfirmation(true); }}
-              className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-lg cursor-pointer select-none",
-                "bg-gradient-to-r from-accent via-cyan-400 to-accent",
-                "hover:shadow-lg hover:shadow-accent/30 hover:scale-[1.02]",
-                "active:scale-[0.98]",
-                "transition-all duration-200",
-                "animate-in fade-in slide-in-from-bottom-2 duration-200",
-                submitting && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <svg className="w-4 h-4 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-dark-900 font-semibold text-sm">Submit Test</span>
-            </div>
-          )}
-          {showConfirmation && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <button
-                type="button"
-                onClick={() => { setShowConfirmation(false); setError(null); }}
-                disabled={submitting}
-                className={cn(
-                  "px-4 py-2.5 rounded-lg font-semibold text-sm",
-                  "bg-dark-700 text-white border-2 border-dark-600",
-                  "hover:border-accent/50 hover:bg-dark-600",
-                  "active:scale-[0.97]",
-                  "transition-all duration-200",
-                  "shadow-lg",
-                  submitting && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                Not yet
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmSubmit}
-                disabled={submitting}
-                className={cn(
-                  "flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm",
-                  "bg-gradient-to-r from-accent via-cyan-400 to-accent",
-                  "text-dark-900",
-                  "hover:shadow-lg hover:shadow-accent/30 hover:scale-[1.02]",
-                  "active:scale-[0.97]",
-                  "transition-all duration-200",
-                  "shadow-lg shadow-accent/20",
-                  submitting && "opacity-60 cursor-not-allowed"
-                )}
-              >
-                {submitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-dark-900 border-t-transparent rounded-full animate-spin" />
-                    <span>Submitting…</span>
-                  </>
-                ) : (
-                  "Yes, submit"
-                )}
-              </button>
-            </div>
-          )}
+        <div className="flex items-center justify-center md:justify-end gap-2 pb-1">
+          <div className="rounded-lg border border-dark-600 bg-dark-800 px-3 py-2 text-xs text-text-secondary">
+            Views left:{" "}
+            <span className="font-semibold text-cyan-300 tabular-nums">{remainingLoops}</span>
+            <span className="mx-1 text-dark-500">|</span>
+            <span className="tabular-nums font-semibold text-white">{Math.min(currentClipPlayedLoops, loopTarget)}</span>
+            <span className="mx-1 text-text-secondary">/</span>
+            <span className="tabular-nums font-semibold text-white">{loopTarget}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              stopPlayback();
+              setShowAnswerOverlay(true);
+            }}
+            className={cn(
+              "px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200",
+              "bg-gradient-to-r from-accent to-cyan-400 text-dark-900 border border-cyan-300/40",
+              "hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.98]"
+            )}
+          >
+            Answer question
+          </button>
         </div>
+        <p className="text-xs text-text-muted md:col-span-2">Questions run in fixed order. Once you press Next, that clip is final.</p>
       </div>
 
       {/* Submission error inline */}
-      {error && showConfirmation && (
+      {error && (
         <div className="rounded-lg bg-status-dangerBg border border-status-danger/30 px-4 py-2.5 animate-in fade-in duration-200">
           <p className="text-sm text-status-danger">{error}</p>
         </div>
@@ -547,8 +520,14 @@ export function VideoTestRunner({
       {showAnswerOverlay && (
         <VideoTestAnswerOverlay
           isOpen={true}
-          onClose={() => setShowAnswerOverlay(false)}
-          tagOptions={tagOptions}
+          onClose={() => {}}
+          onAction={handleOverlayAction}
+          actionLabel={currentIndex === clips.length - 1 ? "Submit" : "Next"}
+          actionDisabled={submitting}
+          tagOptions={{
+            ...tagOptions,
+            criteria: currentClip ? (criteriaByClipId[currentClip.id] ?? tagOptions.criteria) : tagOptions.criteria,
+          }}
           value={currentAnswer}
           onChange={setCurrentAnswer}
         />

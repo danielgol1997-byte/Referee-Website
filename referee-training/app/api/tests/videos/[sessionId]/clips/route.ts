@@ -24,6 +24,13 @@ export async function GET(_request: Request, context: RouteContext) {
       totalClips: true,
       maxViewsPerClip: true,
       clipViewCounts: true,
+      videoTest: {
+        select: {
+          id: true,
+          type: true,
+          name: true,
+        },
+      },
     },
   });
 
@@ -95,6 +102,22 @@ export async function GET(_request: Request, context: RouteContext) {
     else if (cat.slug === "criteria") tagOptions.criteria = list;
   }
 
+  const criteriaCategory = tagCategories.find((cat) => cat.slug === "criteria");
+  const criteriaByClipId: Record<string, { id: string; slug: string; name: string }[]> = {};
+  if (criteriaCategory) {
+    for (const video of orderedClips) {
+      if (!video) continue;
+      const clipCategoryNames = new Set(
+        video.tags
+          .filter((entry) => entry.tag.category?.slug === "category")
+          .map((entry) => entry.tag.name)
+      );
+      criteriaByClipId[video.id] = criteriaCategory.tags
+        .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory))
+        .map((tag) => ({ id: tag.id, slug: tag.slug, name: tag.name }));
+    }
+  }
+
   const formattedClips = orderedClips.map((video) => {
     if (!video) return null;
     return {
@@ -134,8 +157,11 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json({
     clips: formattedClips.filter(Boolean),
     tagOptions,
+    criteriaByClipId,
     totalClips: videoSession.totalClips,
     maxViewsPerClip: videoSession.maxViewsPerClip,
     clipViewCounts: videoSession.clipViewCounts ?? {},
+    isMandatory: videoSession.videoTest?.type === "MANDATORY",
+    testName: videoSession.videoTest?.name ?? null,
   });
 }

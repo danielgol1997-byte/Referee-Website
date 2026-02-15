@@ -33,7 +33,7 @@ export function VideoCategoryFilter({
   value: CategoryFilterValue;
   onChange: (next: CategoryFilterValue) => void;
   disabled?: boolean;
-  countScope?: "user" | "admin";
+  countScope?: "user" | "admin" | "user-video-tests";
 }) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,11 +100,17 @@ export function VideoCategoryFilter({
     [tagCategories]
   );
 
-  const options = categoryGroup?.tags || [];
+  const allOptions = categoryGroup?.tags || [];
   const selectedValues = value.categoryTags || [];
+  const options = allOptions.filter((option) => {
+    const isSelected = selectedValues.includes(option.slug);
+    if (isSelected) return true;
+    if (Object.keys(optionCounts).length === 0) return true;
+    return (optionCounts[option.slug] ?? 0) > 0;
+  });
 
   const selectedItems = selectedValues
-    .map((val) => options.find((opt) => opt.slug === val))
+    .map((val) => allOptions.find((opt) => opt.slug === val))
     .filter(Boolean) as Tag[];
 
   const removeValue = (slug: string) => {

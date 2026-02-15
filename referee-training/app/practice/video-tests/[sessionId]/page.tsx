@@ -7,7 +7,7 @@ type PageProps = {
 export default async function VideoTestSessionPage({ params }: PageProps) {
   const { sessionId } = await params;
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-10">
+    <div className="mx-auto h-[calc(100vh-4rem)] max-w-screen-xl overflow-hidden px-4 py-4 md:px-6">
       <VideoTestRunner
         sessionId={sessionId}
         resultsHref={`/practice/video-tests/${sessionId}/results`}

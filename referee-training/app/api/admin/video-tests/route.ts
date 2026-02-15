@@ -99,7 +99,12 @@ export async function POST(req: Request) {
     let finalClipIds: string[] = [];
 
     if (filters) {
-      const where = buildVideoClipWhereForAdmin(filters);
+      const where = {
+        AND: [
+          buildVideoClipWhereForAdmin(filters),
+          { isEducational: false },
+        ],
+      };
       const eligible = await prisma.videoClip.findMany({
         where,
         select: { id: true },
@@ -136,7 +141,7 @@ export async function POST(req: Request) {
       }
 
       const count = await prisma.videoClip.count({
-        where: { id: { in: clipIds }, isActive: true },
+        where: { id: { in: clipIds }, isActive: true, isEducational: false },
       });
       if (count !== clipIds.length) {
         return NextResponse.json({ error: "Some clip IDs are invalid or inactive" }, { status: 400 });

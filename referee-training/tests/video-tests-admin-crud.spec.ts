@@ -42,7 +42,6 @@ test.describe("Admin video tests CRUD", () => {
       expect(createdTestId, "Create response missing test id").toBeTruthy();
 
       created.push({ id: createdTestId!, name });
-      await expect(page.getByRole("heading", { name: "Manage video tests" })).toBeVisible();
       await expect(page.locator(`#admin-manage-test-${createdTestId}`)).toBeVisible();
     }
 

@@ -12,7 +12,7 @@ export type VideoTagFilters = {
 export type AdminVideoTagFilters = {
   search?: string;
   activeStatus?: "all" | "active" | "inactive";
-  featuredStatus?: "all" | "featured" | "normal";
+  usageStatus?: "all" | "used" | "unused";
   customTagFilters?: Record<string, string[]>;
 };
 
@@ -91,10 +91,10 @@ export function buildVideoClipWhereForAdmin(
     where.isActive = false;
   }
 
-  if (filters.featuredStatus === "featured") {
-    where.isFeatured = true;
-  } else if (filters.featuredStatus === "normal") {
-    where.isFeatured = false;
+  if (filters.usageStatus === "used") {
+    where.videoTestClips = { some: {} };
+  } else if (filters.usageStatus === "unused") {
+    where.videoTestClips = { none: {} };
   }
 
   return where;

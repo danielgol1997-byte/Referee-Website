@@ -300,6 +300,27 @@ html {
   height: 0;
 }
 
+/* Used-in-tests tooltip: visible, draggable scrollbar */
+.used-in-tests-tooltip-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 232, 248, 0.5) rgba(55, 65, 81, 0.8);
+}
+.used-in-tests-tooltip-scroll::-webkit-scrollbar {
+  width: 8px;
+  display: block;
+}
+.used-in-tests-tooltip-scroll::-webkit-scrollbar-track {
+  background: rgba(55, 65, 81, 0.6);
+  border-radius: 4px;
+}
+.used-in-tests-tooltip-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 232, 248, 0.5);
+  border-radius: 4px;
+}
+.used-in-tests-tooltip-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 232, 248, 0.7);
+}
+
 /* ============================================
    Custom Select Dropdown Styling
    ============================================ */

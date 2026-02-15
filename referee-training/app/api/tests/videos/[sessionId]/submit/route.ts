@@ -13,6 +13,9 @@ type AnswerSubmission = {
   restartTagId?: string | null;
   sanctionTagId?: string | null;
   criteriaTagIds?: string[];
+  timeToAnswerMs?: number | null;
+  questionStartedAt?: string | null;
+  questionAnsweredAt?: string | null;
 };
 
 export async function POST(request: Request, context: RouteContext) {

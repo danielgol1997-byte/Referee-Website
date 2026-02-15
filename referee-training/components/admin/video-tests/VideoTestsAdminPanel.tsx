@@ -40,8 +40,10 @@ type EligibleClip = {
   id: string;
   title: string;
   thumbnailUrl?: string | null;
+  fileUrl?: string | null;
   duration?: number | null;
   categoryTagLabel?: string | null;
+  usedInTests: { id: string; name: string; type: "PUBLIC" | "MANDATORY" | "USER" }[];
 };
 
 type AdminSubTab = "create" | "manage";
@@ -54,9 +56,9 @@ function normalizeAdminFilters(input: unknown): AdminVideoFilters | null {
     parsed.activeStatus === "all" || parsed.activeStatus === "active" || parsed.activeStatus === "inactive"
       ? parsed.activeStatus
       : "all";
-  const featuredStatus =
-    parsed.featuredStatus === "all" || parsed.featuredStatus === "featured" || parsed.featuredStatus === "normal"
-      ? parsed.featuredStatus
+  const usageStatus =
+    parsed.usageStatus === "all" || parsed.usageStatus === "used" || parsed.usageStatus === "unused"
+      ? parsed.usageStatus
       : "all";
   const customTagFilters =
     parsed.customTagFilters && typeof parsed.customTagFilters === "object"
@@ -71,7 +73,7 @@ function normalizeAdminFilters(input: unknown): AdminVideoFilters | null {
   return {
     search,
     activeStatus,
-    featuredStatus,
+    usageStatus,
     customTagFilters,
   };
 }
@@ -85,7 +87,7 @@ export function VideoTestsAdminPanel() {
   const [filters, setFilters] = useState<AdminVideoFilters>({
     search: "",
     activeStatus: "active",
-    featuredStatus: "all",
+    usageStatus: "all",
     customTagFilters: {},
   });
   const [eligibleClips, setEligibleClips] = useState<EligibleClip[]>([]);
@@ -114,6 +116,11 @@ export function VideoTestsAdminPanel() {
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [deletingTestId, setDeletingTestId] = useState<string | null>(null);
   const [togglingVisibilityId, setTogglingVisibilityId] = useState<string | null>(null);
+  const [previewClip, setPreviewClip] = useState<EligibleClip | null>(null);
+  const [previewMuted, setPreviewMuted] = useState(true);
+  const [usageTooltipClipId, setUsageTooltipClipId] = useState<string | null>(null);
+  const usageTooltipCloseTimerRef = useRef<number | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const stepTwoRef = useRef<HTMLDivElement | null>(null);
   const isApplyingEditRef = useRef(false);
 
@@ -210,6 +217,46 @@ export function VideoTestsAdminPanel() {
     return () => window.clearTimeout(handle);
   }, [subTab, focusedManageTestId, tests.length, typeFilter, visibilityFilter]);
 
+  useEffect(() => {
+    if (!previewClip) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewClip(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [previewClip]);
+
+  useEffect(() => {
+    if (!previewVideoRef.current) return;
+    previewVideoRef.current.muted = previewMuted;
+  }, [previewMuted, previewClip]);
+
+  useEffect(() => {
+    return () => {
+      if (usageTooltipCloseTimerRef.current) {
+        window.clearTimeout(usageTooltipCloseTimerRef.current);
+      }
+    };
+  }, []);
+
+  const openUsageTooltip = (clipId: string) => {
+    if (usageTooltipCloseTimerRef.current) {
+      window.clearTimeout(usageTooltipCloseTimerRef.current);
+      usageTooltipCloseTimerRef.current = null;
+    }
+    setUsageTooltipClipId(clipId);
+  };
+
+  const closeUsageTooltipDeferred = () => {
+    if (usageTooltipCloseTimerRef.current) {
+      window.clearTimeout(usageTooltipCloseTimerRef.current);
+    }
+    usageTooltipCloseTimerRef.current = window.setTimeout(() => {
+      setUsageTooltipClipId(null);
+      usageTooltipCloseTimerRef.current = null;
+    }, 160);
+  };
+
   const toggleClip = (id: string) => {
     setSelectionError(null);
     setSelectedClipIds((prev) => {
@@ -266,7 +313,7 @@ export function VideoTestsAdminPanel() {
     setFilters({
       search: "",
       activeStatus: "active",
-      featuredStatus: "all",
+      usageStatus: "all",
       customTagFilters: {},
     });
     setCreateStep(1);
@@ -278,7 +325,7 @@ export function VideoTestsAdminPanel() {
     const initialFilters = normalizeAdminFilters(test.adminFilters) || {
       search: "",
       activeStatus: "all" as const,
-      featuredStatus: "all" as const,
+      usageStatus: "all" as const,
       customTagFilters: {},
     };
 
@@ -514,32 +561,6 @@ export function VideoTestsAdminPanel() {
                     placeholder="Select type..."
                   />
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-text-secondary">Visible</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsActive((prev) => !prev)}
-                    className={cn(
-                      "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-all duration-200",
-                      "focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900",
-                      "shadow-lg ring-2",
-                      isActive
-                        ? "bg-accent ring-accent/50 shadow-cyan-500/20"
-                        : "bg-dark-600 ring-dark-500"
-                    )}
-                    role="switch"
-                    aria-checked={isActive}
-                    title={isActive ? "Test is visible to users" : "Test is hidden from users"}
-                  >
-                    <span
-                      className={cn(
-                        "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
-                        isActive ? "translate-x-6" : "translate-x-1"
-                      )}
-                    />
-                  </button>
-                  <span className="text-xs text-text-muted">{isActive ? "Visible" : "Hidden"}</span>
-                </div>
                 <div className={cn("md:col-span-2", type === "MANDATORY" ? "lg:col-span-2" : "lg:col-span-3")}>
                   <label className="block text-sm font-medium text-text-secondary mb-1">Description (optional)</label>
                   <Input
@@ -655,12 +676,35 @@ export function VideoTestsAdminPanel() {
                     />
                   </div>
                 </div>
-              </div>
-              <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Points per question</p>
-                <p className="text-sm text-white">
-                  {totalClips > 0 ? `${(100 / totalClips).toFixed(2)} points each (${totalClips} questions = 100 points)` : "Set at least 1 question"}
-                </p>
+                <div className="flex gap-4 w-full col-span-full">
+                  <div className="flex-1 min-w-0 flex items-center justify-between rounded-xl border border-dark-600 bg-dark-900/50 px-3 py-2.5">
+                    <p className="text-xs font-medium text-text-secondary">Visibility</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsActive((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-dark-500 bg-dark-800 px-2 py-1.5 text-xs text-text-secondary hover:text-white hover:border-accent/50"
+                      title={isActive ? "Currently visible — click to hide" : "Currently hidden — click to show"}
+                    >
+                      {isActive ? (
+                        <svg className="w-3.5 h-3.5 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      )}
+                      <span>{isActive ? "Visible" : "Hidden"}</span>
+                    </button>
+                  </div>
+                  <div className="flex-1 min-w-0 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Points / question</p>
+                    <p className="text-xs font-semibold text-white tabular-nums">
+                      {totalClips > 0 ? (100 / totalClips).toFixed(2) : "—"}
+                    </p>
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -691,7 +735,11 @@ export function VideoTestsAdminPanel() {
                 </div>
 
                 <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-6 space-y-4">
-                  <AdminVideoFilterBar filters={filters} onFiltersChange={setFilters} />
+                  <AdminVideoFilterBar
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    countsScope="admin-video-tests"
+                  />
                   <div className="flex items-center justify-between text-xs text-text-muted border-t border-dark-600 pt-4">
                     <span>{eligibleLoading ? "Loading clips…" : `Matching clips: ${eligibleTotal}`}</span>
                     <button
@@ -699,7 +747,7 @@ export function VideoTestsAdminPanel() {
                       onClick={() => setFilters({
                         search: "",
                         activeStatus: "active",
-                        featuredStatus: "all",
+                        usageStatus: "all",
                         customTagFilters: {},
                       })}
                       className="text-xs font-semibold text-accent hover:text-accent/80 uppercase tracking-wider"
@@ -728,12 +776,19 @@ export function VideoTestsAdminPanel() {
                       {eligibleClips.map((clip) => {
                         const selected = selectedClipIds.includes(clip.id);
                         return (
-                          <button
-                            type="button"
+                          <div
                             key={clip.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => toggleClip(clip.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                toggleClip(clip.id);
+                              }
+                            }}
                             className={cn(
-                              "group flex items-center gap-4 rounded-xl border p-3 text-left transition-all",
+                              "group flex items-center gap-4 rounded-xl border p-3 text-left transition-all cursor-pointer",
                               selected
                                 ? "border-accent bg-accent/10"
                                 : "border-dark-600 bg-dark-900/60 hover:border-cyan-500/50"
@@ -757,11 +812,82 @@ export function VideoTestsAdminPanel() {
                                 </div>
                               )}
                               {selected && <div className="absolute inset-0 bg-accent/20" />}
+                              {clip.fileUrl && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setPreviewClip(clip);
+                                  }}
+                                  className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100"
+                                  title="Preview clip"
+                                >
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/75 text-white shadow-lg hover:bg-black/90">
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                  </span>
+                                </button>
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-white line-clamp-1">{clip.title}</p>
                               <p className="text-xs text-text-muted line-clamp-1">{clip.categoryTagLabel || "Uncategorized"}</p>
                             </div>
+                            {clip.usedInTests.length > 0 && (
+                              <div
+                                className="relative ml-1"
+                                onMouseEnter={() => openUsageTooltip(clip.id)}
+                                onMouseLeave={closeUsageTooltipDeferred}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-400/50 bg-amber-400/10 text-amber-300"
+                                  title={`Used in ${clip.usedInTests.length} test${clip.usedInTests.length === 1 ? "" : "s"}`}
+                                >
+                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </button>
+                                <div
+                                  className={cn(
+                                    "absolute bottom-full right-0 z-30 mb-1 hidden w-72 rounded-lg border border-dark-500 bg-dark-900 p-2.5 text-xs text-text-secondary shadow-xl",
+                                    "max-h-48 overflow-y-auto overscroll-contain used-in-tests-tooltip-scroll",
+                                    usageTooltipClipId === clip.id && "block"
+                                  )}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                  onMouseEnter={() => openUsageTooltip(clip.id)}
+                                  onMouseLeave={closeUsageTooltipDeferred}
+                                >
+                                  <p className="mb-1.5 font-semibold text-white">Used in tests</p>
+                                  <div className="space-y-1">
+                                    {clip.usedInTests.map((test) => (
+                                      <div key={test.id} className="flex items-center justify-between gap-2">
+                                        <p className="line-clamp-1">• {test.name}</p>
+                                        <span
+                                          className={cn(
+                                            "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                            test.type === "MANDATORY"
+                                              ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
+                                              : "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                                          )}
+                                        >
+                                          {test.type === "MANDATORY" ? "Mandatory" : "Public"}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             <div className={cn(
                               "ml-auto flex h-5 w-5 items-center justify-center rounded-full border",
                               selected ? "border-accent bg-accent text-dark-900" : "border-dark-600"
@@ -772,7 +898,7 @@ export function VideoTestsAdminPanel() {
                                 </svg>
                               )}
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -933,6 +1059,52 @@ export function VideoTestsAdminPanel() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {previewClip && (
+        <div
+          className="fixed inset-0 z-[100120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewClip(null)}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-2xl border border-dark-500 bg-dark-900 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-dark-700 px-4 py-3">
+              <p className="line-clamp-1 pr-3 text-sm font-semibold text-white">{previewClip.title}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMuted((prev) => !prev)}
+                  className="rounded-lg border border-dark-600 px-2.5 py-1 text-xs font-semibold text-text-secondary hover:border-cyan-500/50 hover:text-white"
+                >
+                  {previewMuted ? "Unmute" : "Mute"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewClip(null)}
+                  className="rounded-lg border border-dark-600 p-1.5 text-text-secondary hover:border-cyan-500/50 hover:text-white"
+                  title="Close preview"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="bg-black">
+              <video
+                ref={previewVideoRef}
+                src={previewClip.fileUrl ?? undefined}
+                poster={previewClip.thumbnailUrl ?? undefined}
+                autoPlay
+                muted={previewMuted}
+                controls={false}
+                className="aspect-video w-full object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
 

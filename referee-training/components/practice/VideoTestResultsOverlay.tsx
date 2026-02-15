@@ -66,15 +66,20 @@ function DecisionCard({
       </div>
       <div className="space-y-2">
         <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
+          <div
+            className={cn(
+              "text-[10px] uppercase tracking-wider font-medium",
+              isCorrect ? "text-[#22c55e]" : "text-[#ef4444]"
+            )}
+          >
             Your answer
           </div>
           <div
             className={cn(
               "text-sm font-medium rounded-md px-2.5 py-1.5 border",
               isCorrect
-                ? "bg-status-success/10 border-status-success/30 text-status-success"
-                : "bg-status-danger/10 border-status-danger/30 text-status-danger"
+                ? "bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]"
+                : "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
             )}
           >
             <div className="flex items-center gap-1.5">
@@ -96,10 +101,7 @@ function DecisionCard({
           <div className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
             Expected
           </div>
-          <div
-            className="text-sm font-medium rounded-md px-2.5 py-1.5"
-            style={{ backgroundColor: `${color}12`, color, borderLeft: `3px solid ${color}` }}
-          >
+          <div className="text-sm font-medium rounded-md px-2.5 py-1.5 border border-white/35 bg-white/10 text-white">
             {expectedAnswer}
           </div>
         </div>
@@ -144,7 +146,10 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
   const criteriaCorrectSet = new Set(clip.correctCriteria?.map((c) => c.id) ?? []);
   const userCriteriaSet = new Set(answer.criteriaTagIds ?? []);
   const criteriaOk = !userSelectedPlayOn &&
-    ((criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) || (criteriaCorrectSet.size === userCriteriaSet.size && [...criteriaCorrectSet].every((id) => userCriteriaSet.has(id))));
+    (
+      (criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) ||
+      [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id))
+    );
 
   // Overall play-on correctness
   const playOnOk = userSelectedPlayOn && correctIsPlayOn;
@@ -158,14 +163,14 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
             "relative w-full max-w-2xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
             "rounded-xl shadow-2xl border",
             "animate-in fade-in zoom-in-95 duration-200",
-            answer.isCorrect ? "border-status-success/40" : "border-status-danger/40"
+            answer.isCorrect ? "border-[#22c55e]/45" : "border-[#ef4444]/45"
           )}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className={cn(
             "px-6 pt-6 pb-3 border-b-2",
-            answer.isCorrect ? "border-status-success/60" : "border-status-danger/60"
+            answer.isCorrect ? "border-[#22c55e]/60" : "border-[#ef4444]/60"
           )}>
             <h2 className="text-lg font-bold text-center text-white line-clamp-2">
               {clip.title}
@@ -175,8 +180,8 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
                   answer.isCorrect
-                    ? "bg-status-success/15 text-status-success border border-status-success/30"
-                    : "bg-status-danger/15 text-status-danger border border-status-danger/30"
+                    ? "bg-[#22c55e]/15 text-[#22c55e] border border-[#22c55e]/45"
+                    : "bg-[#ef4444]/15 text-[#ef4444] border border-[#ef4444]/45"
                 )}
               >
                 {answer.isCorrect ? (
@@ -197,15 +202,20 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
             {/* ─── Play on / No offence — shown when user selected it ─── */}
             {userSelectedPlayOn && (
               <div className="rounded-lg border border-dark-600 bg-dark-800/60 p-4">
-                <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center text-white">
+                <div
+                  className={cn(
+                    "text-xs font-bold uppercase tracking-widest mb-2 text-center",
+                    playOnOk ? "text-[#22c55e]" : "text-[#ef4444]"
+                  )}
+                >
                   Your answer
                 </div>
                 <div
                   className={cn(
                     "text-sm font-semibold rounded-md px-3 py-2 border flex items-center justify-center gap-2",
                     playOnOk
-                      ? "bg-status-success/10 border-status-success/30 text-status-success"
-                      : "bg-status-danger/10 border-status-danger/30 text-status-danger"
+                      ? "bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]"
+                      : "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
                   )}
                 >
                   {playOnOk ? (

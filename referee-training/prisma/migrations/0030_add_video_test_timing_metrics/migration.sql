@@ -1,0 +1,8 @@
+ALTER TABLE "VideoTestSession"
+  ADD COLUMN IF NOT EXISTS "submittedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "totalAnswerTimeMs" INTEGER;
+
+ALTER TABLE "VideoTestAnswer"
+  ADD COLUMN IF NOT EXISTS "timeToAnswerMs" INTEGER,
+  ADD COLUMN IF NOT EXISTS "questionStartedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "questionAnsweredAt" TIMESTAMP(3);

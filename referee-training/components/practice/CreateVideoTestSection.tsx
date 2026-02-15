@@ -102,7 +102,7 @@ export function CreateVideoTestSection({ onCreated }: { onCreated?: (testId: str
           </div>
 
           {/* Category filter */}
-          <VideoCategoryFilter value={filters} onChange={setFilters} />
+          <VideoCategoryFilter value={filters} onChange={setFilters} countScope="user-video-tests" />
 
           {/* Total videos + Points — side by side */}
           <div className="grid grid-cols-2 gap-3">

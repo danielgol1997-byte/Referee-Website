@@ -15,6 +15,9 @@ type TagOption = { id: string; slug: string; name: string };
 interface VideoTestAnswerOverlayProps {
   isOpen: boolean;
   onClose: () => void;
+  onAction: () => void;
+  actionLabel: string;
+  actionDisabled?: boolean;
   tagOptions: {
     restarts: TagOption[];
     sanction: TagOption[];
@@ -117,13 +120,13 @@ function FilterDropdown({
       >
         {selectedTag ? (
           <span
-            className="truncate font-medium text-sm rounded px-1.5 py-0.5"
+            className="min-w-0 text-left whitespace-normal break-words font-medium text-sm rounded px-1.5 py-0.5 leading-snug"
             style={{ backgroundColor: `${color}20`, color }}
           >
             {selectedTag.name}
           </span>
         ) : (
-          <span className="text-text-secondary truncate">Select {label.toLowerCase()}…</span>
+          <span className="min-w-0 text-left whitespace-normal break-words text-text-secondary leading-snug">Select {label.toLowerCase()}…</span>
         )}
         <svg
           className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-200", open && "rotate-180")}
@@ -216,26 +219,21 @@ function FilterDropdown({
 /* ─── Main overlay ─── */
 export function VideoTestAnswerOverlay({
   isOpen,
-  onClose,
+  onClose: _onClose,
+  onAction,
+  actionLabel,
+  actionDisabled = false,
   tagOptions,
   value,
   onChange,
 }: VideoTestAnswerOverlayProps) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === "Escape" || e.key === "i" || e.key === "I") && isOpen) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  const [hoveredMode, setHoveredMode] = useState<"playon" | "criteria" | null>(null);
 
   if (!isOpen) return null;
 
   const disabled = value.playOnNoOffence;
+  const isComplete = value.playOnNoOffence ||
+    (value.restartTagId !== null && value.sanctionTagId !== null && value.criteriaTagIds.length > 0);
 
   const setPlayOnNoOffence = (v: boolean) => {
     onChange({
@@ -252,7 +250,6 @@ export function VideoTestAnswerOverlay({
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
         style={{ zIndex: 100100 }}
-        onClick={onClose}
       />
       <div
         className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto"
@@ -260,8 +257,8 @@ export function VideoTestAnswerOverlay({
       >
         <div
           className={cn(
-            "relative w-full max-w-2xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
-            "rounded-xl shadow-2xl border border-accent/30",
+            "relative w-full max-w-4xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
+            "rounded-2xl shadow-2xl border border-accent/30",
             "transform transition-all duration-300",
             "animate-in fade-in zoom-in-95 duration-200"
           )}
@@ -275,80 +272,98 @@ export function VideoTestAnswerOverlay({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 space-y-5">
-            {/* Play on / No offence toggle */}
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className={cn(
-                "relative w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200",
-                value.playOnNoOffence
-                  ? "bg-accent border-accent"
-                  : "bg-dark-700 border-dark-500 group-hover:border-accent/50"
-              )}>
-                <input
-                  type="checkbox"
-                  checked={value.playOnNoOffence}
-                  onChange={(e) => setPlayOnNoOffence(e.target.checked)}
-                  className="sr-only"
-                />
-                {value.playOnNoOffence && (
-                  <svg className="w-3.5 h-3.5 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+          <div className="px-6 py-5">
+            <div className="space-y-4">
+              <button
+                type="button"
+                onMouseEnter={() => setHoveredMode("playon")}
+                onMouseLeave={() => setHoveredMode(null)}
+                onClick={() => setPlayOnNoOffence(!value.playOnNoOffence)}
+                className={cn(
+                  "w-full rounded-xl p-3 border text-left transition-all duration-200",
+                  value.playOnNoOffence
+                    ? "border-accent bg-accent/15 shadow-md shadow-accent/15"
+                    : "border-dark-500 bg-dark-800/70 hover:border-accent/40 hover:bg-dark-800/95",
+                  hoveredMode === "criteria" && "opacity-20",
+                  hoveredMode === "playon" && "ring-1 ring-accent/40"
                 )}
-              </div>
-              <span className="text-white font-medium">Play on / No offence</span>
-            </label>
+              >
+                <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center text-accent">
+                  Play on
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <div className={cn(
+                    "relative flex h-6 w-6 items-center justify-center rounded border-2 transition-all",
+                    value.playOnNoOffence ? "border-accent bg-accent" : "border-dark-500 bg-dark-700"
+                  )}>
+                    {value.playOnNoOffence && (
+                      <svg className="h-4 w-4 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-base font-semibold text-white">Play on / No Offence</p>
+                </div>
+              </button>
 
-            {/* Filter dropdowns grid */}
-            <div className={cn(
-              "grid grid-cols-1 md:grid-cols-3 gap-4 transition-all duration-300",
-              disabled && "opacity-40 pointer-events-none"
-            )}>
-              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
-                <FilterDropdown
-                  label="Restart"
-                  color={CATEGORY_COLORS.restarts}
-                  options={tagOptions.restarts}
-                  selectedId={value.restartTagId}
-                  onSelect={(id) => onChange({ ...value, restartTagId: id })}
-                  disabled={disabled}
-                />
-              </div>
-              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
-                <FilterDropdown
-                  label="Sanction"
-                  color={CATEGORY_COLORS.sanction}
-                  options={tagOptions.sanction}
-                  selectedId={value.sanctionTagId}
-                  onSelect={(id) => onChange({ ...value, sanctionTagId: id })}
-                  disabled={disabled}
-                />
-              </div>
-              <div className="rounded-lg p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
-                <FilterDropdown
-                  label="Criteria"
-                  color={CATEGORY_COLORS.criteria}
-                  options={tagOptions.criteria}
-                  selectedId={criteriaTagId}
-                  onSelect={(id) => onChange({ ...value, criteriaTagIds: id ? [id] : [] })}
-                  disabled={disabled}
-                />
+              {/* Decision fields */}
+              <div
+                onMouseEnter={() => setHoveredMode("criteria")}
+                onMouseLeave={() => setHoveredMode(null)}
+                className={cn(
+                  "grid grid-cols-1 md:grid-cols-3 gap-5 md:pt-1 transition-all duration-300",
+                  disabled && "opacity-40 pointer-events-none",
+                  hoveredMode === "playon" && "opacity-20",
+                  hoveredMode === "criteria" && "ring-1 ring-accent/30 rounded-xl p-2"
+                )}
+              >
+                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
+                  <FilterDropdown
+                    label="Restart"
+                    color={CATEGORY_COLORS.restarts}
+                    options={tagOptions.restarts}
+                    selectedId={value.restartTagId}
+                    onSelect={(id) => onChange({ ...value, restartTagId: id })}
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
+                  <FilterDropdown
+                    label="Sanction"
+                    color={CATEGORY_COLORS.sanction}
+                    options={tagOptions.sanction}
+                    selectedId={value.sanctionTagId}
+                    onSelect={(id) => onChange({ ...value, sanctionTagId: id })}
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
+                  <FilterDropdown
+                    label="Criteria"
+                    color={CATEGORY_COLORS.criteria}
+                    options={tagOptions.criteria}
+                    selectedId={criteriaTagId}
+                    onSelect={(id) => onChange({ ...value, criteriaTagIds: id ? [id] : [] })}
+                    disabled={disabled}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-accent/20 flex justify-end">
+          <div className="px-6 py-4 border-t border-accent/20 flex justify-end gap-3">
             <button
-              onClick={onClose}
+              onClick={onAction}
+              disabled={!isComplete || actionDisabled}
               className={cn(
                 "px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all duration-200",
                 "bg-accent hover:bg-accent/90 text-dark-900",
-                "hover:shadow-lg hover:shadow-accent/20"
+                "hover:shadow-lg hover:shadow-accent/20",
+                (!isComplete || actionDisabled) && "cursor-not-allowed opacity-60"
               )}
             >
-              Close
-              <kbd className="ml-2 text-[10px] font-mono opacity-60 bg-dark-900/20 px-1.5 py-0.5 rounded">I</kbd>
+              {actionLabel}
             </button>
           </div>
         </div>

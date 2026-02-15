@@ -79,6 +79,9 @@ type AnswerInput = {
   restartTagId?: string | null;
   sanctionTagId?: string | null;
   criteriaTagIds?: string[];
+  timeToAnswerMs?: number | null;
+  questionStartedAt?: string | null;
+  questionAnsweredAt?: string | null;
 };
 
 function scoreAnswer(
@@ -101,7 +104,7 @@ function scoreAnswer(
   const criteriaOk =
     correctCriteriaIds.size === 0
       ? userCriteriaSet.size === 0
-      : correctCriteriaIds.size === userCriteriaSet.size && [...correctCriteriaIds].every((id) => userCriteriaSet.has(id));
+      : [...userCriteriaSet].some((id) => correctCriteriaIds.has(id));
 
   const isCorrect = restartOk && sanctionOk && criteriaOk;
   const isPartial = false;
@@ -141,6 +144,9 @@ export async function submitVideoTestAnswers(
     restartTagId: string | null;
     sanctionTagId: string | null;
     criteriaTagIds: string[];
+    timeToAnswerMs: number | null;
+    questionStartedAt: Date | null;
+    questionAnsweredAt: Date | null;
     isCorrect: boolean;
     isPartial: boolean;
   }> = [];
@@ -173,6 +179,12 @@ export async function submitVideoTestAnswers(
       restartTagId: answer.restartTagId ?? null,
       sanctionTagId: answer.sanctionTagId ?? null,
       criteriaTagIds: answer.criteriaTagIds ?? [],
+      timeToAnswerMs:
+        typeof answer.timeToAnswerMs === "number" && Number.isFinite(answer.timeToAnswerMs)
+          ? Math.max(Math.round(answer.timeToAnswerMs), 0)
+          : null,
+      questionStartedAt: answer.questionStartedAt ? new Date(answer.questionStartedAt) : null,
+      questionAnsweredAt: answer.questionAnsweredAt ? new Date(answer.questionAnsweredAt) : null,
       isCorrect,
       isPartial,
     });
@@ -184,7 +196,12 @@ export async function submitVideoTestAnswers(
   const scorePercent = session.totalClips > 0 ? Math.round((correctCount / session.totalClips) * 100) : 0;
   await prisma.videoTestSession.update({
     where: { id: sessionId },
-    data: { score: correctCount, completedAt: new Date() },
+    data: {
+      score: correctCount,
+      completedAt: new Date(),
+      submittedAt: new Date(),
+      totalAnswerTimeMs: toCreate.reduce((total, answer) => total + (answer.timeToAnswerMs ?? 0), 0),
+    },
   });
 
   if (session.videoTest.type === VideoTestType.MANDATORY) {

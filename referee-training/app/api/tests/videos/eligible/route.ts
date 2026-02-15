@@ -14,7 +14,12 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const filters = body?.filters ?? {};
 
-    const where = buildVideoClipWhereForUser(filters);
+    const where = {
+      AND: [
+        buildVideoClipWhereForUser(filters),
+        { isEducational: false },
+      ],
+    };
     const count = await prisma.videoClip.count({ where });
 
     return NextResponse.json({ count });

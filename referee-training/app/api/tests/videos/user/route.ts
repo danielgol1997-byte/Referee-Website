@@ -45,9 +45,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "At least one category is required" }, { status: 400 });
     }
 
-    const where = buildVideoClipWhereForUser({
-      categoryTags,
-    });
+    const where = {
+      AND: [
+        buildVideoClipWhereForUser({
+          categoryTags,
+        }),
+        { isEducational: false },
+      ],
+    };
 
     const eligible = await prisma.videoClip.findMany({
       where,
