@@ -655,7 +655,19 @@ export function InlineVideoPlayer({
       // Toggle loop with 'Shift + L'
       if (e.shiftKey && e.key === "L") {
         e.preventDefault();
-        setIsLoopEnabled(!isLoopEnabled);
+        const newLoopState = !isLoopEnabled;
+        setIsLoopEnabled(newLoopState);
+        
+        // When enabling loop: mute, set speed to 50%, jump to loop start
+        if (newLoopState) {
+          setIsMuted(true);
+          setPlaybackRate(0.5);
+          if (videoRef.current && loopMarkerA !== null) {
+            const startTime = Math.min(loopMarkerA, loopMarkerB || loopMarkerA);
+            videoRef.current.currentTime = startTime;
+            setCurrentTime(startTime);
+          }
+        }
         return;
       }
 
@@ -1123,7 +1135,21 @@ export function InlineVideoPlayer({
                     <div className="flex items-center gap-2">
                       {/* Loop indicator/toggle */}
                       <button
-                        onClick={() => setIsLoopEnabled(!isLoopEnabled)}
+                        onClick={() => {
+                          const newLoopState = !isLoopEnabled;
+                          setIsLoopEnabled(newLoopState);
+                          
+                          // When enabling loop: mute, set speed to 50%, jump to loop start
+                          if (newLoopState) {
+                            setIsMuted(true);
+                            setPlaybackRate(0.5);
+                            if (videoRef.current && loopMarkerA !== null) {
+                              const startTime = Math.min(loopMarkerA, loopMarkerB || loopMarkerA);
+                              videoRef.current.currentTime = startTime;
+                              setCurrentTime(startTime);
+                            }
+                          }
+                        }}
                         className={cn(
                           "px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
                           isLoopEnabled 

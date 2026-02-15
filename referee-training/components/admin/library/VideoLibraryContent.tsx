@@ -159,7 +159,7 @@ export function VideoLibraryContent() {
               : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
           }`}
         >
-          Videos ({videos.length})
+          Videos ({pagination.total})
         </button>
         <button
           onClick={() => setActiveSubTab('upload')}

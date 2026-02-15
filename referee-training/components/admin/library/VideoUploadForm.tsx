@@ -684,7 +684,8 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         thumbnailUrl,
         duration: normalizedDuration,
         // Don't pass categoryId - let the backend handle it
-        videoCategoryId: videoCategories[0]?.id || null,
+        // Don't auto-assign a videoCategoryId - leave null unless user explicitly selects one
+        videoCategoryId: null,
         lawNumbers: selectedLawNumbers,
         playOn: hasDecisionTags ? playOn : false,
         noOffence: hasDecisionTags ? noOffence : false,
@@ -1271,6 +1272,11 @@ function AnswerPreview({
   } else if (hasOffside) {
     offenceTitle = "Offside Offence";
   }
+  const noOffenceTitle = hasHandball
+    ? "No Handball Offence"
+    : hasOffside
+      ? "No Offside Offence"
+      : "Play On";
 
   // Filter tags by category
   const restartTags = correctDecisionTags.filter(tag => tag.category?.slug === 'restarts');
@@ -1296,66 +1302,65 @@ function AnswerPreview({
 
   return (
     <div className="space-y-4">
-      {/* Title Bar with Play On / No Offence Toggles */}
-      <div className={cn(
-        "rounded-lg p-4 border-4 transition-all",
-        playOn || noOffence ? "border-green-500 bg-green-500/10" : "border-red-500 bg-red-500/10"
-      )}>
-        <h3 className={cn(
-          "text-2xl font-bold uppercase tracking-wider text-center mb-4",
-          playOn || noOffence ? "text-green-400" : "text-red-400"
-        )}>
-          {playOn ? "Play On" : noOffence ? "No Offence" : offenceTitle}
-        </h3>
+      {/* Single header section: offence <-> no offence switch */}
+      <div className="rounded-lg p-4 border-2 border-slate-700 bg-slate-900/40">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          {(() => {
+            const playOnActive = playOn || noOffence;
+            return (
+              <>
+                <div
+                  className={cn(
+                    "min-w-[220px] rounded-lg border-2 px-4 py-2 text-center text-sm font-bold uppercase tracking-wider transition-all",
+                    !playOnActive
+                      ? "border-red-500 bg-red-500/15 text-red-300"
+                      : "border-slate-700 bg-slate-800/60 text-slate-500"
+                  )}
+                >
+                  {offenceTitle}
+                </div>
 
-        {/* Checkboxes */}
-        <div className="flex gap-4 justify-center">
-          {/* Show Play On for non-handball/offside categories */}
-          {!hasHandball && !hasOffside && (
-            <label className="flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-800/60 border-2 border-slate-700/50 hover:border-green-500/50 cursor-pointer transition-all">
-              <input
-                type="checkbox"
-                checked={playOn}
-                onChange={(e) => {
-                  onPlayOnChange(e.target.checked);
-                  if (e.target.checked) onNoOffenceChange(false);
-                }}
-                className="w-6 h-6 rounded border-2 border-green-500 bg-slate-900 text-green-500 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
-              />
-              <span className={cn(
-                "font-semibold text-base uppercase tracking-wider transition-colors",
-                playOn ? "text-green-400" : "text-slate-400"
-              )}>
-                Play On
-              </span>
-            </label>
-          )}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={playOnActive}
+                  aria-label="Toggle offence or play on"
+                  onClick={() => {
+                    const nextPlayOn = !playOnActive;
+                    onPlayOnChange(nextPlayOn);
+                    onNoOffenceChange(false);
+                  }}
+                  className={cn(
+                    "relative h-7 w-14 rounded-full border-2 transition-all",
+                    playOnActive
+                      ? "border-green-500 bg-green-500/25"
+                      : "border-red-500 bg-red-500/25"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                      playOnActive ? "translate-x-7" : "translate-x-0"
+                    )}
+                  />
+                </button>
 
-          {/* Show No Offence for handball/offside categories */}
-          {(hasHandball || hasOffside) && (
-            <label className="flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-800/60 border-2 border-slate-700/50 hover:border-green-500/50 cursor-pointer transition-all">
-              <input
-                type="checkbox"
-                checked={noOffence}
-                onChange={(e) => {
-                  onNoOffenceChange(e.target.checked);
-                  if (e.target.checked) onPlayOnChange(false);
-                }}
-                className="w-6 h-6 rounded border-2 border-green-500 bg-slate-900 text-green-500 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
-              />
-              <span className={cn(
-                "font-semibold text-base uppercase tracking-wider transition-colors",
-                noOffence ? "text-green-400" : "text-slate-400"
-              )}>
-                No Offence
-              </span>
-            </label>
-          )}
+                <div
+                  className={cn(
+                    "min-w-[220px] rounded-lg border-2 px-4 py-2 text-center text-sm font-bold uppercase tracking-wider transition-all",
+                    playOnActive
+                      ? "border-green-500 bg-green-500/15 text-green-300"
+                      : "border-slate-700 bg-slate-800/60 text-slate-500"
+                  )}
+                >
+                  {noOffenceTitle}
+                </div>
+              </>
+            );
+          })()}
         </div>
-      </div>
 
-      {/* 3-Section Layout matching user-side answer display */}
-      <div className="grid grid-cols-3 gap-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-4 border border-slate-700">
+        <div className="grid grid-cols-3 gap-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-4 border border-slate-700">
         {/* Restart Section */}
         <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">
@@ -1464,6 +1469,7 @@ function AnswerPreview({
             )}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Helper text */}

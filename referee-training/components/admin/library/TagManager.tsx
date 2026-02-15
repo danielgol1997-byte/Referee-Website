@@ -1291,7 +1291,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
         if (category.slug === CRITERIA_TAG_CATEGORY_SLUG) {
           // Special rendering for Criteria with sub-grouping
           return (
-            <div key={category.id} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+            <div key={category.id} className="rounded-2xl bg-dark-800/50 overflow-hidden" style={{ border: `2px solid ${groupColor}` }}>
               <button
                 onClick={() => toggleTab(category.id)}
                 className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
@@ -1437,7 +1437,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
 
         // Regular category rendering
         return (
-          <div key={category.id} className="rounded-2xl bg-dark-800/50 border-2 overflow-hidden" style={{ borderColor: groupColor }}>
+          <div key={category.id} className="rounded-2xl bg-dark-800/50 overflow-hidden" style={{ border: `2px solid ${groupColor}` }}>
             <button
               onClick={() => toggleTab(category.id)}
               className="w-full flex items-center justify-between p-6 hover:bg-dark-700/50 transition-colors"
