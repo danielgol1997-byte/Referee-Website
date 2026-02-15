@@ -83,6 +83,7 @@ export function AdminVideoFilterBar({
   const [isClient, setIsClient] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
   const [optionCounts, setOptionCounts] = useState<Record<string, Record<string, number>>>({});
+  const optionCountRequestRef = useRef<AbortController | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
   // Load saved preferences after hydration
@@ -184,20 +185,34 @@ export function AdminVideoFilterBar({
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
+        if (optionCountRequestRef.current) {
+          optionCountRequestRef.current.abort();
+        }
+        const controller = new AbortController();
+        optionCountRequestRef.current = controller;
+
         const response = await fetch("/api/library/filter-counts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ scope: countsScope, filters }),
+          signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok || controller.signal.aborted) return;
         const data = await response.json();
+        if (optionCountRequestRef.current !== controller || controller.signal.aborted) return;
         setOptionCounts(data?.countsByCategory ?? {});
-      } catch {
+      } catch (error: any) {
+        if (error?.name === "AbortError") return;
         // Keep UI functional even if counts fail
       }
     }, 150);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (optionCountRequestRef.current) {
+        optionCountRequestRef.current.abort();
+      }
+    };
   }, [filters, countsScope]);
 
   // Close settings on click outside

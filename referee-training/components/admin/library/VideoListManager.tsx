@@ -45,6 +45,7 @@ interface VideoListManagerProps {
     total: number;
     totalPages: number;
   };
+  isFetching?: boolean;
   onPageChange?: (page: number) => void;
 }
 
@@ -57,6 +58,7 @@ export function VideoListManager({
   onRefresh,
   onVideoUpdate,
   pagination,
+  isFetching = false,
   onPageChange,
 }: VideoListManagerProps) {
   const modal = useModal();
@@ -219,6 +221,12 @@ export function VideoListManager({
           <div>
             Showing {videos.length} of {pagination?.total ?? videos.length} videos
             {pagination && ` (Page ${pagination.page} of ${pagination.totalPages})`}
+            {isFetching && (
+              <span className="ml-3 inline-flex items-center gap-1 text-cyan-400">
+                <span className="inline-block h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                Updating...
+              </span>
+            )}
           </div>
           <button
             onClick={onRefresh}

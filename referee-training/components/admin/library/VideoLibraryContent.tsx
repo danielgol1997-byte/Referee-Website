@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
 import { TagManager } from "./TagManager";
 import { AdminVideoFilters } from "./AdminVideoFilterBar";
 
 type SubTab = 'videos' | 'upload' | 'tags';
+const INITIAL_VIDEO_FILTERS: AdminVideoFilters = {
+  search: '',
+  activeStatus: 'all',
+  usageStatus: 'all',
+  customTagFilters: {},
+};
 
 export function VideoLibraryContent() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('videos');
@@ -16,18 +22,34 @@ export function VideoLibraryContent() {
   const [tagCategories, setTagCategories] = useState<any[]>([]);
   const [editingVideo, setEditingVideo] = useState<any>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+  const [isInitialLoadingVideos, setIsInitialLoadingVideos] = useState(true);
+  const [isFetchingVideos, setIsFetchingVideos] = useState(false);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
-  const [filters, setFilters] = useState<AdminVideoFilters>({
-    search: '',
-    activeStatus: 'all',
-    usageStatus: 'all',
-    customTagFilters: {},
-  });
+  const [filters, setFilters] = useState<AdminVideoFilters>(INITIAL_VIDEO_FILTERS);
 
-  const fetchVideos = async (page = 1, activeFilters = filters) => {
+  const activeFetchControllerRef = useRef<AbortController | null>(null);
+  const hasInitializedVideosRef = useRef(false);
+
+  const fetchVideos = useCallback(async (
+    page = 1,
+    activeFilters: AdminVideoFilters,
+    options?: { background?: boolean }
+  ) => {
+    const background = options?.background ?? true;
     try {
-      setIsLoadingVideos(true);
+      if (activeFetchControllerRef.current) {
+        activeFetchControllerRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      activeFetchControllerRef.current = controller;
+
+      if (background) {
+        setIsFetchingVideos(true);
+      } else {
+        setIsInitialLoadingVideos(true);
+      }
+
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
@@ -46,19 +68,32 @@ export function VideoLibraryContent() {
         params.set('customTagFilters', JSON.stringify(activeFilters.customTagFilters));
       }
 
-      const videosRes = await fetch(`/api/admin/library/videos?${params}`);
+      const videosRes = await fetch(`/api/admin/library/videos?${params}`, {
+        signal: controller.signal,
+      });
+      if (!videosRes.ok) {
+        throw new Error(`Failed to fetch videos (${videosRes.status})`);
+      }
       const videosData = await videosRes.json();
-      
+
+      if (controller.signal.aborted) return;
       setVideos(videosData.videos || []);
       setPagination(videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
+      hasInitializedVideosRef.current = true;
     } catch (error) {
+      if ((error as any)?.name === 'AbortError') return;
       console.error('Error fetching videos:', error);
     } finally {
-      setIsLoadingVideos(false);
+      if (activeFetchControllerRef.current !== controller || controller.signal.aborted) return;
+      if (background) {
+        setIsFetchingVideos(false);
+      } else {
+        setIsInitialLoadingVideos(false);
+      }
     }
-  };
+  }, []);
 
-  const fetchCategoriesAndTags = async () => {
+  const fetchCategoriesAndTags = useCallback(async () => {
     try {
       setIsLoadingTags(true);
       const [categoriesRes, tagsRes, tagCategoriesRes] = await Promise.all([
@@ -92,25 +127,25 @@ export function VideoLibraryContent() {
     } finally {
       setIsLoadingTags(false);
     }
-  };
-
-  const fetchData = async () => {
-    try {
-      await Promise.all([
-        fetchCategoriesAndTags(),
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
 
   useEffect(() => {
-    fetchVideos(1, filters);
-  }, [filters]);
+    fetchVideos(1, INITIAL_VIDEO_FILTERS, { background: false });
+    fetchCategoriesAndTags();
+    return () => {
+      if (activeFetchControllerRef.current) {
+        activeFetchControllerRef.current.abort();
+      }
+    };
+  }, [fetchVideos, fetchCategoriesAndTags]);
+
+  useEffect(() => {
+    if (!hasInitializedVideosRef.current) return;
+    const timeoutId = setTimeout(() => {
+      fetchVideos(1, filters, { background: true });
+    }, 220);
+    return () => clearTimeout(timeoutId);
+  }, [filters, fetchVideos]);
 
   const handleEditVideo = async (video: any) => {
     // Fetch full video details when editing
@@ -144,7 +179,7 @@ export function VideoLibraryContent() {
   const handleUploadSuccess = () => {
     setEditingVideo(null);
     setActiveSubTab('videos');
-    fetchVideos(pagination.page);
+    fetchVideos(pagination.page, filters, { background: true });
   };
 
   const handleDeleteVideo = (videoId: string) => {
@@ -212,7 +247,7 @@ export function VideoLibraryContent() {
       {/* Content */}
       {activeSubTab === 'videos' && (
         <>
-          {isLoadingVideos ? (
+          {isInitialLoadingVideos ? (
             <div className="min-h-[60vh] flex items-center justify-center">
               <div className="flex flex-col items-center gap-4 text-text-secondary">
                 <img
@@ -230,11 +265,12 @@ export function VideoLibraryContent() {
               onFiltersChange={setFilters}
               onEdit={handleEditVideo}
               onDelete={handleDeleteVideo}
-              onRefresh={() => fetchVideos(pagination.page, filters)}
+              onRefresh={() => fetchVideos(pagination.page, filters, { background: true })}
               onVideoUpdate={handleVideoUpdate}
               pagination={pagination}
+              isFetching={isFetchingVideos}
               onPageChange={(page) => {
-                fetchVideos(page, filters);
+                fetchVideos(page, filters, { background: true });
               }}
             />
           )}
@@ -268,7 +304,7 @@ export function VideoLibraryContent() {
             <TagManager
               tags={tags}
               tagCategories={tagCategories}
-              onRefresh={fetchData}
+              onRefresh={fetchCategoriesAndTags}
             />
           )}
         </>
