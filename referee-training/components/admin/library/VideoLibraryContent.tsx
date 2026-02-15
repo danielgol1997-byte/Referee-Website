@@ -29,6 +29,8 @@ export function VideoLibraryContent() {
 
   const activeFetchControllerRef = useRef<AbortController | null>(null);
   const hasInitializedVideosRef = useRef(false);
+  const lastServerVideosRef = useRef<any[]>([]);
+  const [isOptimisticPreview, setIsOptimisticPreview] = useState(false);
   const videoQueryCacheRef = useRef(
     new Map<string, { videos: any[]; pagination: { page: number; limit: number; total: number; totalPages: number }; cachedAt: number }>()
   );
@@ -82,6 +84,27 @@ export function VideoLibraryContent() {
     }
   }, [buildVideoQueryParams, getCacheKey]);
 
+  const applyOptimisticLocalFilter = useCallback((sourceVideos: any[], activeFilters: AdminVideoFilters) => {
+    const search = activeFilters.search.trim().toLowerCase();
+    return sourceVideos.filter((video) => {
+      if (search && !String(video.title || "").toLowerCase().includes(search)) return false;
+      if (activeFilters.activeStatus === "active" && !video.isActive) return false;
+      if (activeFilters.activeStatus === "inactive" && video.isActive) return false;
+
+      // Optimistic tag filtering for immediate UI feedback.
+      const selectedTagGroups = Object.values(activeFilters.customTagFilters || {}).filter((values) => values.length > 0);
+      if (selectedTagGroups.length > 0) {
+        const videoTagSlugs = (video.tags || []).map((t: any) => t.slug);
+        for (const selectedSlugs of selectedTagGroups) {
+          if (!selectedSlugs.some((slug) => videoTagSlugs.includes(slug))) return false;
+        }
+      }
+
+      // usageStatus is server-derived (video test relation), so we avoid guessing locally.
+      return true;
+    });
+  }, []);
+
   const fetchVideos = useCallback(async (
     page = 1,
     activeFilters: AdminVideoFilters,
@@ -105,6 +128,8 @@ export function VideoLibraryContent() {
       if (cached) {
         setVideos(cached.videos);
         setPagination(cached.pagination);
+        setIsOptimisticPreview(false);
+        lastServerVideosRef.current = cached.videos;
         hasInitializedVideosRef.current = true;
         // Fast path: use fresh cache immediately without roundtrip.
         if (isFreshCache) {
@@ -133,6 +158,8 @@ export function VideoLibraryContent() {
       const nextPagination = videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 };
       setVideos(nextVideos);
       setPagination(nextPagination);
+      setIsOptimisticPreview(false);
+      lastServerVideosRef.current = nextVideos;
       videoQueryCacheRef.current.set(cacheKey, {
         videos: nextVideos,
         pagination: nextPagination,
@@ -210,11 +237,27 @@ export function VideoLibraryContent() {
 
   useEffect(() => {
     if (!hasInitializedVideosRef.current) return;
+
+    // Instant response path: cached result for this query.
+    const immediateParams = buildVideoQueryParams(1, filters);
+    const immediateKey = getCacheKey(immediateParams);
+    const immediateCached = videoQueryCacheRef.current.get(immediateKey);
+    if (immediateCached) {
+      setVideos(immediateCached.videos);
+      setPagination(immediateCached.pagination);
+      setIsOptimisticPreview(false);
+    } else {
+      // Optimistic fallback: local preview using last known server dataset.
+      const optimistic = applyOptimisticLocalFilter(lastServerVideosRef.current, filters);
+      setVideos(optimistic);
+      setIsOptimisticPreview(true);
+    }
+
     const timeoutId = setTimeout(() => {
       fetchVideos(1, filters, { background: true });
-    }, 220);
+    }, 140);
     return () => clearTimeout(timeoutId);
-  }, [filters, fetchVideos]);
+  }, [filters, fetchVideos, buildVideoQueryParams, getCacheKey, applyOptimisticLocalFilter]);
 
   const handleEditVideo = async (video: any) => {
     // Fetch full video details when editing
@@ -338,6 +381,7 @@ export function VideoLibraryContent() {
               onVideoUpdate={handleVideoUpdate}
               pagination={pagination}
               isFetching={isFetchingVideos}
+              isOptimisticPreview={isOptimisticPreview}
               onPageChange={(page) => {
                 fetchVideos(page, filters, { background: true });
               }}

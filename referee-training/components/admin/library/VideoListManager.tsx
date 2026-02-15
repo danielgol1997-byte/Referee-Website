@@ -46,6 +46,7 @@ interface VideoListManagerProps {
     totalPages: number;
   };
   isFetching?: boolean;
+  isOptimisticPreview?: boolean;
   onPageChange?: (page: number) => void;
 }
 
@@ -59,6 +60,7 @@ export function VideoListManager({
   onVideoUpdate,
   pagination,
   isFetching = false,
+  isOptimisticPreview = false,
   onPageChange,
 }: VideoListManagerProps) {
   const modal = useModal();
@@ -221,6 +223,12 @@ export function VideoListManager({
           <div>
             Showing {videos.length} of {pagination?.total ?? videos.length} videos
             {pagination && ` (Page ${pagination.page} of ${pagination.totalPages})`}
+            {isOptimisticPreview && (
+              <span className="ml-3 inline-flex items-center gap-1 text-amber-300">
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
+                Previewing...
+              </span>
+            )}
             {isFetching && (
               <span className="ml-3 inline-flex items-center gap-1 text-cyan-400">
                 <span className="inline-block h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
