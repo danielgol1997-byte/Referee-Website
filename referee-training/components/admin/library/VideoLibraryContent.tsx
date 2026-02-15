@@ -29,6 +29,58 @@ export function VideoLibraryContent() {
 
   const activeFetchControllerRef = useRef<AbortController | null>(null);
   const hasInitializedVideosRef = useRef(false);
+  const videoQueryCacheRef = useRef(
+    new Map<string, { videos: any[]; pagination: { page: number; limit: number; total: number; totalPages: number }; cachedAt: number }>()
+  );
+  const prefetchInFlightRef = useRef(new Set<string>());
+
+  const buildVideoQueryParams = useCallback((page: number, activeFilters: AdminVideoFilters) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: '20',
+    });
+    if (activeFilters.search.trim()) {
+      params.set('search', activeFilters.search.trim());
+    }
+    if (activeFilters.activeStatus !== 'all') {
+      params.set('isActive', String(activeFilters.activeStatus === 'active'));
+    }
+    if (activeFilters.usageStatus !== 'all') {
+      params.set('usageStatus', activeFilters.usageStatus);
+    }
+    const hasCustomTagFilters = Object.values(activeFilters.customTagFilters || {}).some(values => values.length > 0);
+    if (hasCustomTagFilters) {
+      params.set('customTagFilters', JSON.stringify(activeFilters.customTagFilters));
+    }
+    return params;
+  }, []);
+
+  const getCacheKey = useCallback((params: URLSearchParams) => params.toString(), []);
+
+  const prefetchVideoPage = useCallback(async (page: number, activeFilters: AdminVideoFilters) => {
+    if (page < 1) return;
+    const params = buildVideoQueryParams(page, activeFilters);
+    const cacheKey = getCacheKey(params);
+    if (videoQueryCacheRef.current.has(cacheKey) || prefetchInFlightRef.current.has(cacheKey)) {
+      return;
+    }
+
+    prefetchInFlightRef.current.add(cacheKey);
+    try {
+      const response = await fetch(`/api/admin/library/videos?${params}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      videoQueryCacheRef.current.set(cacheKey, {
+        videos: data.videos || [],
+        pagination: data.pagination || { page, limit: 20, total: 0, totalPages: 0 },
+        cachedAt: Date.now(),
+      });
+    } catch {
+      // Non-blocking optimization only
+    } finally {
+      prefetchInFlightRef.current.delete(cacheKey);
+    }
+  }, [buildVideoQueryParams, getCacheKey]);
 
   const fetchVideos = useCallback(async (
     page = 1,
@@ -45,28 +97,27 @@ export function VideoLibraryContent() {
       controller = new AbortController();
       activeFetchControllerRef.current = controller;
 
-      if (background) {
-        setIsFetchingVideos(true);
-      } else {
-        setIsInitialLoadingVideos(true);
+      const params = buildVideoQueryParams(page, activeFilters);
+      const cacheKey = getCacheKey(params);
+      const cached = videoQueryCacheRef.current.get(cacheKey);
+      const isFreshCache = cached ? Date.now() - cached.cachedAt < 30_000 : false;
+
+      if (cached) {
+        setVideos(cached.videos);
+        setPagination(cached.pagination);
+        hasInitializedVideosRef.current = true;
+        // Fast path: use fresh cache immediately without roundtrip.
+        if (isFreshCache) {
+          return;
+        }
       }
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20',
-      });
-      if (activeFilters.search.trim()) {
-        params.set('search', activeFilters.search.trim());
-      }
-      if (activeFilters.activeStatus !== 'all') {
-        params.set('isActive', String(activeFilters.activeStatus === 'active'));
-      }
-      if (activeFilters.usageStatus !== 'all') {
-        params.set('usageStatus', activeFilters.usageStatus);
-      }
-      const hasCustomTagFilters = Object.values(activeFilters.customTagFilters || {}).some(values => values.length > 0);
-      if (hasCustomTagFilters) {
-        params.set('customTagFilters', JSON.stringify(activeFilters.customTagFilters));
+      if (!cached) {
+        if (background) {
+          setIsFetchingVideos(true);
+        } else {
+          setIsInitialLoadingVideos(true);
+        }
       }
 
       const videosRes = await fetch(`/api/admin/library/videos?${params}`, {
@@ -78,9 +129,26 @@ export function VideoLibraryContent() {
       const videosData = await videosRes.json();
 
       if (controller.signal.aborted) return;
-      setVideos(videosData.videos || []);
-      setPagination(videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
+      const nextVideos = videosData.videos || [];
+      const nextPagination = videosData.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 };
+      setVideos(nextVideos);
+      setPagination(nextPagination);
+      videoQueryCacheRef.current.set(cacheKey, {
+        videos: nextVideos,
+        pagination: nextPagination,
+        cachedAt: Date.now(),
+      });
       hasInitializedVideosRef.current = true;
+
+      // Prefetch neighboring pages for instant navigation.
+      if (nextPagination.totalPages > 1) {
+        if (page < nextPagination.totalPages) {
+          void prefetchVideoPage(page + 1, activeFilters);
+        }
+        if (page > 1) {
+          void prefetchVideoPage(page - 1, activeFilters);
+        }
+      }
     } catch (error) {
       if ((error as any)?.name === 'AbortError') return;
       console.error('Error fetching videos:', error);
@@ -92,7 +160,7 @@ export function VideoLibraryContent() {
         setIsInitialLoadingVideos(false);
       }
     }
-  }, []);
+  }, [buildVideoQueryParams, getCacheKey, prefetchVideoPage]);
 
   const fetchCategoriesAndTags = useCallback(async () => {
     try {

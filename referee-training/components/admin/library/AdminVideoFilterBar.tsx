@@ -183,6 +183,8 @@ export function AdminVideoFilterBar({
   }, [customFilterTypes]);
 
   useEffect(() => {
+    if (!activeDropdown) return;
+
     const timer = setTimeout(async () => {
       try {
         if (optionCountRequestRef.current) {
@@ -213,7 +215,7 @@ export function AdminVideoFilterBar({
         optionCountRequestRef.current.abort();
       }
     };
-  }, [filters, countsScope]);
+  }, [filters, countsScope, activeDropdown]);
 
   // Close settings on click outside
   useEffect(() => {
