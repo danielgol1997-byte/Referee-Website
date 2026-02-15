@@ -21,6 +21,8 @@ export async function GET(request: Request) {
     const categoryId = searchParams.get('categoryId');
     const videoCategoryId = searchParams.get('videoCategoryId');
     const isActive = searchParams.get('isActive');
+    const usageStatus = searchParams.get('usageStatus');
+    const customTagFiltersRaw = searchParams.get('customTagFilters');
     const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
     
     // Pagination parameters
@@ -29,6 +31,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    const andFilters: any[] = [];
 
     if (search) {
       where.OR = [
@@ -50,11 +53,47 @@ export async function GET(request: Request) {
     }
 
     if (tags.length > 0) {
-      where.tags = {
-        some: {
-          tagId: { in: tags },
+      andFilters.push({
+        tags: {
+          some: {
+            tagId: { in: tags },
+          },
         },
-      };
+      });
+    }
+
+    if (usageStatus === 'used') {
+      andFilters.push({
+        videoTestClips: { some: {} },
+      });
+    } else if (usageStatus === 'unused') {
+      andFilters.push({
+        videoTestClips: { none: {} },
+      });
+    }
+
+    if (customTagFiltersRaw) {
+      try {
+        const customTagFilters = JSON.parse(customTagFiltersRaw) as Record<string, string[]>;
+        for (const selectedSlugs of Object.values(customTagFilters || {})) {
+          if (!Array.isArray(selectedSlugs) || selectedSlugs.length === 0) continue;
+          andFilters.push({
+            tags: {
+              some: {
+                tag: {
+                  slug: { in: selectedSlugs },
+                },
+              },
+            },
+          });
+        }
+      } catch (error) {
+        console.warn('Invalid customTagFilters payload:', error);
+      }
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     // Get total count for pagination

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
 import { TagManager } from "./TagManager";
+import { AdminVideoFilters } from "./AdminVideoFilterBar";
 
 type SubTab = 'videos' | 'upload' | 'tags';
 
@@ -17,14 +18,33 @@ export function VideoLibraryContent() {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [isLoadingVideos, setIsLoadingVideos] = useState(true);
   const [isLoadingTags, setIsLoadingTags] = useState(true);
+  const [filters, setFilters] = useState<AdminVideoFilters>({
+    search: '',
+    activeStatus: 'all',
+    usageStatus: 'all',
+    customTagFilters: {},
+  });
 
-  const fetchVideos = async (page = 1) => {
+  const fetchVideos = async (page = 1, activeFilters = filters) => {
     try {
       setIsLoadingVideos(true);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
       });
+      if (activeFilters.search.trim()) {
+        params.set('search', activeFilters.search.trim());
+      }
+      if (activeFilters.activeStatus !== 'all') {
+        params.set('isActive', String(activeFilters.activeStatus === 'active'));
+      }
+      if (activeFilters.usageStatus !== 'all') {
+        params.set('usageStatus', activeFilters.usageStatus);
+      }
+      const hasCustomTagFilters = Object.values(activeFilters.customTagFilters || {}).some(values => values.length > 0);
+      if (hasCustomTagFilters) {
+        params.set('customTagFilters', JSON.stringify(activeFilters.customTagFilters));
+      }
 
       const videosRes = await fetch(`/api/admin/library/videos?${params}`);
       const videosData = await videosRes.json();
@@ -77,7 +97,6 @@ export function VideoLibraryContent() {
   const fetchData = async () => {
     try {
       await Promise.all([
-        fetchVideos(1),
         fetchCategoriesAndTags(),
       ]);
     } catch (error) {
@@ -88,6 +107,10 @@ export function VideoLibraryContent() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchVideos(1, filters);
+  }, [filters]);
 
   const handleEditVideo = async (video: any) => {
     // Fetch full video details when editing
@@ -203,13 +226,15 @@ export function VideoLibraryContent() {
           ) : (
             <VideoListManager
               videos={videos}
+              filters={filters}
+              onFiltersChange={setFilters}
               onEdit={handleEditVideo}
               onDelete={handleDeleteVideo}
-              onRefresh={() => fetchVideos(pagination.page)}
+              onRefresh={() => fetchVideos(pagination.page, filters)}
               onVideoUpdate={handleVideoUpdate}
               pagination={pagination}
               onPageChange={(page) => {
-                fetchVideos(page);
+                fetchVideos(page, filters);
               }}
             />
           )}

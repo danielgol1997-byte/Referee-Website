@@ -20,6 +20,7 @@ interface VideoUploadFormProps {
     id: string;
     name: string;
     slug: string;
+    color?: string | null;
     canBeCorrectAnswer: boolean;
     order?: number;
   }>;
@@ -31,6 +32,7 @@ interface TagCategory {
   id: string;
   name: string;
   slug: string;
+  color?: string | null;
   canBeCorrectAnswer: boolean;
   order?: number;
 }
@@ -997,7 +999,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
               <TagDropdown
                 key={category.id}
                 label={category.name}
-                color={GROUP_COLORS[category.slug] || '#00E8F8'}
+                color={category.color || GROUP_COLORS[category.slug] || '#00E8F8'}
                 options={filteredOptions}
                 selected={[...correctDecisionTags, ...invisibleTags].filter(t => t.category?.id === category.id)}
                 onSelect={(tag) => {

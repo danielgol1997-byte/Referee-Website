@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/components/ui/modal";
 import { AdminVideoFilterBar, AdminVideoFilters } from "./AdminVideoFilterBar";
@@ -33,6 +33,8 @@ interface Video {
 
 interface VideoListManagerProps {
   videos: Video[];
+  filters: AdminVideoFilters;
+  onFiltersChange: (filters: AdminVideoFilters) => void;
   onEdit: (video: Video) => void;
   onDelete: (videoId: string) => void;
   onRefresh: () => void;
@@ -48,6 +50,8 @@ interface VideoListManagerProps {
 
 export function VideoListManager({ 
   videos, 
+  filters,
+  onFiltersChange,
   onEdit, 
   onDelete, 
   onRefresh,
@@ -56,42 +60,7 @@ export function VideoListManager({
   onPageChange,
 }: VideoListManagerProps) {
   const modal = useModal();
-  const [filters, setFilters] = useState<AdminVideoFilters>({
-    search: '',
-    activeStatus: 'all',
-    usageStatus: 'all',
-    customTagFilters: {},
-  });
-
-  // Client-side filtering for all criteria
-  const filteredVideos = videos.filter(video => {
-    // Search filter
-    if (filters.search && !video.title.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false;
-    }
-
-    // Active status filter
-    if (filters.activeStatus === 'active' && !video.isActive) return false;
-    if (filters.activeStatus === 'inactive' && video.isActive) return false;
-    
-    // Tag filters
-    if (filters.customTagFilters) {
-      const videoTagSlugs = video.tags?.map(t => t.slug) || [];
-      for (const [categorySlug, selectedTags] of Object.entries(filters.customTagFilters)) {
-        if (selectedTags.length > 0) {
-          const hasMatch = selectedTags.some(tagSlug => videoTagSlugs.includes(tagSlug));
-          if (!hasMatch) return false;
-        }
-      }
-    }
-
-    return true;
-  }).sort((a, b) => {
-    // Sort: Active videos first, then by featured, then by creation date
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const filteredVideos = videos;
 
   const handleDelete = async (videoId: string, videoTitle: string) => {
     const confirmed = await modal.showConfirm(
@@ -177,6 +146,45 @@ export function VideoListManager({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const paginationItems = useMemo(() => {
+    if (!pagination || pagination.totalPages <= 1) return [];
+    const totalPages = pagination.totalPages;
+    const currentPage = pagination.page;
+    const siblingCount = 1;
+    const items: Array<number | "ellipsis"> = [];
+
+    items.push(1);
+
+    const leftSibling = Math.max(2, currentPage - siblingCount);
+    const rightSibling = Math.min(totalPages - 1, currentPage + siblingCount);
+
+    if (leftSibling > 2) {
+      items.push("ellipsis");
+    } else {
+      for (let page = 2; page < leftSibling; page += 1) {
+        items.push(page);
+      }
+    }
+
+    for (let page = leftSibling; page <= rightSibling; page += 1) {
+      items.push(page);
+    }
+
+    if (rightSibling < totalPages - 1) {
+      items.push("ellipsis");
+    } else {
+      for (let page = rightSibling + 1; page < totalPages; page += 1) {
+        items.push(page);
+      }
+    }
+
+    if (totalPages > 1) {
+      items.push(totalPages);
+    }
+
+    return items;
+  }, [pagination]);
+
   return (
     <div className="space-y-6">
       <style jsx>{`
@@ -204,12 +212,12 @@ export function VideoListManager({
       <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">
         <AdminVideoFilterBar
           filters={filters}
-          onFiltersChange={setFilters}
+          onFiltersChange={onFiltersChange}
         />
 
         <div className="mt-4 flex items-center justify-between text-sm text-text-muted border-t border-dark-600 pt-4">
           <div>
-            Showing {filteredVideos.length} of {videos.length} videos
+            Showing {videos.length} of {pagination?.total ?? videos.length} videos
             {pagination && ` (Page ${pagination.page} of ${pagination.totalPages})`}
           </div>
           <button
@@ -377,18 +385,20 @@ export function VideoListManager({
           </button>
           
           <div className="flex gap-1">
-            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-              let pageNum: number;
-              if (pagination.totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (pagination.page <= 3) {
-                pageNum = i + 1;
-              } else if (pagination.page >= pagination.totalPages - 2) {
-                pageNum = pagination.totalPages - 4 + i;
-              } else {
-                pageNum = pagination.page - 2 + i;
+            {paginationItems.map((item, index) => {
+              if (item === "ellipsis") {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-2 py-2 text-sm text-text-muted select-none"
+                  >
+                    ...
+                  </span>
+                );
               }
-              
+
+              const pageNum = item;
+
               return (
                 <button
                   key={pageNum}
