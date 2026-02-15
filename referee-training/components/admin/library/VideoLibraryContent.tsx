@@ -36,12 +36,13 @@ export function VideoLibraryContent() {
     options?: { background?: boolean }
   ) => {
     const background = options?.background ?? true;
+    let controller: AbortController | null = null;
     try {
       if (activeFetchControllerRef.current) {
         activeFetchControllerRef.current.abort();
       }
 
-      const controller = new AbortController();
+      controller = new AbortController();
       activeFetchControllerRef.current = controller;
 
       if (background) {
@@ -84,7 +85,7 @@ export function VideoLibraryContent() {
       if ((error as any)?.name === 'AbortError') return;
       console.error('Error fetching videos:', error);
     } finally {
-      if (activeFetchControllerRef.current !== controller || controller.signal.aborted) return;
+      if (!controller || activeFetchControllerRef.current !== controller || controller.signal.aborted) return;
       if (background) {
         setIsFetchingVideos(false);
       } else {
