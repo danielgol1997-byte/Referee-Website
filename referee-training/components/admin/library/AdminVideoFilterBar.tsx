@@ -30,6 +30,37 @@ interface TagCategory {
   tags: Tag[];
 }
 
+// ── Module-level cache for tag categories ──────────────────────────
+// Survives re-mounts (tab switches etc.) so the filter bar appears instantly.
+let _tagCategoriesCache: TagCategory[] | null = null;
+let _tagCategoriesFetchPromise: Promise<TagCategory[]> | null = null;
+
+function fetchAndCacheTagCategories(): Promise<TagCategory[]> {
+  // Return cached data immediately
+  if (_tagCategoriesCache) return Promise.resolve(_tagCategoriesCache);
+  // Deduplicate concurrent requests
+  if (_tagCategoriesFetchPromise) return _tagCategoriesFetchPromise;
+
+  _tagCategoriesFetchPromise = fetch('/api/library/tags')
+    .then(res => (res.ok ? res.json() : { tagCategories: [] }))
+    .then(data => {
+      _tagCategoriesCache = data.tagCategories || [];
+      _tagCategoriesFetchPromise = null;
+      return _tagCategoriesCache!;
+    })
+    .catch(() => {
+      _tagCategoriesFetchPromise = null;
+      return [] as TagCategory[];
+    });
+
+  return _tagCategoriesFetchPromise;
+}
+
+// ── Module-level cache for filter counts ───────────────────────────
+// Keyed by JSON of { scope, filters } so repeated views hit cache.
+let _countsCache = new Map<string, { counts: Record<string, Record<string, number>>; cachedAt: number }>();
+const COUNTS_CACHE_TTL = 30_000; // 30s
+
 interface AdminVideoFilterBarProps {
   filters: AdminVideoFilters;
   onFiltersChange: (filters: AdminVideoFilters) => void;
@@ -75,8 +106,9 @@ export function AdminVideoFilterBar({
   onFiltersChange,
   countsScope = "admin",
 }: AdminVideoFilterBarProps) {
-  const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use module cache synchronously so categories are available on first render
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>(_tagCategoriesCache || []);
+  const [isLoading, setIsLoading] = useState(!_tagCategoriesCache);
   const [showSettings, setShowSettings] = useState(false);
   const [visibleFilters, setVisibleFilters] = useState<FilterType[]>([]);
   const [filterOrder, setFilterOrder] = useState<FilterType[]>([]);
@@ -111,22 +143,16 @@ export function AdminVideoFilterBar({
     }
   }, []);
 
-  // Fetch tags on mount
+  // Fetch tags using module-level cache (instant on re-mount)
   useEffect(() => {
-    async function fetchTags() {
-      try {
-        const response = await fetch('/api/library/tags');
-        if (response.ok) {
-          const data = await response.json();
-          setTagCategories(data.tagCategories || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch tags:', error);
-      } finally {
+    let cancelled = false;
+    fetchAndCacheTagCategories().then(categories => {
+      if (!cancelled) {
+        setTagCategories(categories);
         setIsLoading(false);
       }
-    }
-    fetchTags();
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const tagCategoryMap = useMemo(
@@ -182,8 +208,22 @@ export function AdminVideoFilterBar({
     });
   }, [customFilterTypes]);
 
+  // Build a stable cache key for the current filter state
+  const countsCacheKey = useMemo(
+    () => JSON.stringify({ scope: countsScope, filters }),
+    [countsScope, filters]
+  );
+
+  // Eagerly fetch counts on mount + whenever filters change (no dropdown gate).
+  // Uses module-level cache to avoid redundant fetches and provide instant results.
   useEffect(() => {
-    if (!activeDropdown) return;
+    // Immediately apply cached counts if available
+    const cached = _countsCache.get(countsCacheKey);
+    if (cached) {
+      setOptionCounts(cached.counts);
+      // If cache is fresh enough, skip the network call entirely
+      if (Date.now() - cached.cachedAt < COUNTS_CACHE_TTL) return;
+    }
 
     const timer = setTimeout(async () => {
       try {
@@ -202,12 +242,14 @@ export function AdminVideoFilterBar({
         if (!response.ok || controller.signal.aborted) return;
         const data = await response.json();
         if (optionCountRequestRef.current !== controller || controller.signal.aborted) return;
-        setOptionCounts(data?.countsByCategory ?? {});
+        const counts = data?.countsByCategory ?? {};
+        setOptionCounts(counts);
+        _countsCache.set(countsCacheKey, { counts, cachedAt: Date.now() });
       } catch (error: any) {
         if (error?.name === "AbortError") return;
         // Keep UI functional even if counts fail
       }
-    }, 150);
+    }, 80); // Shorter debounce — we want counts fast
 
     return () => {
       clearTimeout(timer);
@@ -215,7 +257,7 @@ export function AdminVideoFilterBar({
         optionCountRequestRef.current.abort();
       }
     };
-  }, [filters, countsScope, activeDropdown]);
+  }, [filters, countsScope, countsCacheKey]);
 
   // Close settings on click outside
   useEffect(() => {
