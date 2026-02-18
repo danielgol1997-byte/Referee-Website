@@ -85,8 +85,10 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   const [showDecision, setShowDecision] = useState(false);
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number>(-1);
   const [disableSharedLayout, setDisableSharedLayout] = useState(false);
+  const [filterBarHeight, setFilterBarHeight] = useState(96);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const filterBarContainerRef = useRef<HTMLDivElement | null>(null);
   
   // Calculate columns per row based on window width
   const getColumnsPerRow = useCallback(() => {
@@ -305,6 +307,26 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     };
   }, []);
 
+  // Keep gallery offset synced with the dynamic filter bar height.
+  useEffect(() => {
+    const el = filterBarContainerRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(el.getBoundingClientRect().height);
+      if (nextHeight > 0) {
+        setFilterBarHeight(nextHeight);
+      }
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
   // Auto-scroll to focused video
   useEffect(() => {
     if (focusedVideoIndex >= 0 && videoRefs.current[focusedVideoIndex]) {
@@ -383,15 +405,18 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     <LayoutGroup>
       <div className="relative min-h-screen">
         {/* Filter Bar - Fixed below header */}
-        <div className="fixed top-[88px] left-0 right-0 z-50">
+        <div ref={filterBarContainerRef} className="fixed top-[88px] left-0 right-0 z-50">
           <VideoFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
           />
         </div>
 
-        {/* Video Gallery Grid - No extra padding */}
-        <div className="pt-24 pb-8 px-4 max-w-screen-2xl mx-auto">
+        {/* Video Gallery Grid - Dynamic top padding based on filter bar height */}
+        <div
+          className="pb-8 px-4 max-w-screen-2xl mx-auto"
+          style={{ paddingTop: `${Math.max(filterBarHeight + 16, 96)}px` }}
+        >
           {filteredVideos.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-text-secondary text-lg mb-4">

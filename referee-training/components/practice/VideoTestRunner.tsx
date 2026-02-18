@@ -39,6 +39,7 @@ type TagOptions = {
 };
 
 const emptyAnswer: VideoTestAnswerValue = {
+  selectedOutcome: null,
   playOnNoOffence: false,
   restartTagId: null,
   sanctionTagId: null,
@@ -109,10 +110,17 @@ export function VideoTestRunner({
   const currentClipPlayedLoops = currentClip ? playedLoops[currentClip.id] ?? 0 : 0;
   const remainingLoops = currentClip ? Math.max(loopTarget - currentClipPlayedLoops, 0) : 0;
   const currentAnswer = currentClip ? answers[currentClip.id] ?? emptyAnswer : emptyAnswer;
-  // A clip is fully answered when EITHER play-on is checked OR all three fields are set
+  // A clip is fully answered when an outcome is selected and required details are complete.
   const isFullyAnswered = (a: VideoTestAnswerValue | undefined): boolean => {
     if (!a) return false;
-    if (a.playOnNoOffence) return true;
+    const selectedOutcome = a.selectedOutcome
+      ?? (a.playOnNoOffence
+        ? "play_on"
+        : a.restartTagId !== null || a.sanctionTagId !== null || a.criteriaTagIds.length > 0
+          ? "offence"
+          : null);
+    if (selectedOutcome === "play_on") return true;
+    if (selectedOutcome !== "offence") return false;
     return a.restartTagId !== null && a.sanctionTagId !== null && a.criteriaTagIds.length > 0;
   };
   const answeredCount = clips.filter((c) => isFullyAnswered(answers[c.id])).length;
@@ -234,9 +242,15 @@ export function VideoTestRunner({
     try {
       const answersList = clips.map((c) => {
         const a = answers[c.id] ?? emptyAnswer;
+        const selectedOutcome = a.selectedOutcome
+          ?? (a.playOnNoOffence
+            ? "play_on"
+            : a.restartTagId !== null || a.sanctionTagId !== null || a.criteriaTagIds.length > 0
+              ? "offence"
+              : null);
         return {
           videoClipId: c.id,
-          playOnNoOffence: a.playOnNoOffence,
+          playOnNoOffence: selectedOutcome === "play_on",
           restartTagId: a.restartTagId,
           sanctionTagId: a.sanctionTagId,
           criteriaTagIds: a.criteriaTagIds,

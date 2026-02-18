@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CompactSpinner } from "@/components/ui/compact-spinner";
 import { useLawTags } from "@/components/hooks/useLawTags";
-import { DualSourceToggle } from "@/components/ui/dual-source-toggle";
 const MIN_QUESTIONS = 5;
 const MAX_QUESTIONS = 20;
 
@@ -16,8 +15,6 @@ export function TestConfiguration() {
   const [selectedLaws, setSelectedLaws] = useState<number[]>([]);
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [includeVar, setIncludeVar] = useState(false);
-  const [includeIfab, setIncludeIfab] = useState(true);
-  const [includeCustom, setIncludeCustom] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveToProfile, setSaveToProfile] = useState(false);
@@ -124,8 +121,8 @@ export function TestConfiguration() {
             isActive: true,
             isMandatory: false,
             isUserGenerated: true,
-            includeIfab,
-            includeCustom,
+            includeIfab: true,
+            includeCustom: false,
           }),
         });
         
@@ -170,8 +167,8 @@ export function TestConfiguration() {
             isActive: true,
             isMandatory: false,
             isUserGenerated: true,
-            includeIfab,
-            includeCustom,
+            includeIfab: true,
+            includeCustom: false,
           }),
         });
         
@@ -263,23 +260,6 @@ export function TestConfiguration() {
           </button>
         </div>
 
-        {/* Question Sources Toggle */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-dark-600 bg-dark-800/30">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-white">
-              Question Sources
-            </label>
-            <p className="text-xs text-text-secondary mt-1">
-              Choose which question sources to include in your test
-            </p>
-          </div>
-          <DualSourceToggle
-            includeIfab={includeIfab}
-            includeCustom={includeCustom}
-            onIfabChange={setIncludeIfab}
-            onCustomChange={setIncludeCustom}
-          />
-        </div>
       </div>
 
       {/* Question Count */}

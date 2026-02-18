@@ -59,6 +59,10 @@ export async function POST(req: Request) {
       includeCustom = false,
     } = body ?? {};
 
+    // User-generated LOTG tests are always IFAB-only.
+    const effectiveIncludeIfab = isUserGenerated ? true : includeIfab;
+    const effectiveIncludeCustom = isUserGenerated ? false : includeCustom;
+
     // Only super admins can create mandatory tests
     if (isMandatory && session.user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Only super admins can create mandatory tests" }, { status: 403 });
@@ -102,9 +106,9 @@ export async function POST(req: Request) {
       };
       
       // Filter by IFAB status based on include flags
-      if (includeIfab && !includeCustom) {
+      if (effectiveIncludeIfab && !effectiveIncludeCustom) {
         questionWhere.isIfab = true;
-      } else if (!includeIfab && includeCustom) {
+      } else if (!effectiveIncludeIfab && effectiveIncludeCustom) {
         questionWhere.isIfab = false;
       }
       // If both or neither, don't add any isIfab filter
@@ -124,9 +128,9 @@ export async function POST(req: Request) {
           ? `for Law(s) ${lawNumbers.join(", ")}` 
           : "for all laws";
         const questionTypes: string[] = [];
-        if (includeIfab && includeCustom) questionTypes.push("IFAB & Custom");
-        else if (!includeIfab && includeCustom) questionTypes.push("Custom only");
-        else if (includeIfab && !includeCustom) questionTypes.push("IFAB only");
+        if (effectiveIncludeIfab && effectiveIncludeCustom) questionTypes.push("IFAB & Custom");
+        else if (!effectiveIncludeIfab && effectiveIncludeCustom) questionTypes.push("Custom only");
+        else if (effectiveIncludeIfab && !effectiveIncludeCustom) questionTypes.push("IFAB only");
         else questionTypes.push("No sources selected");
         if (includeVar) questionTypes.push("including VAR");
         else questionTypes.push("excluding VAR");
@@ -155,8 +159,8 @@ export async function POST(req: Request) {
         isMandatory,
         isUserGenerated,
         includeVar,
-        includeIfab,
-        includeCustom,
+        includeIfab: effectiveIncludeIfab,
+        includeCustom: effectiveIncludeCustom,
         createdById: session.user.id,
       },
       include: { category: true },

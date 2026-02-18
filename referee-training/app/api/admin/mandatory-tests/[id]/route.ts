@@ -56,6 +56,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       includeCustom
     } = body;
 
+    const forceIfabOnly = existingTest.isUserGenerated;
+
     // Build update data dynamically
     const updateData: any = {};
     
@@ -67,8 +69,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (totalQuestions !== undefined) updateData.totalQuestions = totalQuestions;
     if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
     if (includeVar !== undefined) updateData.includeVar = includeVar;
-    if (includeIfab !== undefined) updateData.includeIfab = includeIfab;
-    if (includeCustom !== undefined) updateData.includeCustom = includeCustom;
+    if (!forceIfabOnly) {
+      if (includeIfab !== undefined) updateData.includeIfab = includeIfab;
+      if (includeCustom !== undefined) updateData.includeCustom = includeCustom;
+    }
     
     // Validate and set passing score
     if (passingScore !== undefined) {
@@ -90,8 +94,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const finalLawNumbers = lawNumbers !== undefined ? lawNumbers : existingTest.lawNumbers;
     const finalTotalQuestions = totalQuestions !== undefined ? totalQuestions : existingTest.totalQuestions;
     const finalIncludeVar = includeVar !== undefined ? includeVar : existingTest.includeVar;
-    const finalIncludeIfab = includeIfab !== undefined ? includeIfab : existingTest.includeIfab;
-    const finalIncludeCustom = includeCustom !== undefined ? includeCustom : existingTest.includeCustom;
+    const finalIncludeIfab = forceIfabOnly
+      ? true
+      : includeIfab !== undefined
+        ? includeIfab
+        : existingTest.includeIfab;
+    const finalIncludeCustom = forceIfabOnly
+      ? false
+      : includeCustom !== undefined
+        ? includeCustom
+        : existingTest.includeCustom;
     const finalQuestionIds = questionIds !== undefined ? questionIds : existingTest.questionIds;
 
     // Only validate for random mode (no specific question IDs)
@@ -140,6 +152,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
     
+    // Keep user-generated tests IFAB-only even on partial updates.
+    if (forceIfabOnly) {
+      updateData.includeIfab = true;
+      updateData.includeCustom = false;
+    }
+
     // Fields that ONLY super admins can update
     // Regular users cannot make tests mandatory or change visibility
     if (isSuperAdmin) {

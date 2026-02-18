@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type VideoTestAnswerValue = {
+  selectedOutcome: "play_on" | "offence" | null;
   playOnNoOffence: boolean;
   restartTagId: string | null;
   sanctionTagId: string | null;
@@ -33,6 +34,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   sanction: "#EC4899",  // pink
   criteria: "#FFD93D",  // yellow
 };
+const ANSWER_GREEN = "#22c55e";
+const ANSWER_RED = "#ef4444";
 
 /* ─── Custom searchable dropdown ─── */
 function FilterDropdown({
@@ -227,19 +230,35 @@ export function VideoTestAnswerOverlay({
   value,
   onChange,
 }: VideoTestAnswerOverlayProps) {
-  const [hoveredMode, setHoveredMode] = useState<"playon" | "criteria" | null>(null);
-
   if (!isOpen) return null;
 
-  const disabled = value.playOnNoOffence;
-  const isComplete = value.playOnNoOffence ||
-    (value.restartTagId !== null && value.sanctionTagId !== null && value.criteriaTagIds.length > 0);
+  const selectedOutcome = value.selectedOutcome
+    ?? (value.playOnNoOffence
+      ? "play_on"
+      : value.restartTagId !== null || value.sanctionTagId !== null || value.criteriaTagIds.length > 0
+        ? "offence"
+        : null);
+  const isPlayOnSelected = selectedOutcome === "play_on";
+  const isOffenceSelected = selectedOutcome === "offence";
+  const isComplete = isPlayOnSelected ||
+    (isOffenceSelected && value.restartTagId !== null && value.sanctionTagId !== null && value.criteriaTagIds.length > 0);
 
-  const setPlayOnNoOffence = (v: boolean) => {
+  const setPlayOnNoOffence = () => {
     onChange({
       ...value,
-      playOnNoOffence: v,
-      ...(v ? { restartTagId: null, sanctionTagId: null, criteriaTagIds: [] } : {}),
+      selectedOutcome: "play_on",
+      playOnNoOffence: true,
+      restartTagId: null,
+      sanctionTagId: null,
+      criteriaTagIds: [],
+    });
+  };
+
+  const setOffence = () => {
+    onChange({
+      ...value,
+      selectedOutcome: "offence",
+      playOnNoOffence: false,
     });
   };
 
@@ -273,80 +292,108 @@ export function VideoTestAnswerOverlay({
 
           {/* Body */}
           <div className="px-6 py-5">
-            <div className="space-y-4">
-              <button
-                type="button"
-                onMouseEnter={() => setHoveredMode("playon")}
-                onMouseLeave={() => setHoveredMode(null)}
-                onClick={() => setPlayOnNoOffence(!value.playOnNoOffence)}
-                className={cn(
-                  "w-full rounded-xl p-3 border text-left transition-all duration-200",
-                  value.playOnNoOffence
-                    ? "border-accent bg-accent/15 shadow-md shadow-accent/15"
-                    : "border-dark-500 bg-dark-800/70 hover:border-accent/40 hover:bg-dark-800/95",
-                  hoveredMode === "criteria" && "opacity-20",
-                  hoveredMode === "playon" && "ring-1 ring-accent/40"
-                )}
-              >
-                <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center text-accent">
-                  Play on
-                </div>
-                <div className="flex items-center justify-center gap-3">
-                  <div className={cn(
-                    "relative flex h-6 w-6 items-center justify-center rounded border-2 transition-all",
-                    value.playOnNoOffence ? "border-accent bg-accent" : "border-dark-500 bg-dark-700"
-                  )}>
-                    {value.playOnNoOffence && (
-                      <svg className="h-4 w-4 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+            <div className="space-y-5">
+              <div className="rounded-xl border border-dark-600 bg-dark-800/60 p-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={setPlayOnNoOffence}
+                    className={cn(
+                      "rounded-xl border p-4 text-left transition-all duration-200",
+                      isPlayOnSelected
+                        ? "shadow-lg"
+                        : "border-dark-500 bg-dark-800/80 hover:bg-dark-700/90"
                     )}
-                  </div>
-                  <p className="text-base font-semibold text-white">Play on / No Offence</p>
+                    style={isPlayOnSelected ? { borderColor: `${ANSWER_GREEN}99`, backgroundColor: `${ANSWER_GREEN}1a`, boxShadow: `0 10px 30px -12px ${ANSWER_GREEN}80` } : { borderColor: undefined }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all",
+                        isPlayOnSelected ? "bg-dark-900/40" : "border-dark-400 bg-dark-700"
+                      )}
+                      style={isPlayOnSelected ? { borderColor: ANSWER_GREEN } : {}}
+                      >
+                        <span className={cn("h-2.5 w-2.5 rounded-full transition-all", isPlayOnSelected ? "" : "bg-transparent")} style={isPlayOnSelected ? { backgroundColor: ANSWER_GREEN } : {}} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide" style={{ color: ANSWER_GREEN }}>
+                          Play on / No offense
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={setOffence}
+                    className={cn(
+                      "rounded-xl border p-4 text-left transition-all duration-200",
+                      isOffenceSelected
+                        ? "shadow-lg"
+                        : "border-dark-500 bg-dark-800/80 hover:bg-dark-700/90"
+                    )}
+                    style={isOffenceSelected ? { borderColor: `${ANSWER_RED}99`, backgroundColor: `${ANSWER_RED}1a`, boxShadow: `0 10px 30px -12px ${ANSWER_RED}80` } : { borderColor: undefined }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all",
+                        isOffenceSelected ? "bg-dark-900/40" : "border-dark-400 bg-dark-700"
+                      )}
+                      style={isOffenceSelected ? { borderColor: ANSWER_RED } : {}}
+                      >
+                        <span className={cn("h-2.5 w-2.5 rounded-full transition-all", isOffenceSelected ? "" : "bg-transparent")} style={isOffenceSelected ? { backgroundColor: ANSWER_RED } : {}} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide" style={{ color: ANSWER_RED }}>
+                          Offense
+                        </p>
+                      </div>
+                    </div>
+                  </button>
                 </div>
-              </button>
+              </div>
 
-              {/* Decision fields */}
               <div
-                onMouseEnter={() => setHoveredMode("criteria")}
-                onMouseLeave={() => setHoveredMode(null)}
                 className={cn(
-                  "grid grid-cols-1 md:grid-cols-3 gap-5 md:pt-1 transition-all duration-300",
-                  disabled && "opacity-40 pointer-events-none",
-                  hoveredMode === "playon" && "opacity-20",
-                  hoveredMode === "criteria" && "ring-1 ring-accent/30 rounded-xl p-2"
+                  "transition-all duration-300 ease-out",
+                  isOffenceSelected ? "max-h-[720px] opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
                 )}
               >
-                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
-                  <FilterDropdown
-                    label="Restart"
-                    color={CATEGORY_COLORS.restarts}
-                    options={tagOptions.restarts}
-                    selectedId={value.restartTagId}
-                    onSelect={(id) => onChange({ ...value, restartTagId: id })}
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
-                  <FilterDropdown
-                    label="Sanction"
-                    color={CATEGORY_COLORS.sanction}
-                    options={tagOptions.sanction}
-                    selectedId={value.sanctionTagId}
-                    onSelect={(id) => onChange({ ...value, sanctionTagId: id })}
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
-                  <FilterDropdown
-                    label="Criteria"
-                    color={CATEGORY_COLORS.criteria}
-                    options={tagOptions.criteria}
-                    selectedId={criteriaTagId}
-                    onSelect={(id) => onChange({ ...value, criteriaTagIds: id ? [id] : [] })}
-                    disabled={disabled}
-                  />
-                </div>
+                {isOffenceSelected && (
+                  <div className="space-y-3 rounded-xl border border-accent/25 bg-dark-900/50 p-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
+                        <FilterDropdown
+                          label="Restart"
+                          color={CATEGORY_COLORS.restarts}
+                          options={tagOptions.restarts}
+                          selectedId={value.restartTagId}
+                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, restartTagId: id })}
+                          disabled={!isOffenceSelected}
+                        />
+                      </div>
+                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
+                        <FilterDropdown
+                          label="Sanction"
+                          color={CATEGORY_COLORS.sanction}
+                          options={tagOptions.sanction}
+                          selectedId={value.sanctionTagId}
+                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, sanctionTagId: id })}
+                          disabled={!isOffenceSelected}
+                        />
+                      </div>
+                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
+                        <FilterDropdown
+                          label="Criteria"
+                          color={CATEGORY_COLORS.criteria}
+                          options={tagOptions.criteria}
+                          selectedId={criteriaTagId}
+                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, criteriaTagIds: id ? [id] : [] })}
+                          disabled={!isOffenceSelected}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
