@@ -9,6 +9,8 @@ type Item = {
   clip: {
     id: string;
     title: string;
+    fileUrl?: string | null;
+    thumbnailUrl?: string | null;
     playOn?: boolean;
     noOffence?: boolean;
     correctRestart: TagLike;
@@ -55,55 +57,30 @@ function DecisionCard({
 }) {
   return (
     <div
-      className="rounded-lg p-4 border transition-colors"
+      className="rounded-lg border p-3 transition-colors"
       style={{ borderColor: `${color}30`, backgroundColor: `${color}08` }}
     >
       <div
-        className="text-xs font-bold uppercase tracking-widest mb-3 text-center"
+        className="mb-2 text-center text-[11px] font-bold uppercase tracking-widest"
         style={{ color }}
       >
         {label}
       </div>
-      <div className="space-y-2">
-        <div className="space-y-1">
-          <div
-            className={cn(
-              "text-[10px] uppercase tracking-wider font-medium",
-              isCorrect ? "text-[#22c55e]" : "text-[#ef4444]"
-            )}
-          >
-            Your answer
-          </div>
-          <div
-            className={cn(
-              "text-sm font-medium rounded-md px-2.5 py-1.5 border",
-              isCorrect
-                ? "bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]"
-                : "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
-            )}
-          >
-            <div className="flex items-center gap-1.5">
-              {isCorrect ? (
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
-              {userAnswer}
-            </div>
-          </div>
+      <div className="space-y-1.5">
+        <div
+          className={cn(
+            "rounded-md border px-2.5 py-1.5 text-sm font-medium",
+            isCorrect
+              ? "border-[#22c55e] bg-[#22c55e]/20 text-[#22c55e]"
+              : "border-[#ef4444] bg-[#ef4444]/20 text-[#ef4444]"
+          )}
+        >
+          <span className="mr-1.5 text-[10px] uppercase tracking-wider opacity-90">You:</span>
+          {userAnswer}
         </div>
-
-        <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
-            Expected
-          </div>
-          <div className="text-sm font-medium rounded-md px-2.5 py-1.5 border border-white/35 bg-white/10 text-white">
-            {expectedAnswer}
-          </div>
+        <div className="rounded-md border border-white/35 bg-white/10 px-2.5 py-1.5 text-sm font-medium text-white">
+          <span className="mr-1.5 text-[10px] uppercase tracking-wider text-text-secondary">Correct:</span>
+          {expectedAnswer}
         </div>
       </div>
     </div>
@@ -157,11 +134,14 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
   return (
     <>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100100] transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto z-[100110]">
+      <div
+        className="fixed inset-x-0 top-16 bottom-3 z-[100110] flex items-center justify-center px-4"
+        onClick={onClose}
+      >
         <div
           className={cn(
-            "relative w-full max-w-2xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
-            "rounded-xl shadow-2xl border",
+            "relative flex w-full max-w-4xl flex-col overflow-hidden backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
+            "max-h-[calc(100dvh-5.5rem)] rounded-xl shadow-2xl border",
             "animate-in fade-in zoom-in-95 duration-200",
             answer.isCorrect ? "border-[#22c55e]/45" : "border-[#ef4444]/45"
           )}
@@ -169,12 +149,9 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
         >
           {/* Header */}
           <div className={cn(
-            "px-6 pt-6 pb-3 border-b-2",
+            "px-6 pt-4 pb-2 border-b-2",
             answer.isCorrect ? "border-[#22c55e]/60" : "border-[#ef4444]/60"
           )}>
-            <h2 className="text-lg font-bold text-center text-white line-clamp-2">
-              {clip.title}
-            </h2>
             <div className="flex items-center justify-center gap-2 mt-2">
               <div
                 className={cn(
@@ -198,45 +175,21 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
             </div>
           </div>
 
-          <div className="px-6 py-5 space-y-4">
-            {/* ─── Play on / No offence — shown when user selected it ─── */}
-            {userSelectedPlayOn && (
-              <div className="rounded-lg border border-dark-600 bg-dark-800/60 p-4">
-                <div
-                  className={cn(
-                    "text-xs font-bold uppercase tracking-widest mb-2 text-center",
-                    playOnOk ? "text-[#22c55e]" : "text-[#ef4444]"
-                  )}
-                >
-                  Your answer
-                </div>
-                <div
-                  className={cn(
-                    "text-sm font-semibold rounded-md px-3 py-2 border flex items-center justify-center gap-2",
-                    playOnOk
-                      ? "bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]"
-                      : "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
-                  )}
-                >
-                  {playOnOk ? (
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  )}
-                  Play on / No offence
-                </div>
+          <div className="space-y-3 px-6 py-3">
+            {clip.fileUrl && (
+              <div className="h-[min(32dvh,300px)] overflow-hidden rounded-lg border border-dark-600 bg-black/60">
+                <video
+                  src={clip.fileUrl}
+                  poster={clip.thumbnailUrl ?? undefined}
+                  controls
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                />
               </div>
             )}
-
-            {/* ─── Per-category cards ─── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {userSelectedPlayOn ? (
                 <>
-                  {/* User chose play-on — show expected answers in each category */}
                   <DecisionCard
                     label="Restart"
                     color={CATEGORY_COLORS.restarts}
@@ -261,7 +214,6 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
                 </>
               ) : (
                 <>
-                  {/* User answered with categories */}
                   <DecisionCard
                     label="Restart"
                     color={CATEGORY_COLORS.restarts}
@@ -299,7 +251,6 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
               )}
             >
               Close
-              <kbd className="ml-2 text-[10px] font-mono opacity-60 bg-dark-900/20 px-1.5 py-0.5 rounded">I</kbd>
             </button>
           </div>
         </div>

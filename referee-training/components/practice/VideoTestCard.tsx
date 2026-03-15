@@ -98,11 +98,6 @@ export const VideoTestCard = memo(function VideoTestCard({
             <span>
               {test.totalClips} {test.totalClips === 1 ? "video" : "videos"}
             </span>
-            {test.passingScore !== null && test.passingScore !== undefined && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-accent/30 text-accent">
-                Pass {test.passingScore}%
-              </span>
-            )}
           </div>
           {dueDateLabel && (
             <span className="mt-2 inline-block px-2 py-0.5 rounded text-xs font-semibold text-white border border-red-500/30" style={{ backgroundColor: "#FF1744" }}>

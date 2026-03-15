@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 
+const VIDEO_TEST_TAG_CATEGORY_SLUGS = new Set(['restarts', 'sanction', 'criteria']);
+
 /**
  * GET /api/admin/library/tags
  * List all tags
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
             canBeCorrectAnswer: true,
             allowLinks: true,
             order: true,
+            color: true,
           }
         },
         _count: {
@@ -63,7 +66,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, slug, categoryId, parentCategory, color, description, order, isActive, linkUrl } = body;
+    const {
+      name,
+      slug,
+      categoryId,
+      parentCategory,
+      color,
+      description,
+      order,
+      isActive,
+      linkUrl,
+      useInVideoLibrary,
+      useInVideoTests,
+    } = body;
 
     // Validation
     if (!name) {
@@ -132,8 +147,16 @@ export async function POST(request: Request) {
 
     const category = await prisma.tagCategory.findUnique({
       where: { id: categoryId },
-      select: { allowLinks: true },
+      select: { allowLinks: true, slug: true },
     });
+
+    const usageControlled = !!category?.slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(category.slug);
+    const nextUseInVideoLibrary = usageControlled
+      ? (useInVideoLibrary !== undefined ? !!useInVideoLibrary : true)
+      : true;
+    const nextUseInVideoTests = usageControlled
+      ? (useInVideoTests !== undefined ? !!useInVideoTests : true)
+      : true;
 
     // Create tag
     const tag = await prisma.tag.create({
@@ -147,6 +170,8 @@ export async function POST(request: Request) {
         order: order || 0,
         isActive: isActive !== undefined ? isActive : true,
         linkUrl: category?.allowLinks ? linkUrl : null,
+        useInVideoLibrary: nextUseInVideoLibrary,
+        useInVideoTests: nextUseInVideoTests,
       },
       include: {
         category: true,

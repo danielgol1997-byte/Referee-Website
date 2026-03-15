@@ -83,7 +83,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }),
     prisma.tagCategory.findMany({
       where: { slug: { in: ["restarts", "sanction", "criteria"] }, isActive: true },
-      include: { tags: { where: { isActive: true }, orderBy: { order: "asc" } } },
+      include: { tags: { where: { isActive: true, useInVideoTests: true }, orderBy: { order: "asc" } } },
     }),
   ]);
 

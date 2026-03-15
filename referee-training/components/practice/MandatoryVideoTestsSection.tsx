@@ -205,17 +205,11 @@ export function MandatoryVideoTestsSection() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="grid grid-cols-1 gap-3 pt-2">
                         <div className="space-y-1">
                           <p className="text-xs text-text-secondary uppercase tracking-wider">Videos</p>
                           <p className="text-xl font-bold text-accent">{test.totalClips}</p>
                         </div>
-                        {test.passingScore !== null && test.passingScore !== undefined && (
-                          <div className="space-y-1">
-                            <p className="text-xs text-text-secondary uppercase tracking-wider">Pass mark</p>
-                            <p className="text-xl font-bold text-accent">{test.passingScore}%</p>
-                          </div>
-                        )}
                       </div>
                     </div>
 

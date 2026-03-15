@@ -67,6 +67,7 @@ export function VideoTestRunner({
   const [maxViewsPerClip, setMaxViewsPerClip] = useState<number | null>(null);
   const [showAnswerOverlay, setShowAnswerOverlay] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isNavigatingToResults, setIsNavigatingToResults] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [clipLocked, setClipLocked] = useState<Record<string, boolean>>({});
@@ -236,7 +237,7 @@ export function VideoTestRunner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = async (): Promise<boolean> => {
     setSubmitting(true);
     setError(null);
     try {
@@ -269,9 +270,10 @@ export function VideoTestRunner({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Failed to submit");
-      router.push(resultsHref);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit");
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -283,7 +285,6 @@ export function VideoTestRunner({
     if (!isFullyAnswered(answer)) return;
 
     stopPlayback();
-    setShowAnswerOverlay(false);
     setClipLocked((prev) => ({ ...prev, [currentClip.id]: true }));
     if (questionStartedAt[currentClip.id]) {
       setAnswerDurationsMs((prev) => ({
@@ -293,9 +294,23 @@ export function VideoTestRunner({
     }
 
     if (currentIndex === clips.length - 1) {
-      await handleConfirmSubmit();
+      setShowAnswerOverlay(false);
+      setIsNavigatingToResults(true);
+      const submitScreenStartedAt = Date.now();
+      const submitted = await handleConfirmSubmit();
+      if (!submitted) {
+        setIsNavigatingToResults(false);
+        return;
+      }
+      const elapsedMs = Date.now() - submitScreenStartedAt;
+      const remainingMs = Math.max(3000 - elapsedMs, 0);
+      if (remainingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingMs));
+      }
+      router.push(resultsHref);
       return;
     }
+    setShowAnswerOverlay(false);
     setCurrentIndex((prev) => prev + 1);
   };
 
@@ -329,6 +344,20 @@ export function VideoTestRunner({
     return (
       <div className="text-center py-12">
         <p className="text-text-secondary">No clips in this test.</p>
+      </div>
+    );
+  }
+
+  if (isNavigatingToResults) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center px-4">
+        <div className="w-full max-w-xl rounded-2xl border border-cyan-500/30 bg-dark-800/90 p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-accent/30 border-t-accent" />
+          <h2 className="text-xl font-bold text-white">Test submitted</h2>
+          <p className="mt-2 text-sm text-text-secondary">
+            Please wait while we calculate your final result.
+          </p>
+        </div>
       </div>
     );
   }

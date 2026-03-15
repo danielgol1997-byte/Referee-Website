@@ -1,6 +1,23 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/components/ui/modal";
 
@@ -27,6 +44,8 @@ interface Tag {
   color?: string;
   linkUrl?: string | null;
   description?: string;
+  useInVideoLibrary: boolean;
+  useInVideoTests: boolean;
   isActive: boolean;
   order: number;
   _count?: { videos: number };
@@ -106,6 +125,26 @@ const CRITERIA_TO_CATEGORY: Record<string, string> = {
 const CATEGORY_TAG_CATEGORY_SLUG = 'category';
 const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
 const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
+const VIDEO_TEST_TAG_CATEGORY_SLUGS = new Set(['restarts', 'sanction', 'criteria']);
+
+type TagUsageScope = 'both' | 'library' | 'tests';
+
+function isVideoTestUsageCategory(slug?: string | null) {
+  return !!slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(slug);
+}
+
+function getTagUsageScope(tag: Pick<Tag, "useInVideoLibrary" | "useInVideoTests">): TagUsageScope {
+  if (tag.useInVideoLibrary && tag.useInVideoTests) return 'both';
+  if (tag.useInVideoLibrary) return 'library';
+  if (tag.useInVideoTests) return 'tests';
+  return 'both';
+}
+
+function scopeToUsageBooleans(scope: TagUsageScope) {
+  if (scope === 'library') return { useInVideoLibrary: true, useInVideoTests: false };
+  if (scope === 'tests') return { useInVideoLibrary: false, useInVideoTests: true };
+  return { useInVideoLibrary: true, useInVideoTests: true };
+}
 
 // Map known tag category slugs to their colors
 const GROUP_COLORS: Record<string, string> = {
@@ -154,6 +193,296 @@ const CATEGORY_ORDER = [
   'Teamwork', 'Laws Of The Game'
 ];
 
+// ─── Sortable tag item ────────────────────────────────────────────────────────
+
+interface SortableTagItemProps {
+  tag: Tag;
+  isDragging?: boolean;
+  onEdit: (tag: Tag) => void;
+  onDelete: (id: string, name: string, count: number) => void;
+  onUsageScopeChange: (tag: Tag, scope: TagUsageScope) => void;
+  usageScopeUpdating?: boolean;
+}
+
+function SortableTagItem({
+  tag,
+  isDragging = false,
+  onEdit,
+  onDelete,
+  onUsageScopeChange,
+  usageScopeUpdating = false,
+}: SortableTagItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: tag.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isSortableDragging ? 0.35 : 1,
+    zIndex: isSortableDragging ? 1 : undefined,
+  };
+  const supportsUsageScope = isVideoTestUsageCategory(tag.category?.slug);
+  const usageScope = getTagUsageScope(tag);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border transition-all",
+        isSortableDragging
+          ? "border-cyan-500/60 shadow-lg shadow-cyan-500/10"
+          : "border-dark-600 hover:border-cyan-500/50"
+      )}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="mr-2 flex-shrink-0 cursor-grab active:cursor-grabbing text-dark-500 hover:text-text-muted transition-colors select-none touch-none"
+        title="Drag to reorder"
+      >
+        <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
+          <circle cx="3" cy="3" r="1.5"/>
+          <circle cx="9" cy="3" r="1.5"/>
+          <circle cx="3" cy="9" r="1.5"/>
+          <circle cx="9" cy="9" r="1.5"/>
+          <circle cx="3" cy="15" r="1.5"/>
+          <circle cx="9" cy="15" r="1.5"/>
+        </svg>
+      </div>
+
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div
+          className="w-8 h-8 rounded-lg border-2 flex-shrink-0"
+          style={{ backgroundColor: tag.color, borderColor: tag.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-text-primary">{tag.name}</span>
+            {!tag.isActive && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-500">
+                Inactive
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-sm text-text-muted mt-1">
+            <span>{tag.slug}</span>
+            {tag._count && (
+              <span>• {tag._count.videos} video{tag._count.videos !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {supportsUsageScope && (
+          <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+            {([
+              { id: 'library', label: 'Library' },
+              { id: 'both', label: 'Both' },
+              { id: 'tests', label: 'Tests' },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                disabled={usageScopeUpdating}
+                onClick={() => onUsageScopeChange(tag, option.id)}
+                className={cn(
+                  "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                  usageScope === option.id
+                    ? "bg-cyan-500/20 text-cyan-300"
+                    : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                  usageScopeUpdating && "opacity-60 cursor-not-allowed"
+                )}
+                title={
+                  option.id === 'both'
+                    ? 'Used in Video Library and Video Tests'
+                    : option.id === 'library'
+                      ? 'Used only in Video Library'
+                      : 'Used only in Video Tests'
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => onEdit(tag)}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onDelete(tag.id, tag.name, tag._count?.videos || 0)}
+          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Overlay ghost shown while dragging
+function DragGhostItem({ tag }: { tag: Tag }) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-dark-800 border border-cyan-500/70 shadow-2xl shadow-cyan-500/20 opacity-95 cursor-grabbing">
+      <div className="mr-2 flex-shrink-0 text-cyan-400 select-none">
+        <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
+          <circle cx="3" cy="3" r="1.5"/>
+          <circle cx="9" cy="3" r="1.5"/>
+          <circle cx="3" cy="9" r="1.5"/>
+          <circle cx="9" cy="9" r="1.5"/>
+          <circle cx="3" cy="15" r="1.5"/>
+          <circle cx="9" cy="15" r="1.5"/>
+        </svg>
+      </div>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div
+          className="w-8 h-8 rounded-lg border-2 flex-shrink-0"
+          style={{ backgroundColor: tag.color, borderColor: tag.color }}
+        />
+        <span className="font-medium text-text-primary">{tag.name}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sortable tag list (one per drag context) ─────────────────────────────────
+
+interface SortableTagListProps {
+  categoryKey: string;
+  tags: Tag[];
+  disabled?: boolean;
+  activeTagId: string | null;
+  onDragStart: (event: DragStartEvent, categoryKey: string) => void;
+  onDragEnd: (event: DragEndEvent, categoryKey: string, currentTags: Tag[]) => void;
+  onEdit: (tag: Tag) => void;
+  onDelete: (id: string, name: string, count: number) => void;
+  onUsageScopeChange: (tag: Tag, scope: TagUsageScope) => void;
+  usageScopeUpdatingTagId?: string | null;
+}
+
+function SortableTagList({
+  categoryKey,
+  tags,
+  disabled = false,
+  activeTagId,
+  onDragStart,
+  onDragEnd,
+  onEdit,
+  onDelete,
+  onUsageScopeChange,
+  usageScopeUpdatingTagId,
+}: SortableTagListProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const activeTag = activeTagId ? tags.find(t => t.id === activeTagId) : null;
+
+  if (disabled || tags.length < 2) {
+    return (
+      <div className="space-y-2">
+        {tags.map(tag => (
+          <div
+            key={tag.id}
+            className="flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border border-dark-600 hover:border-cyan-500/50 transition-all"
+          >
+            <div className="mr-2 flex-shrink-0 text-dark-600 select-none">
+              <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
+                <circle cx="3" cy="3" r="1.5"/>
+                <circle cx="9" cy="3" r="1.5"/>
+                <circle cx="3" cy="9" r="1.5"/>
+                <circle cx="9" cy="9" r="1.5"/>
+                <circle cx="3" cy="15" r="1.5"/>
+                <circle cx="9" cy="15" r="1.5"/>
+              </svg>
+            </div>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-lg border-2 flex-shrink-0" style={{ backgroundColor: tag.color, borderColor: tag.color }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-text-primary">{tag.name}</span>
+                  {!tag.isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-500">Inactive</span>}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-text-muted mt-1">
+                  <span>{tag.slug}</span>
+                  {tag._count && <span>• {tag._count.videos} video{tag._count.videos !== 1 ? 's' : ''}</span>}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {isVideoTestUsageCategory(tag.category?.slug) && (
+                <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+                  {([
+                    { id: 'library', label: 'Library' },
+                    { id: 'both', label: 'Both' },
+                    { id: 'tests', label: 'Tests' },
+                  ] as const).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={usageScopeUpdatingTagId === tag.id}
+                      onClick={() => onUsageScopeChange(tag, option.id)}
+                      className={cn(
+                        "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                        getTagUsageScope(tag) === option.id
+                          ? "bg-cyan-500/20 text-cyan-300"
+                          : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                        usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => onEdit(tag)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors">Edit</button>
+              <button onClick={() => onDelete(tag.id, tag.name, tag._count?.videos || 0)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={(e) => onDragStart(e, categoryKey)}
+      onDragEnd={(e) => onDragEnd(e, categoryKey, tags)}
+    >
+      <SortableContext items={tags.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2">
+          {tags.map(tag => (
+            <SortableTagItem
+              key={tag.id}
+              tag={tag}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onUsageScopeChange={onUsageScopeChange}
+              usageScopeUpdating={usageScopeUpdatingTagId === tag.id}
+            />
+          ))}
+        </div>
+      </SortableContext>
+      <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
+        {activeTag ? <DragGhostItem tag={activeTag} /> : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
 export function TagManager({ tags, tagCategories: initialTagCategories, onRefresh }: TagManagerProps) {
   const modal = useModal();
   const [isCreating, setIsCreating] = useState(false);
@@ -163,6 +492,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const [editingTagCategory, setEditingTagCategory] = useState<TagCategory | null>(null);
   const [isSavingTag, setIsSavingTag] = useState(false);
   const [isSavingTagCategory, setIsSavingTagCategory] = useState(false);
+  const [usageScopeUpdatingTagId, setUsageScopeUpdatingTagId] = useState<string | null>(null);
   // Rainbow color palette for tag categories
   const TAG_CATEGORY_RAINBOW_COLORS = [
     '#FF6B6B', // Red
@@ -206,6 +536,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     color: '#00E8F8',
     linkUrl: '',
     description: '',
+    usageScope: 'both' as TagUsageScope,
     isActive: true,
   });
   const [customColor, setCustomColor] = useState('');
@@ -213,6 +544,11 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const formRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const groupDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Drag-and-drop state for tag reordering
+  const [activeTagId, setActiveTagId] = useState<string | null>(null);
+  // Local optimistic order overrides: categoryKey -> ordered tag ids
+  const [tagOrderOverrides, setTagOrderOverrides] = useState<Record<string, string[]>>({});
   
   // Filter tags based on search query
   const filteredTags = tags.filter(tag => 
@@ -286,6 +622,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
 
   const selectedTagCategory = tagCategories.find(category => category.id === formData.categoryId);
   const selectedTagCategorySlug = selectedTagCategory?.slug;
+  const supportsUsageScopeInForm = isVideoTestUsageCategory(selectedTagCategorySlug);
 
   // Get category tags (these serve as categories for criteria)
   const categoryTags = tags.filter(t => t.category?.slug === CATEGORY_TAG_CATEGORY_SLUG && t.isActive);
@@ -337,6 +674,12 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     }
   }, [selectedTagCategory, formData.linkUrl]);
 
+  useEffect(() => {
+    if (!isVideoTestUsageCategory(selectedTagCategorySlug)) {
+      setFormData(prev => (prev.usageScope === 'both' ? prev : { ...prev, usageScope: 'both' }));
+    }
+  }, [selectedTagCategorySlug]);
+
   const toggleTab = (category: string) => {
     setExpandedTabs(prev => ({ ...prev, [category]: !prev[category] }));
   };
@@ -379,6 +722,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
       color: '#00E8F8',
       linkUrl: '',
       description: '',
+      usageScope: 'both',
       isActive: true,
     });
     setCustomColor('');
@@ -501,6 +845,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
       color: tagColor,
       linkUrl: tag.linkUrl || '',
       description: tag.description || '',
+      usageScope: getTagUsageScope(tag),
       isActive: tag.isActive,
     });
     setCustomColor('');
@@ -510,6 +855,31 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     setTimeout(() => {
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
+  };
+
+  const handleUsageScopeChange = async (tag: Tag, scope: TagUsageScope) => {
+    const usageSupported = isVideoTestUsageCategory(tag.category?.slug);
+    if (!usageSupported) return;
+    if (getTagUsageScope(tag) === scope) return;
+
+    const usageFlags = scopeToUsageBooleans(scope);
+    setUsageScopeUpdatingTagId(tag.id);
+    try {
+      const response = await fetch(`/api/admin/library/tags/${tag.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(usageFlags),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to update tag usage');
+      }
+      onRefresh();
+    } catch (error: any) {
+      await modal.showError(error.message || 'Failed to update tag usage');
+    } finally {
+      setUsageScopeUpdatingTagId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -533,6 +903,9 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
           selectedTagCategorySlug === SANCTION_TAG_CATEGORY_SLUG
             ? (selectedTagCategory?.color || GROUP_COLORS[SANCTION_TAG_CATEGORY_SLUG])
             : formData.color,
+        ...scopeToUsageBooleans(
+          isVideoTestUsageCategory(selectedTagCategorySlug) ? formData.usageScope : 'both'
+        ),
       };
       
       const response = await fetch(url, {
@@ -599,6 +972,40 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     }
   };
 
+  const saveTagReorder = useCallback(async (categoryKey: string, orderedIds: string[]) => {
+    // Optimistically update display — keep override alive (don't clear on success)
+    // since we intentionally skip onRefresh to avoid collapsing sections.
+    // The override persists for the lifetime of this TagManager mount, which is correct.
+    setTagOrderOverrides(prev => ({ ...prev, [categoryKey]: orderedIds }));
+    try {
+      const res = await fetch('/api/admin/library/tags/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: orderedIds }),
+      });
+      if (!res.ok) throw new Error('Reorder failed');
+      // Success — override stays; server has the new order for next full load.
+    } catch {
+      // On failure revert the override so display matches actual DB order
+      setTagOrderOverrides(prev => { const n = { ...prev }; delete n[categoryKey]; return n; });
+    }
+  }, []);
+
+  const handleDragStart = useCallback((event: DragStartEvent, _categoryKey: string) => {
+    setActiveTagId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent, categoryKey: string, currentTags: Tag[]) => {
+    setActiveTagId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = currentTags.findIndex(t => t.id === active.id);
+    const newIndex = currentTags.findIndex(t => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(currentTags, oldIndex, newIndex);
+    saveTagReorder(categoryKey, reordered.map(t => t.id));
+  }, [saveTagReorder]);
+
   // Group tags by category
   const groupedTags = filteredTags.reduce((acc, tag) => {
     const categoryId = tag.category?.id || 'uncategorized';
@@ -606,13 +1013,6 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     acc[categoryId].push(tag);
     return acc;
   }, {} as Record<string, Tag[]>);
-
-  // Debug: Log tags
-  console.log('TagManager: Received', tags.length, 'tags');
-  if (tags.length > 0) {
-    console.log('TagManager: Categories:', Object.keys(groupedTags));
-    console.log('TagManager: Sample tag:', tags[0]);
-  }
 
   // Sort tags within each category by order
   Object.keys(groupedTags).forEach(category => {
@@ -660,14 +1060,11 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     return indexA - indexB;
   });
 
-  const renderTagItem = (tag: Tag) => (
-    <div
-      key={tag.id}
-      className="flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border border-dark-600 hover:border-cyan-500/50 transition-all"
-    >
-      <div className="flex items-center gap-3 flex-1">
+  const renderTagContent = (tag: Tag) => (
+    <>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <div
-          className="w-8 h-8 rounded-lg border-2"
+          className="w-8 h-8 rounded-lg border-2 flex-shrink-0"
           style={{ backgroundColor: tag.color, borderColor: tag.color }}
         />
         <div className="flex-1 min-w-0">
@@ -687,8 +1084,32 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
           </div>
         </div>
       </div>
-
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {isVideoTestUsageCategory(tag.category?.slug) && (
+          <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+            {([
+              { id: 'library', label: 'Library' },
+              { id: 'both', label: 'Both' },
+              { id: 'tests', label: 'Tests' },
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                disabled={usageScopeUpdatingTagId === tag.id}
+                onClick={() => handleUsageScopeChange(tag, option.id)}
+                className={cn(
+                  "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                  getTagUsageScope(tag) === option.id
+                    ? "bg-cyan-500/20 text-cyan-300"
+                    : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                  usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           onClick={() => handleEdit(tag)}
           className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors"
@@ -702,6 +1123,16 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
           Delete
         </button>
       </div>
+    </>
+  );
+
+  // Static item (used for the category tag in criteria view — not reorderable there)
+  const renderStaticTagItem = (tag: Tag) => (
+    <div
+      key={tag.id}
+      className="flex items-center justify-between p-3 rounded-lg bg-dark-900/50 border border-dark-600 hover:border-cyan-500/50 transition-all"
+    >
+      {renderTagContent(tag)}
     </div>
   );
 
@@ -1234,6 +1665,51 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
               </div>
             )}
 
+            {supportsUsageScopeInForm && (
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Tag usage
+                </label>
+                <div className="inline-flex rounded-lg border border-dark-500 bg-dark-900 p-1">
+                  {([
+                    {
+                      id: 'library',
+                      label: 'Library only',
+                      hint: 'Shows in Video Library filters, hidden from Video Test answers',
+                    },
+                    {
+                      id: 'both',
+                      label: 'Both',
+                      hint: 'Shows in Video Library filters and Video Test answers',
+                    },
+                    {
+                      id: 'tests',
+                      label: 'Tests only',
+                      hint: 'Shows in Video Test answers, hidden from Video Library filters',
+                    },
+                  ] as const).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, usageScope: option.id }))}
+                      className={cn(
+                        "px-3 py-2 rounded-md text-xs font-semibold transition-colors",
+                        formData.usageScope === option.id
+                          ? "bg-cyan-500/20 text-cyan-300"
+                          : "text-text-secondary hover:text-text-primary hover:bg-dark-800"
+                      )}
+                      title={option.hint}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-text-muted mt-2">
+                  Applies to Restart, Sanction, and Criteria tags.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
                 Status
@@ -1367,16 +1843,35 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                             {/* Show the CATEGORY tag itself first */}
                             <div className="mb-3 pb-3 border-b border-dark-600/30">
                               <div className="text-xs text-text-muted mb-2 uppercase tracking-wider">Category Tag:</div>
-                              {renderTagItem(categoryTag)}
+                              {renderStaticTagItem(categoryTag)}
                             </div>
                             
                             {/* Then show all criteria under this category */}
-                            {criteriaTags.length > 0 ? (
+                                {criteriaTags.length > 0 ? (
                               <>
                                 <div className="text-xs text-text-muted mb-2 uppercase tracking-wider">
                                   Criteria Tags ({criteriaTags.length}):
                                 </div>
-                                {criteriaTags.map(renderTagItem)}
+                                {(() => {
+                                  const overrideKey = `${criteriaCategoryId}:${categoryName}`;
+                                  const overrideIds = tagOrderOverrides[overrideKey];
+                                  const ordered = overrideIds
+                                    ? overrideIds.map(id => criteriaTags.find(t => t.id === id)).filter(Boolean) as Tag[]
+                                    : criteriaTags;
+                                  return (
+                                    <SortableTagList
+                                      categoryKey={overrideKey}
+                                      tags={ordered}
+                                      activeTagId={activeTagId}
+                                      onDragStart={handleDragStart}
+                                      onDragEnd={handleDragEnd}
+                                      onEdit={handleEdit}
+                                      onDelete={handleDelete}
+                                      onUsageScopeChange={handleUsageScopeChange}
+                                      usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                                    />
+                                  );
+                                })()}
                               </>
                             ) : (
                               <div className="text-sm text-text-muted italic text-center py-4">
@@ -1419,8 +1914,27 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                       </button>
                       
                       {(expandedSubCategories['No Category'] ?? false) && (
-                        <div className="p-4 pt-0 space-y-2 border-t border-dark-600/50 mt-2">
-                          {generalCriteria.map(renderTagItem)}
+                        <div className="p-4 pt-0 border-t border-dark-600/50 mt-2">
+                          {(() => {
+                            const overrideKey = `${criteriaCategoryId}:_general`;
+                            const overrideIds = tagOrderOverrides[overrideKey];
+                            const ordered = overrideIds
+                              ? overrideIds.map(id => generalCriteria.find(t => t.id === id)).filter(Boolean) as Tag[]
+                              : generalCriteria;
+                            return (
+                              <SortableTagList
+                                categoryKey={overrideKey}
+                                tags={ordered}
+                                activeTagId={activeTagId}
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                                onUsageScopeChange={handleUsageScopeChange}
+                                usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                              />
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1469,8 +1983,9 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
 
             {isExpanded && (
               <div className="p-6 pt-0">
-                <div className="space-y-2">
-                  {(category.slug === CATEGORY_TAG_CATEGORY_SLUG 
+                {(() => {
+                  const overrideIds = tagOrderOverrides[category.id];
+                  const baseOrdered = category.slug === CATEGORY_TAG_CATEGORY_SLUG
                     ? [...groupTags].sort((a, b) => {
                         const indexA = CATEGORY_ORDER.indexOf(a.name);
                         const indexB = CATEGORY_ORDER.indexOf(b.name);
@@ -1478,9 +1993,24 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                         if (indexB === -1) return -1;
                         return indexA - indexB;
                       })
-                    : groupTags
-                  ).map(renderTagItem)}
-                </div>
+                    : groupTags;
+                  const ordered = overrideIds
+                    ? overrideIds.map(id => baseOrdered.find(t => t.id === id)).filter(Boolean) as Tag[]
+                    : baseOrdered;
+                  return (
+                    <SortableTagList
+                      categoryKey={category.id}
+                      tags={ordered}
+                      activeTagId={activeTagId}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onUsageScopeChange={handleUsageScopeChange}
+                      usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                    />
+                  );
+                })()}
                 {groupTags.length === 0 && (
                   <p className="text-text-muted text-center py-8">No {category.name.toLowerCase()} tags yet</p>
                 )}

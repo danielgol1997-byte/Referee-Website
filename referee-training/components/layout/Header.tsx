@@ -93,15 +93,15 @@ export function Header() {
   }, [session, status]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl bg-dark-900/75 border-b border-white/5 shadow-lg shadow-black/20 supports-[backdrop-filter]:bg-dark-900/60">
+    <header className="fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl bg-dark-900/70 border-b border-white/10 shadow-lg shadow-black/20 supports-[backdrop-filter]:bg-dark-900/55">
       {/* Glass sheen effect */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
       
-      {/* Top accent glow */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/50 to-transparent shadow-[0_0_10px_rgba(232,224,154,0.5)]" />
+      {/* Top accent glow — brighter */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/70 to-transparent shadow-[0_0_12px_rgba(237,229,140,0.6)]" />
       
-      {/* Bottom accent glow - subtle */}
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
+      {/* Bottom accent glow */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
       
       <div className="relative mx-auto flex max-w-screen-xl items-center px-6 py-4 gap-8">
         {/* Logo */}

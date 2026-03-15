@@ -105,7 +105,7 @@ export function VideoTestsAdminPanel() {
   const [totalClips, setTotalClips] = useState(10);
   const [passingScore, setPassingScore] = useState("70");
   const [usePassingScore, setUsePassingScore] = useState(false);
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [maxViewsPerClip, setMaxViewsPerClip] = useState("0");
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [selectionError, setSelectionError] = useState<string | null>(null);
@@ -300,7 +300,7 @@ export function VideoTestsAdminPanel() {
 
   const resetCreateForm = () => {
     setEditingTestId(null);
-    setIsActive(true);
+    setIsActive(false);
     setName("");
     setDescription("");
     setDueDate("");
@@ -361,24 +361,25 @@ export function VideoTestsAdminPanel() {
     setSuccess(null);
     try {
       const isEditMode = !!editingTestId;
+      const payload = {
+        name: name.trim(),
+        description: description.trim() || null,
+        type,
+        totalClips,
+        isActive,
+        passingScore:
+          type === "MANDATORY" || usePassingScore
+            ? Number(passingScore) || 70
+            : null,
+        maxViewsPerClip: maxViewsPerClip.trim() ? Number(maxViewsPerClip) : null,
+        dueDate: dueDate || null,
+        selectedClipIds,
+        filters,
+      };
       const res = await fetch(isEditMode ? `/api/admin/video-tests/${editingTestId}` : "/api/admin/video-tests", {
         method: isEditMode ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || null,
-          type,
-          totalClips,
-          isActive,
-          passingScore:
-            type === "MANDATORY" || usePassingScore
-              ? Number(passingScore) || 70
-              : null,
-          maxViewsPerClip: maxViewsPerClip.trim() ? Number(maxViewsPerClip) : null,
-          dueDate: dueDate || null,
-          selectedClipIds,
-          filters,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? (isEditMode ? "Failed to update test" : "Failed to create test"));
@@ -394,6 +395,12 @@ export function VideoTestsAdminPanel() {
         });
       }
       setVersion((v) => v + 1);
+      if (!isEditMode && !payload.isActive) {
+        await modal.showWarning(
+          "This test is hidden, so referees cannot see it yet.\n\nWhen you're ready, go to Manage tests, find this test (Visibility: Hidden), and click the eye icon to make it visible.",
+          "Test created as hidden"
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save test");
     } finally {

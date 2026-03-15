@@ -57,6 +57,7 @@ export async function GET(request: Request) {
         tags: {
           some: {
             tagId: { in: tags },
+            tag: { useInVideoLibrary: true },
           },
         },
       });
@@ -82,6 +83,7 @@ export async function GET(request: Request) {
               some: {
                 tag: {
                   slug: { in: selectedSlugs },
+                  useInVideoLibrary: true,
                 },
               },
             },
@@ -239,6 +241,28 @@ export async function POST(request: Request) {
     const normalizedDuration = Number.isFinite(duration)
       ? Math.round(duration as number)
       : duration;
+
+    const normalizedTagData = Array.isArray(tagData)
+      ? Array.from(
+          new Map(
+            tagData
+              .filter((tag: any) => tag && typeof tag.tagId === 'string' && tag.tagId.trim())
+              .map((tag: any) => [tag.tagId, tag])
+          ).values()
+        )
+      : [];
+    const correctDecisionCandidateIds = normalizedTagData
+      .filter((tag: any) => !!tag.isCorrectDecision)
+      .map((tag: any) => tag.tagId);
+    const correctDecisionAllowedTagIds = new Set(
+      (await prisma.tag.findMany({
+        where: {
+          id: { in: correctDecisionCandidateIds.length > 0 ? correctDecisionCandidateIds : ['__none__'] },
+          useInVideoTests: true,
+        },
+        select: { id: true },
+      })).map((tag) => tag.id)
+    );
     
     console.log('📝 Request body:', {
       title,
@@ -346,12 +370,15 @@ export async function POST(request: Request) {
         loopZoneStart: loopZoneStart !== undefined ? loopZoneStart : null,
         loopZoneEnd: loopZoneEnd !== undefined ? loopZoneEnd : null,
         // Create tag relations with correct decision info
-        tags: tagData && tagData.length > 0 ? {
-          create: tagData.map((tag: any) => ({
-            tagId: tag.tagId,
-            isCorrectDecision: tag.isCorrectDecision || false,
-            decisionOrder: tag.decisionOrder || 0,
-          })),
+        tags: normalizedTagData.length > 0 ? {
+          create: normalizedTagData.map((tag: any) => {
+            const canBeCorrectDecision = !!tag.isCorrectDecision && correctDecisionAllowedTagIds.has(tag.tagId);
+            return {
+              tagId: tag.tagId,
+              isCorrectDecision: canBeCorrectDecision,
+              decisionOrder: canBeCorrectDecision ? (tag.decisionOrder || 0) : 0,
+            };
+          }),
         } : tagIds && tagIds.length > 0 ? {
           // Legacy support for old format
           create: tagIds.map((tagId: string) => ({

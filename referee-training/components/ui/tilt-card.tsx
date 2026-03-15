@@ -71,13 +71,14 @@ export function CategoryCard({ href, title, gif, index, backgroundImage }: Categ
         style={{
           transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(${isHovered ? 1.02 : 1}, ${isHovered ? 1.02 : 1}, 1)`,
           transition: isHovered ? "transform 0.1s ease-out" : "transform 0.5s ease-out",
+          padding: 'clamp(16px, 3vh, 28px)',
         }}
         className={cn(
-          "group relative h-full min-h-[240px] rounded-3xl overflow-hidden",
-          backgroundImage ? "bg-dark-900" : "bg-gradient-to-br from-dark-800/90 via-dark-800/70 to-dark-700/90",
-          "border border-white/5 hover:border-accent/40",
-          "backdrop-blur-md shadow-lg hover:shadow-2xl hover:shadow-accent/10",
-          "transform-gpu flex flex-col items-center justify-center text-center p-8"
+          "group relative h-full rounded-3xl overflow-hidden",
+          backgroundImage ? "bg-dark-900" : "bg-gradient-to-br from-dark-700/90 via-dark-700/70 to-dark-800/90",
+          "border border-white/15 hover:border-accent/60",
+          "backdrop-blur-md shadow-lg hover:shadow-2xl hover:shadow-accent/15",
+          "transform-gpu flex flex-col items-center justify-center text-center",
         )}
       >
         {/* Background Image if present */}
@@ -89,11 +90,11 @@ export function CategoryCard({ href, title, gif, index, backgroundImage }: Categ
                 alt="" 
                 fill 
                 sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" 
+                className="object-cover opacity-75 transition-transform duration-700 group-hover:scale-110" 
               />
             </div>
-            {/* Dark gradient overlay for readability */}
-            <div className="absolute inset-0 z-0 bg-gradient-to-br from-dark-900/90 via-dark-900/60 to-dark-900/80" />
+            {/* Lighter gradient overlay — lets the image pop */}
+            <div className="absolute inset-0 z-0 bg-gradient-to-br from-dark-900/70 via-dark-900/40 to-dark-900/60" />
           </>
         )}
 
@@ -112,25 +113,30 @@ export function CategoryCard({ href, title, gif, index, backgroundImage }: Categ
 
         {/* Large Centered Icon */}
         <div className={cn(
-          "relative w-32 h-32 mb-8 rounded-2xl flex items-center justify-center overflow-hidden transition-all duration-500",
-          "bg-dark-900/30 border border-white/5 group-hover:border-accent/20",
-          "shadow-inner group-hover:shadow-[0_0_30px_rgba(232,224,154,0.15)]",
+          "relative rounded-2xl flex items-center justify-center overflow-hidden transition-all duration-500 flex-shrink-0",
+          "bg-dark-800/50 border border-white/20 group-hover:border-accent/40",
+          "shadow-md group-hover:shadow-[0_0_30px_rgba(237,229,140,0.25)]",
           "group-hover:-translate-y-2 transform"
-        )}>
+        )}
+          style={{ width: 'clamp(72px, 9vh, 112px)', height: 'clamp(72px, 9vh, 112px)', marginBottom: 'clamp(12px, 2vh, 24px)' }}
+        >
           <div className="absolute inset-0 bg-accent/0 group-hover:bg-accent/5 transition-colors duration-500" />
           <Image
             src={gif}
             alt={title}
             width={128}
             height={128}
-            className="w-24 h-24 object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-110"
+            className="object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-110"
+            style={{ width: 'clamp(52px, 7vh, 88px)', height: 'clamp(52px, 7vh, 88px)' }}
             unoptimized
           />
         </div>
 
         {/* Minimal Title */}
         <div className="relative z-10">
-          <h3 className="text-2xl font-bold text-white group-hover:text-accent transition-colors duration-300 tracking-tight leading-tight">
+          <h3 className="font-bold text-white group-hover:text-accent transition-colors duration-300 tracking-tight leading-tight"
+            style={{ fontSize: 'clamp(1.1rem, 2.2vh, 1.5rem)' }}
+          >
             {title}
           </h3>
           <div className="h-1 w-12 bg-accent/30 mx-auto mt-4 rounded-full transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 delay-75" />

@@ -162,25 +162,25 @@ function PostLoginPage() {
   ];
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section - Post-login */}
+    <div>
+      {/* Quote section */}
       <section className="relative overflow-hidden">
-        {/* Background - IFAB slate with animated soccer ball */}
-        <div className="absolute inset-0 bg-dark-900">
-          <div className="absolute inset-0 bg-gradient-to-br from-dark-900 via-dark-800 to-dark-700" />
+        {/* Background - slightly lighter slate with animated soccer ball */}
+        <div className="absolute inset-0 bg-dark-800">
+          <div className="absolute inset-0 bg-gradient-to-br from-dark-700 via-dark-800 to-dark-900" />
           
-          {/* Animated soccer ball background */}
+          {/* Animated soccer ball background - let it breathe more */}
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-dark-900/60" />
+            <div className="absolute inset-0 bg-dark-900/40" />
             <video 
               autoPlay 
               loop 
               muted 
               playsInline
-              className="min-w-full min-h-full object-cover opacity-25"
+              className="min-w-full min-h-full object-cover opacity-40"
               style={{ 
                 mixBlendMode: 'screen',
-                filter: 'brightness(0.7) contrast(1.1)',
+                filter: 'brightness(0.85) contrast(1.05)',
                 transform: 'scale(1.08)',
                 transformOrigin: 'center'
               }}
@@ -189,22 +189,31 @@ function PostLoginPage() {
             </video>
           </div>
           
-          {/* Subtle gold glow */}
-          <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-accent/[0.02] rounded-full blur-3xl" />
+          {/* Gold glow — more visible */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-1/4 w-[500px] h-[200px] bg-accent/[0.06] rounded-full blur-3xl" />
         </div>
 
         {/* Content */}
-        <div className="relative z-10 mx-auto max-w-screen-xl px-6 py-16">
+        <div
+          className="relative z-10 mx-auto max-w-screen-xl px-6 w-full"
+          style={{ paddingTop: 'clamp(12px, 2vh, 24px)', paddingBottom: 'clamp(12px, 2vh, 24px)' }}
+        >
           <div className="max-w-3xl">
             <QuotesCarousel />
           </div>
         </div>
       </section>
 
-      {/* Quick Actions Section */}
-      <section className="relative py-12 bg-dark-800/40">
-        <div className="mx-auto max-w-screen-xl px-6">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+      {/* Cards section — sized to fill from bottom of quote to top of footer */}
+      <section
+        className="relative bg-dark-700/30"
+        style={{ height: 'calc(100dvh - 88px - clamp(96px, 14vh, 168px) - 64px)' }}
+      >
+        <div className="h-full mx-auto max-w-screen-xl px-6 py-4 flex flex-col">
+          <div
+            className="flex-1 grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}
+          >
             {practiceCategories.map((item, idx) => (
               <CategoryCard
                 key={item.href}

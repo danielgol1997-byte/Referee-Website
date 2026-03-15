@@ -36,7 +36,10 @@ type SummaryData = {
     id: string;
     score: number | null;
     totalClips: number;
-    videoTest: { name: string };
+    videoTest: {
+      name: string;
+      passingScore?: number | null;
+    };
   };
   correctCount: number;
   total: number;
@@ -102,6 +105,11 @@ export function VideoTestSummary({
 
   const score = data.session.score ?? data.correctCount;
   const percentage = data.total > 0 ? Math.round((score / data.total) * 100) : 0;
+  const passingScore =
+    typeof data.session.videoTest.passingScore === "number"
+      ? data.session.videoTest.passingScore
+      : null;
+  const didPass = passingScore !== null ? percentage >= passingScore : null;
 
   return (
     <div className="space-y-8">
@@ -120,6 +128,25 @@ export function VideoTestSummary({
             {score} <span className="text-text-secondary">/ {data.session.totalClips}</span>
           </h1>
           <p className="text-lg text-text-secondary">{percentage}% Correct</p>
+          {passingScore !== null ? (
+            <div className="mx-auto inline-flex items-center gap-2 rounded-lg border border-dark-600 bg-dark-900/80 px-3 py-2">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider",
+                  didPass
+                    ? "border border-[#22c55e]/45 bg-[#22c55e]/15 text-[#22c55e]"
+                    : "border border-[#ef4444]/45 bg-[#ef4444]/15 text-[#ef4444]"
+                )}
+              >
+                {didPass ? "Passed" : "Failed"}
+              </span>
+              <p className="text-sm text-text-secondary">
+                Pass mark: <span className="font-semibold text-white">{passingScore}%</span>
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary">No pass mark set for this test.</p>
+          )}
           <div className="pt-2">
             <Button asChild size="lg" className="gap-2 bg-dark-700 text-white border-2 border-accent/30 hover:border-accent hover:bg-dark-600">
               <Link href={restartHref}>
@@ -139,47 +166,92 @@ export function VideoTestSummary({
         <div className="flex-1 h-px bg-dark-600" />
       </div>
 
-      <div className="space-y-4">
+      <div className="mx-auto w-full max-w-4xl space-y-4">
         {data.items.map((item, index) => {
           const answer = item.answer;
           const clip = item.clip;
+          const userSelectedPlayOn = !!answer?.playOnNoOffence;
+          const correctIsPlayOn = !!(clip?.playOn || clip?.noOffence);
+          const restartOk = answer && clip
+            ? (userSelectedPlayOn
+              ? correctIsPlayOn
+              : answer.restartTagId && clip.correctRestart
+                ? answer.restartTagId === clip.correctRestart.id
+                : !clip.correctRestart && !answer.restartTagId)
+            : false;
+          const sanctionOk = answer && clip
+            ? (userSelectedPlayOn
+              ? correctIsPlayOn
+              : answer.sanctionTagId && clip.correctSanction
+                ? answer.sanctionTagId === clip.correctSanction.id
+                : !clip.correctSanction && !answer.sanctionTagId)
+            : false;
+          const criteriaOk = answer && clip
+            ? (userSelectedPlayOn
+              ? correctIsPlayOn
+              : (() => {
+                  const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
+                  const userSet = new Set(answer.criteriaTagIds);
+                  if (correctSet.size === 0 && userSet.size === 0) return true;
+                  return [...userSet].some((id) => correctSet.has(id));
+                })())
+            : false;
           const frameClass = answer?.isCorrect
             ? "border-[#22c55e] ring-2 ring-[#22c55e]/45"
             : "border-[#ef4444] ring-2 ring-[#ef4444]/45";
 
           return (
-            <div key={clip?.id ?? index} className="rounded-xl border-2 border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800 overflow-hidden">
+            <div key={clip?.id ?? index} className="overflow-hidden rounded-xl border-2 border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800">
               <button
                 type="button"
                 onClick={() => setOpenItemIndex(openItemIndex === index ? null : index)}
                 className={cn(
-                  "w-full px-6 py-4 flex items-center justify-between text-left transition-all rounded-xl border-2",
+                  "group relative w-full rounded-xl border-2 px-6 py-4 text-left transition-all duration-200 cursor-pointer",
+                  "hover:-translate-y-0.5 hover:bg-dark-700/60 hover:shadow-xl",
+                  "active:translate-y-0 active:scale-[0.995]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
                   frameClass
                 )}
               >
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div
-                    className={cn(
-                      "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-                      answer?.isCorrect ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-[#ef4444]/20 text-[#ef4444]"
-                    )}
-                  >
-                    {answer?.isCorrect ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
+                        answer?.isCorrect ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-[#ef4444]/20 text-[#ef4444]"
+                      )}
+                    >
+                      {answer?.isCorrect ? (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold text-white">Video {index + 1}</span>
                   </div>
-                  <span className="text-sm font-semibold text-white">Video {index + 1}</span>
-                  {clip?.title && <span className="text-text-secondary text-sm line-clamp-1">{clip.title}</span>}
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider">
+                    <span className={restartOk ? "text-[#22c55e]" : "text-[#ef4444]"}>Restart</span>
+                    <span className="text-text-muted">-</span>
+                    <span className={sanctionOk ? "text-[#22c55e]" : "text-[#ef4444]"}>Sanction</span>
+                    <span className="text-text-muted">-</span>
+                    <span className={criteriaOk ? "text-[#22c55e]" : "text-[#ef4444]"}>Criteria</span>
+                  </div>
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-                  Press I or click to view answers
-                </span>
+                <div
+                  className={cn(
+                    "pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-dark-500 bg-dark-900/70 p-1.5",
+                    "text-text-secondary transition-all duration-200 group-hover:border-cyan-400/60 group-hover:text-cyan-300 group-hover:shadow-lg",
+                    openItemIndex === index && "border-cyan-400/70 text-cyan-300 rotate-180"
+                  )}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </button>
             </div>
           );

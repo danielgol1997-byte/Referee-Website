@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
       where.AND.push({
         tags: {
           some: {
-            tagId: { in: tags }
+            tagId: { in: tags },
+            tag: { useInVideoLibrary: true }
           }
         }
       });
@@ -86,6 +87,9 @@ export async function GET(request: NextRequest) {
       include: {
         videoCategory: true,
         tags: {
+          where: {
+            tag: { useInVideoLibrary: true }
+          },
           include: {
             tag: true
           }

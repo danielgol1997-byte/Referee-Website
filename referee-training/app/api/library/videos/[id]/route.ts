@@ -51,6 +51,9 @@ export async function GET(
         },
       },
       tags: {
+        where: {
+          tag: { useInVideoLibrary: true },
+        },
         select: {
           isCorrectDecision: true,
           decisionOrder: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type VideoTestAnswerValue = {
@@ -37,8 +37,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 const ANSWER_GREEN = "#22c55e";
 const ANSWER_RED = "#ef4444";
 
-/* ─── Custom searchable dropdown ─── */
-function FilterDropdown({
+/* ─── Always-visible searchable answer panel ─── */
+function OptionPanel({
   label,
   color,
   options,
@@ -53,9 +53,7 @@ function FilterDropdown({
   onSelect: (id: string | null) => void;
   disabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(
@@ -68,151 +66,94 @@ function FilterDropdown({
     [options, selectedId]
   );
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  // Focus search when opened
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
   const handleSelect = useCallback(
     (id: string | null) => {
       onSelect(id);
-      setOpen(false);
-      setQuery("");
     },
     [onSelect]
   );
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* Category label */}
-      <div
-        className="text-xs font-bold uppercase tracking-widest mb-2 text-center"
-        style={{ color }}
-      >
-        {label}
+    <div className="rounded-xl border p-3" style={{ borderColor: `${color}35`, backgroundColor: `${color}08` }}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-bold uppercase tracking-widest" style={{ color }}>
+          {label}
+        </div>
+        {selectedTag && (
+          <button
+            type="button"
+            onClick={() => handleSelect(null)}
+            className="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:bg-dark-700/80"
+            style={{ color }}
+            title={`Clear ${label.toLowerCase()}`}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Trigger button */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => { if (!disabled) setOpen(!open); }}
-        className={cn(
-          "w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
-          "border bg-dark-800/80 backdrop-blur-sm",
-          disabled && "opacity-50 cursor-not-allowed",
-          open ? "border-opacity-100 shadow-lg" : "border-dark-600 hover:border-opacity-60"
-        )}
-        style={{
-          borderColor: open ? color : undefined,
-          boxShadow: open ? `0 0 0 1px ${color}40` : undefined,
-        }}
-      >
-        {selectedTag ? (
-          <span
-            className="min-w-0 text-left whitespace-normal break-words font-medium text-sm rounded px-1.5 py-0.5 leading-snug"
-            style={{ backgroundColor: `${color}20`, color }}
-          >
-            {selectedTag.name}
-          </span>
-        ) : (
-          <span className="min-w-0 text-left whitespace-normal break-words text-text-secondary leading-snug">Select {label.toLowerCase()}…</span>
-        )}
+      <div className="relative mb-2">
         <svg
-          className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-200", open && "rotate-180")}
-          style={{ color }}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+          style={{ color: `${color}80` }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-      </button>
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${label.toLowerCase()}...`}
+          disabled={disabled}
+          className={cn(
+            "w-full rounded-md border bg-dark-800 pl-8 pr-3 py-2 text-xs text-white placeholder:text-text-secondary focus:outline-none focus:ring-1",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
+          style={{ borderColor: `${color}45`, boxShadow: `0 0 0 1px ${color}20` }}
+        />
+      </div>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div
-          className="absolute z-50 mt-1 w-full rounded-lg border bg-dark-900/95 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
-          style={{ borderColor: `${color}40` }}
-        >
-          {/* Search inside the dropdown */}
-          <div className="p-2 border-b" style={{ borderColor: `${color}20` }}>
-            <div className="relative">
-              <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-                style={{ color: `${color}80` }}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${label.toLowerCase()}…`}
-                className="w-full pl-8 pr-3 py-2 rounded-md bg-dark-800 border border-dark-600 text-white text-sm placeholder:text-text-secondary focus:outline-none focus:ring-1"
-                style={{ borderColor: query ? color : undefined, boxShadow: query ? `0 0 0 1px ${color}40` : undefined }}
-              />
-            </div>
-          </div>
-
-          {/* Options list */}
-          <div className="max-h-48 overflow-y-auto overscroll-contain">
-            {/* Clear selection option */}
-            {selectedId && (
+      {filtered.length === 0 ? (
+        <div className="py-3 text-center text-xs text-text-secondary">
+          No matches
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {filtered.map((tag) => {
+            const isSelected = tag.id === selectedId;
+            return (
               <button
+                key={tag.id}
                 type="button"
-                onClick={() => handleSelect(null)}
-                className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-dark-700 transition-colors flex items-center gap-2"
+                disabled={disabled}
+                onClick={() => handleSelect(tag.id)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-2 text-left text-xs font-medium leading-snug transition-all",
+                  disabled && "opacity-50 cursor-not-allowed",
+                  isSelected ? "shadow-md" : "hover:bg-dark-700/70"
+                )}
+                style={
+                  isSelected
+                    ? {
+                        borderColor: `${color}b3`,
+                        backgroundColor: `${color}20`,
+                        color,
+                        boxShadow: `0 8px 20px -12px ${color}`,
+                      }
+                    : {
+                        borderColor: `${color}35`,
+                        color: "#f5f8ff",
+                      }
+                }
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Clear selection
+                <span className="line-clamp-2">{tag.name}</span>
               </button>
-            )}
-
-            {filtered.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-text-secondary text-center">
-                No matches
-              </div>
-            ) : (
-              filtered.map((tag) => {
-                const isSelected = tag.id === selectedId;
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => handleSelect(tag.id)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2",
-                      isSelected ? "font-semibold" : "hover:bg-dark-700"
-                    )}
-                    style={isSelected ? { backgroundColor: `${color}15`, color } : {}}
-                  >
-                    {isSelected && (
-                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                    <span className={cn(!isSelected && "text-white")}>{tag.name}</span>
-                  </button>
-                );
-              })
-            )}
-          </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -222,7 +163,7 @@ function FilterDropdown({
 /* ─── Main overlay ─── */
 export function VideoTestAnswerOverlay({
   isOpen,
-  onClose: _onClose,
+  onClose,
   onAction,
   actionLabel,
   actionDisabled = false,
@@ -269,6 +210,7 @@ export function VideoTestAnswerOverlay({
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
         style={{ zIndex: 100100 }}
+        onClick={onClose}
       />
       <div
         className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto"
@@ -276,7 +218,7 @@ export function VideoTestAnswerOverlay({
       >
         <div
           className={cn(
-            "relative w-full max-w-4xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
+            "relative w-full max-w-6xl backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
             "rounded-2xl shadow-2xl border border-accent/30",
             "transform transition-all duration-300",
             "animate-in fade-in zoom-in-95 duration-200"
@@ -291,7 +233,7 @@ export function VideoTestAnswerOverlay({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5">
+          <div className="px-4 py-4 md:px-6 md:py-5">
             <div className="space-y-5">
               <div className="rounded-xl border border-dark-600 bg-dark-800/60 p-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -359,38 +301,32 @@ export function VideoTestAnswerOverlay({
                 )}
               >
                 {isOffenceSelected && (
-                  <div className="space-y-3 rounded-xl border border-accent/25 bg-dark-900/50 p-4">
+                  <div className="space-y-3 rounded-xl border border-accent/25 bg-dark-900/50 p-3 md:p-4">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.restarts}25`, backgroundColor: `${CATEGORY_COLORS.restarts}08` }}>
-                        <FilterDropdown
-                          label="Restart"
-                          color={CATEGORY_COLORS.restarts}
-                          options={tagOptions.restarts}
-                          selectedId={value.restartTagId}
-                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, restartTagId: id })}
-                          disabled={!isOffenceSelected}
-                        />
-                      </div>
-                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.sanction}25`, backgroundColor: `${CATEGORY_COLORS.sanction}08` }}>
-                        <FilterDropdown
-                          label="Sanction"
-                          color={CATEGORY_COLORS.sanction}
-                          options={tagOptions.sanction}
-                          selectedId={value.sanctionTagId}
-                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, sanctionTagId: id })}
-                          disabled={!isOffenceSelected}
-                        />
-                      </div>
-                      <div className="rounded-xl p-4 border transition-colors duration-200" style={{ borderColor: `${CATEGORY_COLORS.criteria}25`, backgroundColor: `${CATEGORY_COLORS.criteria}08` }}>
-                        <FilterDropdown
-                          label="Criteria"
-                          color={CATEGORY_COLORS.criteria}
-                          options={tagOptions.criteria}
-                          selectedId={criteriaTagId}
-                          onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, criteriaTagIds: id ? [id] : [] })}
-                          disabled={!isOffenceSelected}
-                        />
-                      </div>
+                      <OptionPanel
+                        label="Restart"
+                        color={CATEGORY_COLORS.restarts}
+                        options={tagOptions.restarts}
+                        selectedId={value.restartTagId}
+                        onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, restartTagId: id })}
+                        disabled={!isOffenceSelected}
+                      />
+                      <OptionPanel
+                        label="Sanction"
+                        color={CATEGORY_COLORS.sanction}
+                        options={tagOptions.sanction}
+                        selectedId={value.sanctionTagId}
+                        onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, sanctionTagId: id })}
+                        disabled={!isOffenceSelected}
+                      />
+                      <OptionPanel
+                        label="Criteria"
+                        color={CATEGORY_COLORS.criteria}
+                        options={tagOptions.criteria}
+                        selectedId={criteriaTagId}
+                        onSelect={(id) => onChange({ ...value, selectedOutcome: "offence", playOnNoOffence: false, criteriaTagIds: id ? [id] : [] })}
+                        disabled={!isOffenceSelected}
+                      />
                     </div>
                   </div>
                 )}

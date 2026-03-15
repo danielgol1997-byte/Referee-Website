@@ -37,7 +37,7 @@ export function QuotesCarousel() {
   }, []);
 
   return (
-    <div className="relative h-40 overflow-hidden flex items-center justify-center">
+    <div className="relative overflow-hidden flex items-center justify-center" style={{ height: 'clamp(72px, 10vh, 120px)' }}>
       {quotes.map((quote, index) => (
         <div
           key={index}
@@ -50,10 +50,12 @@ export function QuotesCarousel() {
           }`}
         >
           <blockquote className="max-w-4xl text-center relative px-8">
-            <p className="text-2xl lg:text-3xl font-semibold text-white/90 italic leading-relaxed drop-shadow-lg mb-2">
+            <p className="text-xl lg:text-2xl font-semibold text-white italic leading-snug drop-shadow-lg mb-1"
+              style={{ fontSize: 'clamp(1rem, 2.5vh, 1.5rem)', textShadow: '0 1px 12px rgba(0,0,0,0.5)' }}
+            >
               "{quote.text}"
             </p>
-            <footer className="text-sm lg:text-base text-accent/70 font-medium text-right pr-4">
+            <footer className="text-sm lg:text-base text-accent font-semibold text-right pr-4">
               {quote.author}
             </footer>
           </blockquote>

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       clipIds,
       selectedClipIds,
       filters,
-      isActive = true,
+      isActive = false,
     } = body ?? {};
 
     if (!name || typeof name !== "string" || !name.trim()) {

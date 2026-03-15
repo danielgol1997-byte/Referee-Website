@@ -16,7 +16,7 @@ async function countTagsByVideoWhere(videoWhere: any) {
     by: ["tagId"],
     where: {
       video: videoWhere,
-      tag: { isActive: true, category: { isActive: true } },
+      tag: { isActive: true, useInVideoLibrary: true, category: { isActive: true } },
     },
     _count: { videoId: true },
   });
@@ -29,7 +29,7 @@ async function countTagsByVideoWhere(videoWhere: any) {
 async function resolveTagSlugs(tagIds: string[]) {
   if (tagIds.length === 0) return new Map<string, { categorySlug: string; tagSlug: string }>();
   const tags = await prisma.tag.findMany({
-    where: { id: { in: tagIds } },
+    where: { id: { in: tagIds }, useInVideoLibrary: true },
     select: {
       id: true,
       slug: true,

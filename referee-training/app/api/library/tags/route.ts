@@ -11,7 +11,7 @@ export async function GET() {
       where: { isActive: true },
       include: {
         tags: {
-          where: { isActive: true },
+          where: { isActive: true, useInVideoLibrary: true },
           orderBy: [
             { order: 'asc' },
             { name: 'asc' },

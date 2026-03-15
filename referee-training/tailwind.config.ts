@@ -11,27 +11,27 @@ const config: Config = {
       colors: {
         // IFAB-inspired palette - Sophisticated slate gray and gold - LIGHTENED
         dark: {
-          900: "#2C3542",
-          800: "#364250",
-          700: "#414F60",
-          600: "#4F5D6F",
-          500: "#5E6C7E",
-          400: "#707E90",
-          300: "#8391A2",
+          900: "#323E4D",
+          800: "#3D4C5E",
+          700: "#495869",
+          600: "#576779",
+          500: "#67778A",
+          400: "#7A899C",
+          300: "#8E9EAF",
         },
-        // IFAB accent - Elegant light gold/champagne
+        // IFAB accent - Elegant light gold/champagne - slightly more vivid
         accent: {
-          DEFAULT: "#E8E09A",
-          50: "#FAFAF0",
-          100: "#F5F3E0",
-          200: "#EEE9C8",
-          300: "#E8E09A",
-          400: "#DDD29C",
-          500: "#CFC288",
-          600: "#B8AD7A",
-          700: "#A0956B",
-          800: "#887D5C",
-          900: "#70654D",
+          DEFAULT: "#EDE58C",
+          50: "#FDFCF0",
+          100: "#F9F6E0",
+          200: "#F4EFC8",
+          300: "#EDE58C",
+          400: "#E3D97E",
+          500: "#D5C96A",
+          600: "#C4B860",
+          700: "#A89D52",
+          800: "#8C8244",
+          900: "#706736",
         },
         // Secondary accent - Soft gray-blue
         secondary: {
@@ -62,10 +62,10 @@ const config: Config = {
         // Text colors - IFAB style - HIGH CONTRAST
         text: {
           primary: "#FFFFFF",
-          secondary: "#E2E8F0",
-          muted: "#CBD5E1",
-          inverse: "#2C3542",
-          gold: "#E8E09A",
+          secondary: "#E8EEF5",
+          muted: "#D0DAE6",
+          inverse: "#323E4D",
+          gold: "#EDE58C",
         },
         // Status colors
         status: {
@@ -88,15 +88,15 @@ const config: Config = {
       },
       backgroundImage: {
         // Main gradients - IFAB slate variations - LIGHTENED
-        "hero-gradient": "linear-gradient(135deg, #2C3542 0%, #414F60 50%, #364250 100%)",
-        "card-gradient": "linear-gradient(180deg, #414F60 0%, #364250 100%)",
-        "section-gradient": "linear-gradient(180deg, #364250 0%, #2C3542 100%)",
-        // Accent gradients - IFAB gold
-        "accent-line": "linear-gradient(90deg, transparent 0%, #E8E09A 50%, transparent 100%)",
-        "accent-glow": "linear-gradient(90deg, #E8E09A 0%, #DDD29C 100%)",
+        "hero-gradient": "linear-gradient(135deg, #323E4D 0%, #495869 50%, #3D4C5E 100%)",
+        "card-gradient": "linear-gradient(180deg, #495869 0%, #3D4C5E 100%)",
+        "section-gradient": "linear-gradient(180deg, #3D4C5E 0%, #323E4D 100%)",
+        // Accent gradients - IFAB gold - slightly more vivid
+        "accent-line": "linear-gradient(90deg, transparent 0%, #EDE58C 50%, transparent 100%)",
+        "accent-glow": "linear-gradient(90deg, #EDE58C 0%, #E3D97E 100%)",
         // Button gradients
-        "button-primary": "linear-gradient(135deg, #E8E09A 0%, #DDD29C 100%)",
-        "button-secondary": "linear-gradient(135deg, #485566 0%, #576575 100%)",
+        "button-primary": "linear-gradient(135deg, #EDE58C 0%, #E3D97E 100%)",
+        "button-secondary": "linear-gradient(135deg, #576779 0%, #67778A 100%)",
         // Overlays - Slate gradients
         "image-overlay": "linear-gradient(180deg, rgba(37, 45, 56, 0) 0%, rgba(37, 45, 56, 0.95) 100%)",
         "image-overlay-full": "linear-gradient(180deg, rgba(37, 45, 56, 0.75) 0%, rgba(37, 45, 56, 0.92) 100%)",

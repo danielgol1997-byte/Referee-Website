@@ -13,6 +13,8 @@ interface VideoUploadFormProps {
     id: string;
     name: string;
     color?: string;
+    useInVideoLibrary?: boolean;
+    useInVideoTests?: boolean;
     category?: { id: string; name: string; slug: string; canBeCorrectAnswer: boolean; order?: number };
     parentCategory?: string;
   }>;
@@ -41,6 +43,8 @@ interface Tag {
   id: string;
   name: string;
   color?: string;
+  useInVideoLibrary?: boolean;
+  useInVideoTests?: boolean;
   category?: TagCategory;
   parentCategory?: string;
 }
@@ -103,9 +107,10 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
 
     // Get all tags with these categories
     const autoCorrectTags = [...correctDecisionTags, ...invisibleTags].filter(tag => 
-      tag.category?.slug === restartCategorySlug || 
+      (tag.category?.slug === restartCategorySlug || 
       tag.category?.slug === sanctionCategorySlug || 
-      tag.category?.slug === criteriaCategorySlug
+      tag.category?.slug === criteriaCategorySlug) &&
+      tag.useInVideoTests !== false
     );
 
     // Check which ones are not in correctDecisionTags
@@ -651,7 +656,9 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
 
       const hasDecisionTags = !effectiveIsEducational;
       const correctDecisionTagData = hasDecisionTags
-        ? correctDecisionTags.map((tag, index) => ({
+        ? correctDecisionTags
+            .filter((tag) => tag.useInVideoTests !== false)
+            .map((tag, index) => ({
             tagId: tag.id,
             isCorrectDecision: true,
             decisionOrder: index + 1,
@@ -1647,7 +1654,7 @@ function CorrectDecisionList({
   };
 
   const invisibleTags = allTags.filter(t =>
-    !tags.find(ct => ct.id === t.id) && t.category?.canBeCorrectAnswer
+    !tags.find(ct => ct.id === t.id) && t.category?.canBeCorrectAnswer && t.useInVideoTests !== false
   );
 
   return (
@@ -1736,7 +1743,7 @@ function InvisibleTagsList({
           >
             <div className="w-4 h-4 rounded" style={{ backgroundColor: tag.color }} />
             <span className="flex-1 text-text-primary">{tag.name}</span>
-            {showMoveToCorrect && tag.category?.canBeCorrectAnswer ? (
+            {showMoveToCorrect && tag.category?.canBeCorrectAnswer && tag.useInVideoTests !== false ? (
               <button
                 type="button"
                 onClick={() => onMoveToCorrect(tag)}

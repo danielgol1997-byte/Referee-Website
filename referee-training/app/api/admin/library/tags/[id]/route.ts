@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 
+const VIDEO_TEST_TAG_CATEGORY_SLUGS = new Set(['restarts', 'sanction', 'criteria']);
+
 /**
  * PATCH /api/admin/library/tags/[id]
  * Partially update a tag
@@ -34,16 +36,28 @@ export async function PATCH(
     if (body.order !== undefined) updateData.order = body.order;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
-    const targetCategoryId = updateData.categoryId || (await prisma.tag.findUnique({ where: { id }, select: { categoryId: true } }))?.categoryId;
+    const currentTag = await prisma.tag.findUnique({
+      where: { id },
+      select: { categoryId: true },
+    });
+    const targetCategoryId = updateData.categoryId || currentTag?.categoryId;
     const category = targetCategoryId
       ? await prisma.tagCategory.findUnique({
           where: { id: targetCategoryId },
-          select: { allowLinks: true },
+          select: { allowLinks: true, slug: true },
         })
       : null;
 
     if (!category?.allowLinks) {
       updateData.linkUrl = null;
+    }
+    const usageControlled = !!category?.slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(category.slug);
+    if (usageControlled) {
+      if (body.useInVideoLibrary !== undefined) updateData.useInVideoLibrary = !!body.useInVideoLibrary;
+      if (body.useInVideoTests !== undefined) updateData.useInVideoTests = !!body.useInVideoTests;
+    } else {
+      updateData.useInVideoLibrary = true;
+      updateData.useInVideoTests = true;
     }
 
     const tag = await prisma.tag.update({
@@ -86,7 +100,19 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, categoryId, parentCategory, color, description, order, isActive, linkUrl } = body;
+    const {
+      name,
+      slug,
+      categoryId,
+      parentCategory,
+      color,
+      description,
+      order,
+      isActive,
+      linkUrl,
+      useInVideoLibrary,
+      useInVideoTests,
+    } = body;
 
     // Get current tag to check if name changed
     const currentTag = await prisma.tag.findUnique({
@@ -171,9 +197,16 @@ export async function PUT(
     const category = categoryId
       ? await prisma.tagCategory.findUnique({
           where: { id: categoryId },
-          select: { allowLinks: true },
+          select: { allowLinks: true, slug: true },
         })
       : null;
+    const usageControlled = !!category?.slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(category.slug);
+    const nextUseInVideoLibrary = usageControlled
+      ? (useInVideoLibrary !== undefined ? !!useInVideoLibrary : currentTag.useInVideoLibrary)
+      : true;
+    const nextUseInVideoTests = usageControlled
+      ? (useInVideoTests !== undefined ? !!useInVideoTests : currentTag.useInVideoTests)
+      : true;
 
     const tag = await prisma.tag.update({
       where: { id },
@@ -187,6 +220,8 @@ export async function PUT(
         order,
         isActive,
         linkUrl: category?.allowLinks ? linkUrl : null,
+        useInVideoLibrary: nextUseInVideoLibrary,
+        useInVideoTests: nextUseInVideoTests,
       },
       include: {
         category: true,

@@ -27,6 +27,7 @@ function addTagGroupClause(
         tag: {
           slug: { in: slugs },
           isActive: true,
+          useInVideoLibrary: true,
         },
       },
     },

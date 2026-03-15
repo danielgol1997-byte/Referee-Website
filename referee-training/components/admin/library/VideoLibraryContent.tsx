@@ -189,9 +189,9 @@ export function VideoLibraryContent() {
     }
   }, [buildVideoQueryParams, getCacheKey, prefetchVideoPage]);
 
-  const fetchCategoriesAndTags = useCallback(async () => {
+  const fetchCategoriesAndTags = useCallback(async (options?: { background?: boolean }) => {
     try {
-      setIsLoadingTags(true);
+      if (!options?.background) setIsLoadingTags(true);
       const [categoriesRes, tagsRes, tagCategoriesRes] = await Promise.all([
         fetch('/api/admin/library/categories'),
         fetch('/api/admin/library/tags'),
@@ -417,7 +417,7 @@ export function VideoLibraryContent() {
             <TagManager
               tags={tags}
               tagCategories={tagCategories}
-              onRefresh={fetchCategoriesAndTags}
+              onRefresh={() => fetchCategoriesAndTags({ background: true })}
             />
           )}
         </>

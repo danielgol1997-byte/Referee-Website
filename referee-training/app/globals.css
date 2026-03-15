@@ -8,18 +8,18 @@
 
 :root {
   /* IFAB-inspired color palette - Sophisticated slate gray and gold - LIGHTENED */
-  --color-dark-900: #2C3542;
-  --color-dark-800: #364250;
-  --color-dark-700: #414F60;
-  --color-dark-600: #4F5D6F;
-  --color-dark-500: #5E6C7E;
-  --color-dark-400: #707E90;
+  --color-dark-900: #323E4D;
+  --color-dark-800: #3D4C5E;
+  --color-dark-700: #495869;
+  --color-dark-600: #576779;
+  --color-dark-500: #67778A;
+  --color-dark-400: #7A899C;
   
   /* IFAB accent - Elegant light gold/champagne */
-  --color-accent: #E8E09A;
-  --color-accent-dark: #DDD29C;
-  --color-accent-darker: #CFC288;
-  --color-accent-muted: #B8AD7A;
+  --color-accent: #EDE58C;
+  --color-accent-dark: #E3D97E;
+  --color-accent-darker: #D5C96A;
+  --color-accent-muted: #C4B860;
   
   /* Secondary accent - Soft gray-blue */
   --color-secondary: #8A95A5;
@@ -27,19 +27,19 @@
   
   /* Text - IFAB style - HIGH CONTRAST */
   --color-text-primary: #FFFFFF;
-  --color-text-secondary: #E2E8F0;
-  --color-text-muted: #CBD5E1;
-  --color-text-gold: #E8E09A;
+  --color-text-secondary: #E8EEF5;
+  --color-text-muted: #D0DAE6;
+  --color-text-gold: #EDE58C;
   
   /* Borders - Subtle grays */
-  --color-border: #414F60;
-  --color-border-subtle: #364250;
-  --color-border-highlight: #4F5D6F;
+  --color-border: #495869;
+  --color-border-subtle: #3D4C5E;
+  --color-border-highlight: #576779;
   
   /* Status colors */
-  --color-success: #E8E09A;
-  --color-warning: #DDD29C;
-  --color-error: #B89090;
+  --color-success: #EDE58C;
+  --color-warning: #E3D97E;
+  --color-error: #C09898;
 }
 
 /* Base styles */
@@ -58,7 +58,7 @@ html::-webkit-scrollbar {
 
 body {
   font-family: "DIN 2014", Inter, var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: linear-gradient(180deg, #2C3542 0%, #364250 100%);
+  background: linear-gradient(180deg, #323E4D 0%, #3D4C5E 100%);
   color: var(--color-text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -91,7 +91,8 @@ body {
   
   .accent-line-thin {
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--color-border-highlight) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, var(--color-accent-muted) 50%, transparent 100%);
+    opacity: 0.5;
   }
   
   .accent-line-vertical {
@@ -174,10 +175,10 @@ body {
   height: 100%;
   background: linear-gradient(
     to bottom,
-    rgba(44, 53, 66, 0.72) 0%,
-    rgba(44, 53, 66, 0.80) 30%,
-    rgba(44, 53, 66, 0.84) 60%,
-    rgba(44, 53, 66, 0.88) 100%
+    rgba(50, 62, 77, 0.55) 0%,
+    rgba(50, 62, 77, 0.63) 30%,
+    rgba(50, 62, 77, 0.68) 60%,
+    rgba(50, 62, 77, 0.72) 100%
   );
   z-index: 1;
   pointer-events: none;

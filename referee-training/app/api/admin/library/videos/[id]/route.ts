@@ -72,6 +72,8 @@ export async function GET(
               name: true,
               slug: true,
               color: true,
+              useInVideoLibrary: true,
+              useInVideoTests: true,
               category: {
                 select: {
                   id: true,
@@ -194,14 +196,29 @@ export async function PUT(
           ).values()
         )
       : [];
+    const correctDecisionCandidateIds = normalizedTagData
+      .filter((tag: any) => !!tag.isCorrectDecision)
+      .map((tag: any) => tag.tagId);
+    const correctDecisionAllowedTagIds = new Set(
+      (await prisma.tag.findMany({
+        where: {
+          id: { in: correctDecisionCandidateIds.length > 0 ? correctDecisionCandidateIds : ['__none__'] },
+          useInVideoTests: true,
+        },
+        select: { id: true },
+      })).map((tag) => tag.id)
+    );
 
     const normalizedDuration = Number.isFinite(duration) ? Math.round(duration) : duration;
     const tagRelations = normalizedTagData.length > 0
       ? {
           create: normalizedTagData.map((tag: any) => ({
             tagId: tag.tagId,
-            isCorrectDecision: tag.isCorrectDecision || false,
-            decisionOrder: tag.decisionOrder || 0,
+            isCorrectDecision: !!tag.isCorrectDecision && correctDecisionAllowedTagIds.has(tag.tagId),
+            decisionOrder:
+              !!tag.isCorrectDecision && correctDecisionAllowedTagIds.has(tag.tagId)
+                ? (tag.decisionOrder || 0)
+                : 0,
           })),
         }
       : normalizedTagIds.length > 0
