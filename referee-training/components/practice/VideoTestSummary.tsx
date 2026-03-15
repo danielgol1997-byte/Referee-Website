@@ -197,18 +197,18 @@ export function VideoTestSummary({
                 })())
             : false;
           const frameClass = answer?.isCorrect
-            ? "border-[#22c55e] ring-2 ring-[#22c55e]/45"
-            : "border-[#ef4444] ring-2 ring-[#ef4444]/45";
+            ? "border-[#22c55e]"
+            : "border-[#ef4444]";
 
           return (
-            <div key={clip?.id ?? index} className="overflow-hidden rounded-xl border-2 border-dark-600 bg-gradient-to-b from-dark-700 to-dark-800">
+            <div key={clip?.id ?? index} className="overflow-hidden rounded-xl bg-gradient-to-b from-dark-700 to-dark-800">
               <button
                 type="button"
                 onClick={() => setOpenItemIndex(openItemIndex === index ? null : index)}
                 className={cn(
-                  "group relative w-full rounded-xl border-2 px-6 py-4 text-left transition-all duration-200 cursor-pointer",
-                  "hover:-translate-y-0.5 hover:bg-dark-700/60 hover:shadow-xl",
-                  "active:translate-y-0 active:scale-[0.995]",
+                  "group relative w-full rounded-xl border-2 bg-clip-padding px-6 py-4 text-left transition-all duration-200 cursor-pointer",
+                  "hover:bg-dark-700/60 hover:shadow-xl",
+                  "active:scale-[0.995]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
                   frameClass
                 )}
@@ -240,6 +240,18 @@ export function VideoTestSummary({
                     <span className="text-text-muted">-</span>
                     <span className={criteriaOk ? "text-[#22c55e]" : "text-[#ef4444]"}>Criteria</span>
                   </div>
+                </div>
+                <div
+                  className={cn(
+                    "pointer-events-none absolute left-4 top-4 rounded-full border border-dark-500 bg-dark-900/75 p-1.5",
+                    "opacity-0 scale-90 transition-all duration-200",
+                    "group-hover:opacity-100 group-hover:scale-100 group-hover:border-cyan-400/60 group-hover:text-cyan-300"
+                  )}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <rect x="3.5" y="6.5" width="13" height="11" rx="2" strokeWidth={2} />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.25l4-2.25v8l-4-2.25" />
+                  </svg>
                 </div>
                 <div
                   className={cn(
