@@ -46,8 +46,14 @@ export async function PATCH(
         { status: 404 }
       );
     }
-    const targetCategoryId = updateData.categoryId || currentTag?.categoryId;
-    const targetName = updateData.name || currentTag.name;
+    const targetCategoryId =
+      typeof updateData.categoryId === 'string' && updateData.categoryId.length > 0
+        ? updateData.categoryId
+        : currentTag.categoryId;
+    const targetName =
+      typeof updateData.name === 'string' && updateData.name.length > 0
+        ? updateData.name
+        : currentTag.name;
     if (updateData.name !== undefined || updateData.categoryId !== undefined) {
       const existingName = await prisma.tag.findFirst({
         where: {
