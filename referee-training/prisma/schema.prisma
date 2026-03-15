@@ -305,7 +305,7 @@ model VideoCategory {
 
 model Tag {
   id             String         @id @default(cuid())
-  name           String         @unique
+  name           String
   slug           String         @unique
   categoryId     String         // Reference to TagCategory
   parentCategory String?        // For CRITERIA tags: which decision type (Challenges, Handball, etc.)
@@ -323,6 +323,7 @@ model Tag {
 
   @@index([isActive, order])
   @@index([categoryId, parentCategory])
+  @@unique([name, categoryId])
 }
 
 model TagCategory {

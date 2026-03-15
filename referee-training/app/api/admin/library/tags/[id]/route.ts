@@ -25,7 +25,7 @@ export async function PATCH(
     const body = await request.json();
 
     // Allow partial updates - only update provided fields
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (body.name !== undefined) updateData.name = body.name;
     if (body.slug !== undefined) updateData.slug = body.slug;
     if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
@@ -38,9 +38,31 @@ export async function PATCH(
 
     const currentTag = await prisma.tag.findUnique({
       where: { id },
-      select: { categoryId: true },
+      select: { name: true, categoryId: true, useInVideoLibrary: true, useInVideoTests: true, slug: true },
     });
+    if (!currentTag) {
+      return NextResponse.json(
+        { error: 'Tag not found' },
+        { status: 404 }
+      );
+    }
     const targetCategoryId = updateData.categoryId || currentTag?.categoryId;
+    const targetName = updateData.name || currentTag.name;
+    if (updateData.name !== undefined || updateData.categoryId !== undefined) {
+      const existingName = await prisma.tag.findFirst({
+        where: {
+          name: targetName,
+          categoryId: targetCategoryId,
+          id: { not: id },
+        },
+      });
+      if (existingName) {
+        return NextResponse.json(
+          { error: 'Tag with this name already exists in this category' },
+          { status: 409 }
+        );
+      }
+    }
     const category = targetCategoryId
       ? await prisma.tagCategory.findUnique({
           where: { id: targetCategoryId },
@@ -70,12 +92,26 @@ export async function PATCH(
 
     console.log('✅ Tag partially updated:', { id, fields: Object.keys(updateData) });
     return NextResponse.json({ tag });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const prismaErrorCode =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? (error as { code?: string }).code
+        : undefined;
+    const errorMessage =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message?: unknown }).message)
+        : 'Unknown error';
+    if (prismaErrorCode === 'P2002') {
+      return NextResponse.json(
+        { error: 'Tag with this name already exists in this category' },
+        { status: 409 }
+      );
+    }
     console.error('Error updating tag:', error);
     return NextResponse.json(
       { 
         error: 'Failed to update tag',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
       },
       { status: 500 }
     );
@@ -126,15 +162,20 @@ export async function PUT(
       );
     }
 
-    // Check if name is being updated to an existing name
-    if (name && name !== currentTag.name) {
-      const existingName = await prisma.tag.findUnique({
-        where: { name },
+    const nextName = name ?? currentTag.name;
+    const nextCategoryId = categoryId ?? currentTag.categoryId;
+    if (nextName !== currentTag.name || nextCategoryId !== currentTag.categoryId) {
+      const existingName = await prisma.tag.findFirst({
+        where: {
+          name: nextName,
+          categoryId: nextCategoryId,
+          id: { not: id },
+        },
       });
 
       if (existingName) {
         return NextResponse.json(
-          { error: 'Tag with this name already exists' },
+          { error: 'Tag with this name already exists in this category' },
           { status: 409 }
         );
       }
@@ -243,17 +284,32 @@ export async function PUT(
 
     console.log('✅ Tag updated successfully:', { id, name: tag.name, category: tag.category });
     return NextResponse.json({ tag });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const prismaErrorCode =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? (error as { code?: string }).code
+        : undefined;
+    const errorDetails =
+      typeof error === 'object' && error !== null
+        ? {
+            message:
+              'message' in error ? String((error as { message?: unknown }).message) : undefined,
+            code: 'code' in error ? (error as { code?: unknown }).code : undefined,
+            meta: 'meta' in error ? (error as { meta?: unknown }).meta : undefined,
+          }
+        : { message: String(error) };
+    if (prismaErrorCode === 'P2002') {
+      return NextResponse.json(
+        { error: 'Tag with this name already exists in this category' },
+        { status: 409 }
+      );
+    }
     console.error('Error updating tag:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-    });
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
       { 
         error: 'Failed to update tag',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? errorDetails.message : undefined
       },
       { status: 500 }
     );
@@ -312,17 +368,22 @@ export async function DELETE(
 
     console.log('✅ Tag deleted successfully:', { id, name: deletedTag.name });
     return NextResponse.json({ success: true, deleted: deletedTag });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorDetails =
+      typeof error === 'object' && error !== null
+        ? {
+            message:
+              'message' in error ? String((error as { message?: unknown }).message) : undefined,
+            code: 'code' in error ? (error as { code?: unknown }).code : undefined,
+            meta: 'meta' in error ? (error as { meta?: unknown }).meta : undefined,
+          }
+        : { message: String(error) };
     console.error('Error deleting tag:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-    });
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
       { 
         error: 'Failed to delete tag',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? errorDetails.message : undefined
       },
       { status: 500 }
     );

@@ -10,7 +10,7 @@ const VIDEO_TEST_TAG_CATEGORY_SLUGS = new Set(['restarts', 'sanction', 'criteria
  * List all tags
  * Requires SUPER_ADMIN role
  */
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -95,14 +95,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check for duplicate name
-    const existingName = await prisma.tag.findUnique({
-      where: { name },
+    // Check for duplicate name within the same category
+    const existingName = await prisma.tag.findFirst({
+      where: { name, categoryId },
     });
 
     if (existingName) {
       return NextResponse.json(
-        { error: 'Tag with this name already exists' },
+        { error: 'Tag with this name already exists in this category' },
         { status: 409 }
       );
     }
@@ -193,17 +193,32 @@ export async function POST(request: Request) {
 
     console.log('✅ Tag created successfully:', { id: tag.id, name: tag.name, category: tag.category });
     return NextResponse.json({ tag }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const prismaErrorCode =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? (error as { code?: string }).code
+        : undefined;
+    const errorDetails =
+      typeof error === 'object' && error !== null
+        ? {
+            message:
+              'message' in error ? String((error as { message?: unknown }).message) : undefined,
+            code: 'code' in error ? (error as { code?: unknown }).code : undefined,
+            meta: 'meta' in error ? (error as { meta?: unknown }).meta : undefined,
+          }
+        : { message: String(error) };
+    if (prismaErrorCode === 'P2002') {
+      return NextResponse.json(
+        { error: 'Tag with this name already exists in this category' },
+        { status: 409 }
+      );
+    }
     console.error('Error creating tag:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-    });
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
       { 
         error: 'Failed to create tag',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? errorDetails.message : undefined
       },
       { status: 500 }
     );
