@@ -323,7 +323,7 @@ model Tag {
 
   @@index([isActive, order])
   @@index([categoryId, parentCategory])
-  @@unique([name, categoryId])
+  @@unique([name, categoryId, parentCategory])
 }
 
 model TagCategory {

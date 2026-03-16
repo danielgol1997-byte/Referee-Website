@@ -95,9 +95,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check for duplicate name within the same category
+    // Check for duplicate name within the same category and parentCategory
     const existingName = await prisma.tag.findFirst({
-      where: { name, categoryId },
+      where: { name, categoryId, parentCategory: parentCategory || null },
     });
 
     if (existingName) {
