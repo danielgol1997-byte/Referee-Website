@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
@@ -46,6 +47,7 @@ interface Tag {
   description?: string;
   useInVideoLibrary: boolean;
   useInVideoTests: boolean;
+  isPlayOnCriteria: boolean;
   isActive: boolean;
   order: number;
   _count?: { videos: number };
@@ -193,6 +195,69 @@ const CATEGORY_ORDER = [
   'Teamwork', 'Laws Of The Game'
 ];
 
+// ─── Smart hover tooltip ──────────────────────────────────────────────────────
+
+function HoverTooltip({
+  children,
+  content,
+  delay = 700,
+}: {
+  children: React.ReactNode;
+  content: React.ReactNode;
+  delay?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  const show = () => {
+    timerRef.current = setTimeout(() => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      const W = 264;
+      const GAP = 8;
+      // Prefer above; fall back to below if not enough room
+      const above = rect.top > 120;
+      // Left-align to trigger, clamped to viewport
+      let left = rect.left;
+      left = Math.max(GAP, Math.min(window.innerWidth - W - GAP, left));
+      const top = above ? rect.top - GAP : rect.bottom + GAP;
+      setStyle({
+        position: "fixed",
+        top,
+        left,
+        width: W,
+        zIndex: 99999,
+        transform: above ? "translateY(-100%)" : "none",
+      });
+      setOpen(true);
+    }, delay);
+  };
+
+  const hide = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    setOpen(false);
+  };
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return (
+    <div ref={triggerRef} onMouseEnter={show} onMouseLeave={hide} className="inline-flex">
+      {children}
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          style={style}
+          className="pointer-events-none rounded-xl border border-dark-500/80 bg-dark-900 px-3.5 py-3 text-xs leading-relaxed text-text-secondary shadow-2xl ring-1 ring-black/30"
+        >
+          {content}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 // ─── Sortable tag item ────────────────────────────────────────────────────────
 
 interface SortableTagItemProps {
@@ -202,6 +267,8 @@ interface SortableTagItemProps {
   onDelete: (id: string, name: string, count: number) => void;
   onUsageScopeChange: (tag: Tag, scope: TagUsageScope) => void;
   usageScopeUpdating?: boolean;
+  onPlayOnCriteriaChange: (tag: Tag, isPlayOn: boolean) => void;
+  playOnCriteriaUpdating?: boolean;
 }
 
 function SortableTagItem({
@@ -211,6 +278,8 @@ function SortableTagItem({
   onDelete,
   onUsageScopeChange,
   usageScopeUpdating = false,
+  onPlayOnCriteriaChange,
+  playOnCriteriaUpdating = false,
 }: SortableTagItemProps) {
   const {
     attributes,
@@ -283,36 +352,71 @@ function SortableTagItem({
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {supportsUsageScope && (
-          <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
-            {([
-              { id: 'library', label: 'Library' },
-              { id: 'both', label: 'Both' },
-              { id: 'tests', label: 'Tests' },
-            ] as const).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                disabled={usageScopeUpdating}
-                onClick={() => onUsageScopeChange(tag, option.id)}
-                className={cn(
-                  "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
-                  usageScope === option.id
-                    ? "bg-cyan-500/20 text-cyan-300"
-                    : "text-text-muted hover:text-text-primary hover:bg-dark-700",
-                  usageScopeUpdating && "opacity-60 cursor-not-allowed"
-                )}
-                title={
-                  option.id === 'both'
-                    ? 'Used in Video Library and Video Tests'
-                    : option.id === 'library'
-                      ? 'Used only in Video Library'
-                      : 'Used only in Video Tests'
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <HoverTooltip content={
+            <><span className="font-semibold text-white">Where is this tag used?</span><br />
+            <span className="text-text-muted">Library</span> — video library filters only.<br />
+            <span className="text-text-muted">Both</span> — library filters and video test answers.<br />
+            <span className="text-text-muted">Tests</span> — video test answer options only.</>
+          }>
+            <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+              {([
+                { id: 'library', label: 'Library' },
+                { id: 'both', label: 'Both' },
+                { id: 'tests', label: 'Tests' },
+              ] as const).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={usageScopeUpdating}
+                  onClick={() => onUsageScopeChange(tag, option.id)}
+                  className={cn(
+                    "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                    usageScope === option.id
+                      ? "bg-cyan-500/20 text-cyan-300"
+                      : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                    usageScopeUpdating && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </HoverTooltip>
+        )}
+        {tag.category?.slug === 'criteria' && (
+          <HoverTooltip content={
+            !tag.useInVideoTests
+              ? <><span className="font-semibold text-white">Not applicable</span><br />This tag is set to <span className="text-text-muted">Library only</span> — it won't appear in video tests.</>
+              : <><span className="font-semibold text-white">Criteria type (video tests)</span><br />
+                <span style={{ color: "#22c55e" }}>Play On</span> — shown when the user answers "play on / no offence".<br />
+                <span style={{ color: "#ef4444" }}>Offense</span> — shown when the user answers an offence.</>
+          }>
+            <div className={cn("inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5", !tag.useInVideoTests && "opacity-40 cursor-not-allowed")}>
+              {([
+                { id: true,  label: 'Play On', color: '#22c55e' },
+                { id: false, label: 'Offense',  color: '#ef4444' },
+              ] as const).map((option) => {
+                const active = tag.isPlayOnCriteria === option.id;
+                return (
+                  <button
+                    key={String(option.id)}
+                    type="button"
+                    disabled={playOnCriteriaUpdating || !tag.useInVideoTests}
+                    onClick={() => onPlayOnCriteriaChange(tag, option.id)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                      (playOnCriteriaUpdating || !tag.useInVideoTests) && "cursor-not-allowed"
+                    )}
+                    style={active
+                      ? { backgroundColor: `${option.color}22`, color: option.color }
+                      : { color: '#64748b' }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </HoverTooltip>
         )}
         <button
           onClick={() => onEdit(tag)}
@@ -369,6 +473,8 @@ interface SortableTagListProps {
   onDelete: (id: string, name: string, count: number) => void;
   onUsageScopeChange: (tag: Tag, scope: TagUsageScope) => void;
   usageScopeUpdatingTagId?: string | null;
+  onPlayOnCriteriaChange: (tag: Tag, isPlayOn: boolean) => void;
+  playOnCriteriaUpdatingTagId?: string | null;
 }
 
 function SortableTagList({
@@ -382,6 +488,8 @@ function SortableTagList({
   onDelete,
   onUsageScopeChange,
   usageScopeUpdatingTagId,
+  onPlayOnCriteriaChange,
+  playOnCriteriaUpdatingTagId,
 }: SortableTagListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -422,29 +530,71 @@ function SortableTagList({
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {isVideoTestUsageCategory(tag.category?.slug) && (
-                <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
-                  {([
-                    { id: 'library', label: 'Library' },
-                    { id: 'both', label: 'Both' },
-                    { id: 'tests', label: 'Tests' },
-                  ] as const).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      disabled={usageScopeUpdatingTagId === tag.id}
-                      onClick={() => onUsageScopeChange(tag, option.id)}
-                      className={cn(
-                        "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
-                        getTagUsageScope(tag) === option.id
-                          ? "bg-cyan-500/20 text-cyan-300"
-                          : "text-text-muted hover:text-text-primary hover:bg-dark-700",
-                        usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <HoverTooltip content={
+                  <><span className="font-semibold text-white">Where is this tag used?</span><br />
+                  <span className="text-text-muted">Library</span> — video library filters only.<br />
+                  <span className="text-text-muted">Both</span> — library filters and video test answers.<br />
+                  <span className="text-text-muted">Tests</span> — video test answer options only.</>
+                }>
+                  <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+                    {([
+                      { id: 'library', label: 'Library' },
+                      { id: 'both', label: 'Both' },
+                      { id: 'tests', label: 'Tests' },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        disabled={usageScopeUpdatingTagId === tag.id}
+                        onClick={() => onUsageScopeChange(tag, option.id)}
+                        className={cn(
+                          "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                          getTagUsageScope(tag) === option.id
+                            ? "bg-cyan-500/20 text-cyan-300"
+                            : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                          usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </HoverTooltip>
+              )}
+              {tag.category?.slug === 'criteria' && (
+                <HoverTooltip content={
+                  !tag.useInVideoTests
+                    ? <><span className="font-semibold text-white">Not applicable</span><br />This tag is set to <span className="text-text-muted">Library only</span> — it won't appear in video tests.</>
+                    : <><span className="font-semibold text-white">Criteria type (video tests)</span><br />
+                      <span style={{ color: "#22c55e" }}>Play On</span> — shown when the user answers "play on / no offence".<br />
+                      <span style={{ color: "#ef4444" }}>Offense</span> — shown when the user answers an offence.</>
+                }>
+                  <div className={cn("inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5", !tag.useInVideoTests && "opacity-40 cursor-not-allowed")}>
+                    {([
+                      { id: true,  label: 'Play On', color: '#22c55e' },
+                      { id: false, label: 'Offense',  color: '#ef4444' },
+                    ] as const).map((option) => {
+                      const active = tag.isPlayOnCriteria === option.id;
+                      return (
+                        <button
+                          key={String(option.id)}
+                          type="button"
+                          disabled={playOnCriteriaUpdatingTagId === tag.id || !tag.useInVideoTests}
+                          onClick={() => onPlayOnCriteriaChange(tag, option.id)}
+                          className={cn(
+                            "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                            (playOnCriteriaUpdatingTagId === tag.id || !tag.useInVideoTests) && "cursor-not-allowed"
+                          )}
+                          style={active
+                            ? { backgroundColor: `${option.color}22`, color: option.color }
+                            : { color: '#64748b' }}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </HoverTooltip>
               )}
               <button onClick={() => onEdit(tag)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20 transition-colors">Edit</button>
               <button onClick={() => onDelete(tag.id, tag.name, tag._count?.videos || 0)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors">Delete</button>
@@ -472,6 +622,8 @@ function SortableTagList({
               onDelete={onDelete}
               onUsageScopeChange={onUsageScopeChange}
               usageScopeUpdating={usageScopeUpdatingTagId === tag.id}
+              onPlayOnCriteriaChange={onPlayOnCriteriaChange}
+              playOnCriteriaUpdating={playOnCriteriaUpdatingTagId === tag.id}
             />
           ))}
         </div>
@@ -493,6 +645,7 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
   const [isSavingTag, setIsSavingTag] = useState(false);
   const [isSavingTagCategory, setIsSavingTagCategory] = useState(false);
   const [usageScopeUpdatingTagId, setUsageScopeUpdatingTagId] = useState<string | null>(null);
+  const [playOnCriteriaUpdatingTagId, setPlayOnCriteriaUpdatingTagId] = useState<string | null>(null);
   // Rainbow color palette for tag categories
   const TAG_CATEGORY_RAINBOW_COLORS = [
     '#FF6B6B', // Red
@@ -882,6 +1035,29 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
     }
   };
 
+  const handlePlayOnCriteriaChange = async (tag: Tag, isPlayOn: boolean) => {
+    if (tag.category?.slug !== 'criteria') return;
+    if (tag.isPlayOnCriteria === isPlayOn) return;
+    setPlayOnCriteriaUpdatingTagId(tag.id);
+    try {
+      const response = await fetch(`/api/admin/library/tags/${tag.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPlayOnCriteria: isPlayOn }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to update criteria type');
+      }
+      onRefresh();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to update criteria type';
+      await modal.showError(msg);
+    } finally {
+      setPlayOnCriteriaUpdatingTagId(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1086,29 +1262,71 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         {isVideoTestUsageCategory(tag.category?.slug) && (
-          <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
-            {([
-              { id: 'library', label: 'Library' },
-              { id: 'both', label: 'Both' },
-              { id: 'tests', label: 'Tests' },
-            ] as const).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                disabled={usageScopeUpdatingTagId === tag.id}
-                onClick={() => handleUsageScopeChange(tag, option.id)}
-                className={cn(
-                  "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
-                  getTagUsageScope(tag) === option.id
-                    ? "bg-cyan-500/20 text-cyan-300"
-                    : "text-text-muted hover:text-text-primary hover:bg-dark-700",
-                  usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <HoverTooltip content={
+            <><span className="font-semibold text-white">Where is this tag used?</span><br />
+            <span className="text-text-muted">Library</span> — video library filters only.<br />
+            <span className="text-text-muted">Both</span> — library filters and video test answers.<br />
+            <span className="text-text-muted">Tests</span> — video test answer options only.</>
+          }>
+            <div className="inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5">
+              {([
+                { id: 'library', label: 'Library' },
+                { id: 'both', label: 'Both' },
+                { id: 'tests', label: 'Tests' },
+              ] as const).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={usageScopeUpdatingTagId === tag.id}
+                  onClick={() => handleUsageScopeChange(tag, option.id)}
+                  className={cn(
+                    "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                    getTagUsageScope(tag) === option.id
+                      ? "bg-cyan-500/20 text-cyan-300"
+                      : "text-text-muted hover:text-text-primary hover:bg-dark-700",
+                    usageScopeUpdatingTagId === tag.id && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </HoverTooltip>
+        )}
+        {tag.category?.slug === 'criteria' && (
+          <HoverTooltip content={
+            !tag.useInVideoTests
+              ? <><span className="font-semibold text-white">Not applicable</span><br />This tag is set to <span className="text-text-muted">Library only</span> — it won't appear in video tests.</>
+              : <><span className="font-semibold text-white">Criteria type (video tests)</span><br />
+                <span style={{ color: "#22c55e" }}>Play On</span> — shown when the user answers "play on / no offence".<br />
+                <span style={{ color: "#ef4444" }}>Offense</span> — shown when the user answers an offence.</>
+          }>
+            <div className={cn("inline-flex rounded-lg border border-dark-500 bg-dark-800 p-0.5", !tag.useInVideoTests && "opacity-40 cursor-not-allowed")}>
+              {([
+                { id: true,  label: 'Play On', color: '#22c55e' },
+                { id: false, label: 'Offense',  color: '#ef4444' },
+              ] as const).map((option) => {
+                const active = tag.isPlayOnCriteria === option.id;
+                return (
+                  <button
+                    key={String(option.id)}
+                    type="button"
+                    disabled={playOnCriteriaUpdatingTagId === tag.id || !tag.useInVideoTests}
+                    onClick={() => handlePlayOnCriteriaChange(tag, option.id)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                      (playOnCriteriaUpdatingTagId === tag.id || !tag.useInVideoTests) && "cursor-not-allowed"
+                    )}
+                    style={active
+                      ? { backgroundColor: `${option.color}22`, color: option.color }
+                      : { color: '#64748b' }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </HoverTooltip>
         )}
         <button
           onClick={() => handleEdit(tag)}
@@ -1869,6 +2087,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                                       onDelete={handleDelete}
                                       onUsageScopeChange={handleUsageScopeChange}
                                       usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                                      onPlayOnCriteriaChange={handlePlayOnCriteriaChange}
+                                      playOnCriteriaUpdatingTagId={playOnCriteriaUpdatingTagId}
                                     />
                                   );
                                 })()}
@@ -1932,6 +2152,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                                 onDelete={handleDelete}
                                 onUsageScopeChange={handleUsageScopeChange}
                                 usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                                onPlayOnCriteriaChange={handlePlayOnCriteriaChange}
+                                playOnCriteriaUpdatingTagId={playOnCriteriaUpdatingTagId}
                               />
                             );
                           })()}
@@ -2008,6 +2230,8 @@ export function TagManager({ tags, tagCategories: initialTagCategories, onRefres
                       onDelete={handleDelete}
                       onUsageScopeChange={handleUsageScopeChange}
                       usageScopeUpdatingTagId={usageScopeUpdatingTagId}
+                      onPlayOnCriteriaChange={handlePlayOnCriteriaChange}
+                      playOnCriteriaUpdatingTagId={playOnCriteriaUpdatingTagId}
                     />
                   );
                 })()}

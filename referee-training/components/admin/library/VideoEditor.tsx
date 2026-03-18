@@ -472,16 +472,22 @@ export function VideoEditor({ videoUrl, duration: durationProp, onEditChange, in
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — skip when user is typing in an input/textarea
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        if (isTyping) return;
         e.preventDefault();
         undo();
       } else if ((e.metaKey || e.ctrlKey) && (e.key === "Z" || (e.key === "z" && e.shiftKey))) {
+        if (isTyping) return;
         e.preventDefault();
         redo();
       } else if (e.key === " ") {
+        if (isTyping) return;
         e.preventDefault();
         togglePlay();
       }

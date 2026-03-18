@@ -80,12 +80,16 @@ export async function PATCH(
       updateData.linkUrl = null;
     }
     const usageControlled = !!category?.slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(category.slug);
+    const isCriteria = category?.slug === 'criteria';
     if (usageControlled) {
       if (body.useInVideoLibrary !== undefined) updateData.useInVideoLibrary = !!body.useInVideoLibrary;
       if (body.useInVideoTests !== undefined) updateData.useInVideoTests = !!body.useInVideoTests;
     } else {
       updateData.useInVideoLibrary = true;
       updateData.useInVideoTests = true;
+    }
+    if (isCriteria && body.isPlayOnCriteria !== undefined) {
+      updateData.isPlayOnCriteria = !!body.isPlayOnCriteria;
     }
 
     const tag = await prisma.tag.update({

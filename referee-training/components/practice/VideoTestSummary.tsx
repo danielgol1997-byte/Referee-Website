@@ -111,6 +111,18 @@ export function VideoTestSummary({
       : null;
   const didPass = passingScore !== null ? percentage >= passingScore : null;
 
+  const POSITIVE_MESSAGES = [
+    "Excellent performance.",
+    "Outstanding accuracy.",
+    "Very well done.",
+    "Impressive result.",
+    "Strong showing.",
+  ];
+  const positiveMessage =
+    didPass === true || percentage >= 90
+      ? POSITIVE_MESSAGES[score % POSITIVE_MESSAGES.length]
+      : null;
+
   return (
     <div className="space-y-8">
       <div className="relative rounded-xl border border-dark-600 bg-dark-800/80 backdrop-blur-sm overflow-hidden shadow-xl">
@@ -146,6 +158,9 @@ export function VideoTestSummary({
             </div>
           ) : (
             <p className="text-sm text-text-secondary">No pass mark set for this test.</p>
+          )}
+          {positiveMessage && (
+            <p className="text-sm font-medium tracking-wide text-[#22c55e]/80">{positiveMessage}</p>
           )}
           <div className="pt-2">
             <Button asChild size="lg" className="gap-2 bg-dark-700 text-white border-2 border-accent/30 hover:border-accent hover:bg-dark-600">

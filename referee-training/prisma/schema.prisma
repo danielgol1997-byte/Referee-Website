@@ -35,6 +35,7 @@ model User {
   videoTestsCreated     VideoTest[]
   videoTestSessions     VideoTestSession[]
   videoTestCompletions  VideoTestCompletion[]
+  aiPromptConfigs       AiPromptConfig[]
 }
 
 model Account {
@@ -108,6 +109,15 @@ model VideoClip {
   cutSegments         Json?           // Array of {start, end} objects for cut sections
   loopZoneStart       Float?          // Suggested loop start time in seconds
   loopZoneEnd         Float?          // Suggested loop end time in seconds
+  // AI semantic search fields (embedding column managed via raw SQL / pgvector)
+  rawAdminDescription     String?
+  canonicalSearchText     String?
+  searchSummary           String?
+  searchKeywords          String[]    @default([])
+  searchDescriptionStatus String      @default("none")
+  searchDescriptionLang   String?
+  aiProcessedAt           DateTime?
+  aiProcessedById         String?
   questions           Question[]
   category            Category        @relation(fields: [categoryId], references: [id])
   uploadedBy          User?           @relation(fields: [uploadedById], references: [id])
@@ -312,9 +322,10 @@ model Tag {
   color          String?
   linkUrl        String?
   description    String?
-  useInVideoLibrary Boolean     @default(true)
-  useInVideoTests   Boolean     @default(true)
-  order          Int            @default(0)
+  useInVideoLibrary  Boolean     @default(true)
+  useInVideoTests    Boolean     @default(true)
+  isPlayOnCriteria   Boolean     @default(false) // Criteria-only: true = play-on tag, false = offense tag
+  order              Int         @default(0)
   isActive       Boolean        @default(true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -370,6 +381,24 @@ model VideoTag {
   @@unique([videoId, tagId])
   @@index([videoId])
   @@index([tagId])
+}
+
+model AiPromptConfig {
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  name               String
+  description        String?
+  systemPrompt       String
+  userPromptTemplate String?
+  model              String   @default("gpt-4o-mini")
+  temperature        Float    @default(0.3)
+  maxTokens          Int      @default(2000)
+  isActive           Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+  updatedById        String?
+  updatedBy          User?    @relation(fields: [updatedById], references: [id])
+
+  @@index([key, isActive])
 }
 
 enum Role {

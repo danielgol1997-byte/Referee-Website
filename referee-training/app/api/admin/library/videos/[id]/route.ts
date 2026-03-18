@@ -47,6 +47,13 @@ export async function GET(
       isActive: true,
       createdAt: true,
       updatedAt: true,
+      rawAdminDescription: true,
+      canonicalSearchText: true,
+      searchSummary: true,
+      searchKeywords: true,
+      searchDescriptionStatus: true,
+      searchDescriptionLang: true,
+      aiProcessedAt: true,
       category: {
         select: {
           id: true,

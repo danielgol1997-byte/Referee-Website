@@ -90,20 +90,24 @@ export async function GET(_request: Request, context: RouteContext) {
   const clipMap = new Map(clips.map((c) => [c.id, c]));
   const orderedClips = clipIds.map((id) => clipMap.get(id)).filter(Boolean);
 
-  const tagOptions: Record<string, { id: string; slug: string; name: string }[]> = {
-    restarts: [],
-    sanction: [],
-    criteria: [],
-  };
+  const tagOptions: {
+    restarts: { id: string; slug: string; name: string }[];
+    sanction: { id: string; slug: string; name: string }[];
+    criteria: { id: string; slug: string; name: string; isPlayOnCriteria: boolean }[];
+  } = { restarts: [], sanction: [], criteria: [] };
+
   for (const cat of tagCategories) {
-    const list = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name }));
-    if (cat.slug === "restarts") tagOptions.restarts = list;
-    else if (cat.slug === "sanction") tagOptions.sanction = list;
-    else if (cat.slug === "criteria") tagOptions.criteria = list;
+    if (cat.slug === "restarts") {
+      tagOptions.restarts = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name }));
+    } else if (cat.slug === "sanction") {
+      tagOptions.sanction = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name }));
+    } else if (cat.slug === "criteria") {
+      tagOptions.criteria = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name, isPlayOnCriteria: t.isPlayOnCriteria }));
+    }
   }
 
   const criteriaCategory = tagCategories.find((cat) => cat.slug === "criteria");
-  const criteriaByClipId: Record<string, { id: string; slug: string; name: string }[]> = {};
+  const criteriaByClipId: Record<string, { id: string; slug: string; name: string; isPlayOnCriteria: boolean }[]> = {};
   if (criteriaCategory) {
     for (const video of orderedClips) {
       if (!video) continue;
@@ -114,7 +118,7 @@ export async function GET(_request: Request, context: RouteContext) {
       );
       criteriaByClipId[video.id] = criteriaCategory.tags
         .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory))
-        .map((tag) => ({ id: tag.id, slug: tag.slug, name: tag.name }));
+        .map((tag) => ({ id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria }));
     }
   }
 

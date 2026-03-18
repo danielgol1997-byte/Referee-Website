@@ -6,12 +6,14 @@ import { useModal } from "@/components/ui/modal";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 import { VideoEditor, VideoEditData } from "./VideoEditor";
 import { UploadProgress } from "./UploadProgress";
+import { SearchDescriptionEditor } from "./SearchDescriptionEditor";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
   tags: Array<{
     id: string;
     name: string;
+    slug?: string;
     color?: string;
     useInVideoLibrary?: boolean;
     useInVideoTests?: boolean;
@@ -42,6 +44,7 @@ interface TagCategory {
 interface Tag {
   id: string;
   name: string;
+  slug?: string;
   color?: string;
   useInVideoLibrary?: boolean;
   useInVideoTests?: boolean;
@@ -978,6 +981,58 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           )}
         </div>
       </div>
+
+      {/* Video Description for AI filtering - shown when editing */}
+      {editingVideo?.id && (
+        <SearchDescriptionEditor
+          videoId={editingVideo.id}
+          videoUrl={videoPreview || editingVideo?.fileUrl}
+          explanationText={decisionExplanation || editingVideo?.decisionExplanation || undefined}
+          existingData={{
+            rawAdminDescription: editingVideo.rawAdminDescription,
+            canonicalSearchText: editingVideo.canonicalSearchText,
+            searchSummary: editingVideo.searchSummary,
+            searchKeywords: editingVideo.searchKeywords,
+            searchDescriptionStatus: editingVideo.searchDescriptionStatus,
+          }}
+          tags={[...correctDecisionTags, ...invisibleTags].map((tag) => ({
+            name: tag.name,
+            category: tag.category
+              ? { name: tag.category.name, slug: tag.category.slug }
+              : null,
+            isCorrectDecision: correctDecisionTags.some((ct) => ct.id === tag.id),
+          }))}
+          onSuggestedTags={(slugs) => {
+            if (!Array.isArray(slugs) || slugs.length === 0 || tags.length === 0) return;
+            const normalize = (s: string) =>
+              s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const allCurrentTags = [...correctDecisionTags, ...invisibleTags];
+            const tagsToAdd: Tag[] = [];
+            for (const slug of slugs) {
+              const normalizedSlug = normalize(slug);
+              const match = tags.find((t) => {
+                const tagSlug = t.slug || normalize(t.name);
+                return tagSlug === slug || tagSlug === normalizedSlug || normalize(t.name) === normalizedSlug;
+              });
+              if (!match) continue;
+              const alreadyPresent = allCurrentTags.some((t) => t.id === match.id);
+              if (alreadyPresent) continue;
+              // Criteria allows multiple tags; all other categories allow only one
+              const matchCategorySlug = match.category?.slug;
+              if (matchCategorySlug && matchCategorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
+                const categoryAlreadyHasTag = [...allCurrentTags, ...tagsToAdd].some(
+                  (t) => t.category?.slug === matchCategorySlug
+                );
+                if (categoryAlreadyHasTag) continue;
+              }
+              tagsToAdd.push(match);
+            }
+            if (tagsToAdd.length > 0) {
+              setInvisibleTags((prev) => [...prev, ...tagsToAdd]);
+            }
+          }}
+        />
+      )}
 
       {/* Tagging Section */}
       <div className="rounded-2xl bg-dark-800/50 border border-dark-600 p-6">

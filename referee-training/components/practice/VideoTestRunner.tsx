@@ -35,7 +35,7 @@ type Clip = {
 type TagOptions = {
   restarts: { id: string; slug: string; name: string }[];
   sanction: { id: string; slug: string; name: string }[];
-  criteria: { id: string; slug: string; name: string }[];
+  criteria: { id: string; slug: string; name: string; isPlayOnCriteria?: boolean }[];
 };
 
 const emptyAnswer: VideoTestAnswerValue = {

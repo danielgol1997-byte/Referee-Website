@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       linkUrl,
       useInVideoLibrary,
       useInVideoTests,
+      isPlayOnCriteria,
     } = body;
 
     // Validation
@@ -151,12 +152,16 @@ export async function POST(request: Request) {
     });
 
     const usageControlled = !!category?.slug && VIDEO_TEST_TAG_CATEGORY_SLUGS.has(category.slug);
+    const isCriteriaCategory = category?.slug === 'criteria';
     const nextUseInVideoLibrary = usageControlled
       ? (useInVideoLibrary !== undefined ? !!useInVideoLibrary : true)
       : true;
     const nextUseInVideoTests = usageControlled
       ? (useInVideoTests !== undefined ? !!useInVideoTests : true)
       : true;
+    const nextIsPlayOnCriteria = isCriteriaCategory
+      ? (isPlayOnCriteria !== undefined ? !!isPlayOnCriteria : false)
+      : false;
 
     // Create tag
     const tag = await prisma.tag.create({
@@ -172,6 +177,7 @@ export async function POST(request: Request) {
         linkUrl: category?.allowLinks ? linkUrl : null,
         useInVideoLibrary: nextUseInVideoLibrary,
         useInVideoTests: nextUseInVideoTests,
+        isPlayOnCriteria: nextIsPlayOnCriteria,
       },
       include: {
         category: true,

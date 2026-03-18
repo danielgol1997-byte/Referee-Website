@@ -2,6 +2,28 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useSpeechInput } from "@/lib/hooks/useSpeechInput";
+
+const SUGGESTED_SEARCHES = [
+  "reckless tackle outside the penalty area",
+  "shirt pull in the box",
+  "two-footed challenge red card",
+  "offside attacker interfering with play",
+  "advantage played after a foul",
+  "serious foul play studs up",
+  "handball unnatural arm position penalty",
+  "last defender trip counter-attack",
+  "simulation no contact yellow card",
+  "push from behind in the box",
+  "elbow in a heading duel",
+  "defender denies obvious goal-scoring opportunity",
+  "indirect free kick inside the area",
+  "late tackle from behind",
+  "player dissent after a decision",
+  "holding shirt outside the box",
+  "dropped ball restart",
+  "careless foul direct free kick no card",
+];
 
 export interface VideoFilters {
   categoryTags: string[];
@@ -11,6 +33,14 @@ export interface VideoFilters {
   scenarios: string[];
   laws: number[]; // Deprecated: kept for backward compatibility, use customTagFilters['laws'] instead
   customTagFilters?: Record<string, string[]>;
+  searchText?: string;
+}
+
+export interface AiInferredTag {
+  tagSlug: string;
+  categorySlug: string;
+  confidence: "high" | "medium";
+  tagName?: string;
 }
 
 interface Tag {
@@ -35,6 +65,9 @@ interface TagCategory {
 interface VideoFilterBarProps {
   filters: VideoFilters;
   onFiltersChange: (filters: VideoFilters) => void;
+  aiInferredTags?: AiInferredTag[];
+  onRemoveInferredTag?: (tagSlug: string) => void;
+  isSearching?: boolean;
 }
 
 type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | `custom:${string}`;
@@ -95,13 +128,30 @@ const GROUP_COLORS: Record<string, string> = {
  * - Auto-hides/shows on hover
  * - Criteria requires category selection
  */
-export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps) {
+export function VideoFilterBar({ filters, onFiltersChange, aiInferredTags, onRemoveInferredTag, isSearching }: VideoFilterBarProps) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+
+  const speech = useSpeechInput({
+    append: false, // In search mode, replace text with the spoken query
+    onResult: (text) => {
+      onFiltersChange({ ...filters, searchText: text });
+      setSpeechError(null);
+    },
+    onError: (err) => setSpeechError(err),
+  });
   const [visibleFilters, setVisibleFilters] = useState<FilterType[]>(DEFAULT_VISIBLE_FILTERS);
   const [filterOrder, setFilterOrder] = useState<FilterType[]>(DEFAULT_FILTER_ORDER);
   const [isClient, setIsClient] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  // Typing carousel: cycles through suggested searches when input is empty
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselText, setCarouselText] = useState("");
+  const [carouselPhase, setCarouselPhase] = useState<"typing" | "hold" | "deleting">("typing");
+  const showCarousel = !filters.searchText && !searchFocused && speech.status !== "listening";
 
   // Load saved preferences after hydration
   useEffect(() => {
@@ -247,6 +297,48 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
     });
   }, [customFilterTypes]);
 
+  // Typing carousel: cycle suggested searches when input empty (ref-based to avoid effect loops)
+  const carouselRef = useRef({ phase: "typing" as const, text: "", index: 0, holdUntil: 0 });
+  useEffect(() => {
+    if (!showCarousel) {
+      setCarouselText("");
+      setCarouselPhase("typing");
+      carouselRef.current = { phase: "typing", text: "", index: 0, holdUntil: 0 };
+      return;
+    }
+    const tick = () => {
+      const r = carouselRef.current;
+      const f = SUGGESTED_SEARCHES[r.index] ?? "";
+      if (r.phase === "typing") {
+        if (r.text.length >= f.length) {
+          r.phase = "hold";
+          r.holdUntil = Date.now() + 2000;
+          setCarouselPhase("hold");
+          return;
+        }
+        r.text = f.slice(0, r.text.length + 1);
+        setCarouselText(r.text);
+      } else if (r.phase === "hold") {
+        if (Date.now() >= r.holdUntil) {
+          r.phase = "deleting";
+          setCarouselPhase("deleting");
+        }
+      } else if (r.phase === "deleting") {
+        if (r.text.length === 0) {
+          r.index = (r.index + 1) % SUGGESTED_SEARCHES.length;
+          r.phase = "typing";
+          setCarouselIndex(r.index);
+          setCarouselPhase("typing");
+          return;
+        }
+        r.text = r.text.slice(0, -1);
+        setCarouselText(r.text);
+      }
+    };
+    const id = setInterval(tick, 45);
+    return () => clearInterval(id);
+  }, [showCarousel]);
+
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
@@ -371,8 +463,9 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
       criteria: [],
       sanctions: [],
       scenarios: [],
-      laws: [], // Deprecated but kept for backward compatibility
+      laws: [],
       customTagFilters: {},
+      searchText: "",
     });
   };
 
@@ -465,6 +558,109 @@ export function VideoFilterBar({ filters, onFiltersChange }: VideoFilterBarProps
         className="border-b border-amber-400/30 bg-gradient-to-b from-amber-500/20 to-amber-600/10 backdrop-blur-md shadow-lg shadow-amber-500/10"
       >
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
+          {/* Search Input */}
+          <div className="mb-3">
+            <div className="relative flex items-stretch gap-2">
+              <div className="relative flex-1">
+                {/* Search icon */}
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                {/* Typing carousel overlay — only when empty & not focused */}
+                {showCarousel && carouselText && (
+                  <div
+                    className="absolute left-10 right-14 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none truncate"
+                    aria-hidden
+                  >
+                    {carouselText}
+                    <span className="inline-block w-0.5 h-4 bg-cyan-400/80 ml-0.5 align-middle animate-pulse" />
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={filters.searchText || ""}
+                  onChange={(e) =>
+                    onFiltersChange({ ...filters, searchText: e.target.value })
+                  }
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  placeholder={searchFocused ? "Search..." : ""}
+                  className={cn(
+                    "w-full pl-10 py-2.5 rounded-xl bg-dark-900/80 border-2 text-text-primary placeholder-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all",
+                    speech.status === "listening"
+                      ? "border-red-500/60 ring-2 ring-red-500/20 pr-10"
+                      : "border-dark-600 focus:border-cyan-500/60 pr-10"
+                  )}
+                />
+                {/* Right-side: clear & loading — inside input area */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                  {isSearching && (
+                    <svg className="w-4 h-4 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  {filters.searchText && !isSearching && (
+                    <button
+                      type="button"
+                      onClick={() => onFiltersChange({ ...filters, searchText: "" })}
+                      className="pointer-events-auto text-text-muted hover:text-text-primary transition-colors p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Mic button — gated behind isClient to avoid SSR hydration mismatch */}
+              {isClient && speech.isSupported && (
+                <button
+                  type="button"
+                  onClick={speech.toggle}
+                  className={cn(
+                    "flex items-center justify-center px-3 py-2.5 rounded-xl border transition-all shrink-0",
+                    speech.status === "listening"
+                      ? "border-red-500/70 bg-red-500/10 text-red-400"
+                      : "border-dark-600 text-text-muted hover:text-text-primary hover:border-dark-500 hover:bg-dark-800"
+                  )}
+                  aria-label={speech.status === "listening" ? "Stop listening" : "Voice search"}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {speech.status === "listening" && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-xs text-red-400 font-medium">Listening</span>
+              </div>
+            )}
+            {speechError && (
+              <p className="text-xs text-orange-400 mt-1">{speechError}</p>
+            )}
+
+            {/* AI medium-confidence tag suggestions — collapsed by default */}
+            {aiInferredTags && aiInferredTags.length > 0 && (
+              <AiSuggestionsPanel
+                tags={aiInferredTags}
+                onRemove={onRemoveInferredTag}
+              />
+            )}
+          </div>
+
           {/* Filter Controls */}
           <div className="flex items-start gap-3">
             <div className="flex items-start gap-3 flex-wrap flex-1">
@@ -783,6 +979,56 @@ function FilterDropdown({
               No options available
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiSuggestionsPanel({
+  tags,
+  onRemove,
+}: {
+  tags: AiInferredTag[];
+  onRemove?: (slug: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (tags.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors font-medium"
+      >
+        <svg
+          className={cn("w-3 h-3 transition-transform", open && "rotate-90")}
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+        </svg>
+        AI suggestions ({tags.length})
+      </button>
+      {open && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+          {tags.map((tag) => (
+            <span
+              key={tag.tagSlug}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20"
+            >
+              {tag.tagName || tag.tagSlug}
+              {onRemove && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(tag.tagSlug)}
+                  className="hover:text-red-300 transition-colors ml-0.5"
+                >
+                  &times;
+                </button>
+              )}
+            </span>
+          ))}
         </div>
       )}
     </div>
