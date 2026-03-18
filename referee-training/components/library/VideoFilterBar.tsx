@@ -298,7 +298,7 @@ export function VideoFilterBar({ filters, onFiltersChange, aiInferredTags, onRem
   }, [customFilterTypes]);
 
   // Typing carousel: cycle suggested searches when input empty (ref-based to avoid effect loops)
-  const carouselRef = useRef({ phase: "typing" as const, text: "", index: 0, holdUntil: 0 });
+  const carouselRef = useRef<{ phase: "typing" | "hold" | "deleting"; text: string; index: number; holdUntil: number }>({ phase: "typing", text: "", index: 0, holdUntil: 0 });
   useEffect(() => {
     if (!showCarousel) {
       setCarouselText("");
