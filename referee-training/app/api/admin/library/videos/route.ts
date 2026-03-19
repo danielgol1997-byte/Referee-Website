@@ -113,6 +113,7 @@ export async function GET(request: Request) {
         lawNumbers: true,
         isActive: true,
         isFeatured: true,
+        searchDescriptionStatus: true,
         createdAt: true,
         videoCategory: {
           select: {

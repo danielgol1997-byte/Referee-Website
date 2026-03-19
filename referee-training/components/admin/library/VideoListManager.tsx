@@ -15,6 +15,7 @@ interface Video {
   sanctionType?: string;
   isActive: boolean;
   isFeatured: boolean;
+  searchDescriptionStatus?: string | null;
   categoryTagLabel?: string | null;
   videoCategory?: { name: string };
   createdAt: string;
@@ -317,6 +318,28 @@ export function VideoListManager({
 
                     {/* Status Badges */}
                     <div className="flex gap-2 items-center">
+                      {/* AI index status indicator */}
+                      {video.searchDescriptionStatus === "approved" && (
+                        <span title="AI indexed" className="w-6 h-6 rounded-full flex items-center justify-center bg-purple-500/15 border border-purple-500/40 text-purple-400">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 2a8 8 0 100 16A8 8 0 0012 4zm-1 11.414l-3.707-3.707 1.414-1.414L11 14.586l4.293-4.293 1.414 1.414L11 15.414z"/>
+                          </svg>
+                        </span>
+                      )}
+                      {video.searchDescriptionStatus === "ai_generated" && (
+                        <span title="AI description — needs review" className="w-6 h-6 rounded-full flex items-center justify-center bg-amber-500/15 border border-amber-500/40 text-amber-400">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                        </span>
+                      )}
+                      {video.searchDescriptionStatus === "draft" && (
+                        <span title="AI description draft" className="w-6 h-6 rounded-full flex items-center justify-center bg-dark-700 border border-dark-500 text-text-muted">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                          </svg>
+                        </span>
+                      )}
                       {video.isFeatured && (
                         <span className="px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-yellow-500/10 border border-yellow-500/30 text-yellow-500">
                           Featured
