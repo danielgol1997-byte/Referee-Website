@@ -60,6 +60,13 @@ export function SearchDescriptionEditor({
   const [speechError, setSpeechError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Keep a ref to existingData so the videoId-change effect always reads
+  // the latest value without needing existingData in its own dependency array.
+  // This prevents the effect from re-running every time the parent re-renders
+  // with a new inline object reference (which would wipe unsaved AI content).
+  const existingDataRef = useRef(existingData);
+  existingDataRef.current = existingData;
+  const prevVideoIdRef = useRef<string | null>(null);
 
   const speech = useSpeechInput({
     append: true,
@@ -70,15 +77,27 @@ export function SearchDescriptionEditor({
     onError: (err) => setSpeechError(err),
   });
 
+  // Only re-initialise state when the video being edited changes.
+  // Do NOT depend on `existingData` directly — the parent creates a new object
+  // literal on every render, which would fire this effect on every tag add/remove
+  // and silently wipe freshly generated AI content.
   useEffect(() => {
-    if (existingData) {
-      setRawDescription(existingData.rawAdminDescription || "");
-      setCanonicalText(existingData.canonicalSearchText || "");
-      setSearchSummary(existingData.searchSummary || "");
-      setKeywords(existingData.searchKeywords || []);
-      setStatus(existingData.searchDescriptionStatus || "none");
+    if (videoId !== prevVideoIdRef.current) {
+      prevVideoIdRef.current = videoId;
+      const d = existingDataRef.current;
+      setRawDescription(d?.rawAdminDescription || "");
+      setCanonicalText(d?.canonicalSearchText || "");
+      setSearchSummary(d?.searchSummary || "");
+      setKeywords(d?.searchKeywords || []);
+      setStatus(d?.searchDescriptionStatus || "none");
+      const shouldOpen = !!(
+        d?.rawAdminDescription ||
+        d?.canonicalSearchText ||
+        (d?.searchDescriptionStatus && d.searchDescriptionStatus !== "none")
+      );
+      setIsOpen(shouldOpen);
     }
-  }, [existingData]);
+  }, [videoId]);
 
   const togglePlay = () => {
     const v = videoRef.current;

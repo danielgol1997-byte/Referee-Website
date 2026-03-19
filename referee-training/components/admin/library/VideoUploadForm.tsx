@@ -1010,11 +1010,24 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             const tagsToAdd: Tag[] = [];
             for (const slug of slugs) {
               const normalizedSlug = normalize(slug);
+              // Try multiple matching strategies in order of precision
               const match = tags.find((t) => {
-                const tagSlug = t.slug || normalize(t.name);
-                return tagSlug === slug || tagSlug === normalizedSlug || normalize(t.name) === normalizedSlug;
+                const tSlug = t.slug ?? "";
+                const tNameNorm = normalize(t.name);
+                return (
+                  tSlug === slug ||                   // exact slug match
+                  tSlug === normalizedSlug ||          // normalized slug match
+                  tNameNorm === normalizedSlug ||      // name normalizes to slug
+                  tNameNorm === normalize(slug) ||     // both normalized match
+                  // partial: slug starts with or ends with (catches minor suffix differences)
+                  (tSlug.length > 3 && normalizedSlug.startsWith(tSlug)) ||
+                  (tSlug.length > 3 && tSlug.startsWith(normalizedSlug))
+                );
               });
-              if (!match) continue;
+              if (!match) {
+                console.warn(`[AI tag autofill] No system tag found for suggested slug: "${slug}"`);
+                continue;
+              }
               const alreadyPresent = allCurrentTags.some((t) => t.id === match.id);
               if (alreadyPresent) continue;
               // Criteria allows multiple tags; all other categories allow only one
