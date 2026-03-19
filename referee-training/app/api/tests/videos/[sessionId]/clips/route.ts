@@ -146,6 +146,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
       if (clipInLendingGroup) {
         const nativeIds = new Set(nativeCriteria.map((t) => t.id));
+        const nativeNames = new Set(nativeCriteria.map((t) => t.name.trim().toLowerCase()));
         const playOnCount = nativeCriteria.filter((t) => t.isPlayOnCriteria).length;
         const offenseCount = nativeCriteria.filter((t) => !t.isPlayOnCriteria).length;
         const playOnDeficit = Math.max(0, MIN_CRITERIA_PER_TYPE - playOnCount);
@@ -160,14 +161,28 @@ export async function GET(_request: Request, context: RouteContext) {
             return LENDING_GROUP.has(parentLower) && !clipCatLower.has(parentLower);
           });
 
+          const usedNames = new Set(nativeNames);
           const fillers: CriteriaTag[] = [];
+
+          const pickUnique = (pool: CriteriaTag[], count: number) => {
+            const picked: CriteriaTag[] = [];
+            for (const tag of shuffle(pool)) {
+              if (picked.length >= count) break;
+              const norm = tag.name.trim().toLowerCase();
+              if (usedNames.has(norm)) continue;
+              usedNames.add(norm);
+              picked.push(tag);
+            }
+            return picked;
+          };
+
           if (playOnDeficit > 0) {
-            fillers.push(...shuffle(lendingPool.filter((t) => t.isPlayOnCriteria)).slice(0, playOnDeficit));
+            fillers.push(...pickUnique(lendingPool.filter((t) => t.isPlayOnCriteria), playOnDeficit));
           }
           if (offenseDeficit > 0) {
             const alreadyUsedIds = new Set(fillers.map((f) => f.id));
             fillers.push(
-              ...shuffle(lendingPool.filter((t) => !t.isPlayOnCriteria && !alreadyUsedIds.has(t.id))).slice(0, offenseDeficit)
+              ...pickUnique(lendingPool.filter((t) => !t.isPlayOnCriteria && !alreadyUsedIds.has(t.id)), offenseDeficit)
             );
           }
 
