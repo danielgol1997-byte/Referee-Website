@@ -124,7 +124,11 @@ export async function GET(_request: Request, context: RouteContext) {
     return s;
   }
 
+  type CriteriaTag = { id: string; slug: string; name: string; parentCategory: string | null; isPlayOnCriteria: boolean; order: number; isActive: boolean; [k: string]: unknown };
+
   if (criteriaCategory) {
+    const allCriteriaTags = criteriaCategory.tags as CriteriaTag[];
+
     for (const video of orderedClips) {
       if (!video) continue;
       const clipCategoryNames = new Set(
@@ -133,7 +137,7 @@ export async function GET(_request: Request, context: RouteContext) {
           .map((entry) => entry.tag.name)
       );
 
-      const nativeCriteria = criteriaCategory.tags
+      const nativeCriteria: CriteriaTag[] = allCriteriaTags
         .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory));
 
       const clipInLendingGroup = [...clipCategoryNames].some(
@@ -149,14 +153,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
         if (playOnDeficit > 0 || offenseDeficit > 0) {
           const clipCatLower = new Set([...clipCategoryNames].map((n) => n.toLowerCase()));
-          const lendingPool = criteriaCategory.tags.filter((tag) => {
+          const lendingPool: CriteriaTag[] = allCriteriaTags.filter((tag) => {
             if (nativeIds.has(tag.id)) return false;
             if (!tag.parentCategory) return false;
             const parentLower = tag.parentCategory.toLowerCase();
             return LENDING_GROUP.has(parentLower) && !clipCatLower.has(parentLower);
           });
 
-          const fillers: typeof nativeCriteria = [];
+          const fillers: CriteriaTag[] = [];
           if (playOnDeficit > 0) {
             fillers.push(...shuffle(lendingPool.filter((t) => t.isPlayOnCriteria)).slice(0, playOnDeficit));
           }
