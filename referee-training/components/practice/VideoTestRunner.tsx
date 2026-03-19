@@ -35,7 +35,7 @@ type Clip = {
 type TagOptions = {
   restarts: { id: string; slug: string; name: string }[];
   sanction: { id: string; slug: string; name: string }[];
-  criteria: { id: string; slug: string; name: string; isPlayOnCriteria?: boolean }[];
+  criteria: { id: string; slug: string; name: string; isPlayOnCriteria?: boolean; parentCategory?: string | null }[];
 };
 
 const emptyAnswer: VideoTestAnswerValue = {
@@ -44,6 +44,7 @@ const emptyAnswer: VideoTestAnswerValue = {
   restartTagId: null,
   sanctionTagId: null,
   criteriaTagIds: [],
+  selectedCriteriaCategory: null,
 };
 
 export function VideoTestRunner({
@@ -57,7 +58,7 @@ export function VideoTestRunner({
   const modal = useModal();
   const [clips, setClips] = useState<Clip[]>([]);
   const [tagOptions, setTagOptions] = useState<TagOptions>({ restarts: [], sanction: [], criteria: [] });
-  const [criteriaByClipId, setCriteriaByClipId] = useState<Record<string, TagOptions["criteria"]>>({});
+  const [decisionCategories, setDecisionCategories] = useState<string[]>([]);
   const [isMandatory, setIsMandatory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export function VideoTestRunner({
         if (data.error) throw new Error(data.error);
         setClips(data.clips ?? []);
         setTagOptions(data.tagOptions ?? { restarts: [], sanction: [], criteria: [] });
-        setCriteriaByClipId(data.criteriaByClipId ?? {});
+        setDecisionCategories(data.decisionCategories ?? []);
         setIsMandatory(Boolean(data.isMandatory));
         // 0 or null means unlimited; only positive numbers are actual limits
         setMaxViewsPerClip(
@@ -114,15 +115,11 @@ export function VideoTestRunner({
   // A clip is fully answered when an outcome is selected and required details are complete.
   const isFullyAnswered = (a: VideoTestAnswerValue | undefined): boolean => {
     if (!a) return false;
-    const selectedOutcome = a.selectedOutcome
-      ?? (a.playOnNoOffence
-        ? "play_on"
-        : a.restartTagId !== null || a.sanctionTagId !== null || a.criteriaTagIds.length > 0
-          ? "offence"
-          : null);
-    if (selectedOutcome === "play_on") return true;
-    if (selectedOutcome !== "offence") return false;
-    return a.restartTagId !== null && a.sanctionTagId !== null && a.criteriaTagIds.length > 0;
+    const outcome = a.selectedOutcome
+      ?? (a.playOnNoOffence ? "play_on"
+        : a.restartTagId !== null || a.sanctionTagId !== null || a.criteriaTagIds.length > 0 ? "offence" : null);
+    if (!outcome) return false;
+    return a.restartTagId !== null && a.sanctionTagId !== null && a.selectedCriteriaCategory !== null;
   };
   const answeredCount = clips.filter((c) => isFullyAnswered(answers[c.id])).length;
   const progressPercent = clips.length > 0 ? (answeredCount / clips.length) * 100 : 0;
@@ -567,10 +564,8 @@ export function VideoTestRunner({
           onAction={handleOverlayAction}
           actionLabel={currentIndex === clips.length - 1 ? "Submit" : "Next"}
           actionDisabled={submitting}
-          tagOptions={{
-            ...tagOptions,
-            criteria: currentClip ? (criteriaByClipId[currentClip.id] ?? tagOptions.criteria) : tagOptions.criteria,
-          }}
+          tagOptions={tagOptions}
+          decisionCategories={decisionCategories}
           value={currentAnswer}
           onChange={setCurrentAnswer}
         />

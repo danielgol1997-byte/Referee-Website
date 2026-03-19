@@ -203,7 +203,8 @@ export function VideoTestSummary({
                 return [...userSet].some((id) => correctSet.has(id));
               })()
             : false;
-          const frameClass = answer?.isCorrect
+          const computedCorrect = restartOk && sanctionOk && criteriaOk;
+          const frameClass = computedCorrect
             ? "border-[#22c55e]"
             : "border-[#ef4444]";
 
@@ -225,10 +226,10 @@ export function VideoTestSummary({
                     <div
                       className={cn(
                         "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
-                        answer?.isCorrect ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-[#ef4444]/20 text-[#ef4444]"
+                        computedCorrect ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-[#ef4444]/20 text-[#ef4444]"
                       )}
                     >
-                      {answer?.isCorrect ? (
+                      {computedCorrect ? (
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>

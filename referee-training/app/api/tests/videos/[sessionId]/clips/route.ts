@@ -93,7 +93,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const tagOptions: {
     restarts: { id: string; slug: string; name: string }[];
     sanction: { id: string; slug: string; name: string }[];
-    criteria: { id: string; slug: string; name: string; isPlayOnCriteria: boolean }[];
+    criteria: { id: string; slug: string; name: string; isPlayOnCriteria: boolean; parentCategory: string | null }[];
   } = { restarts: [], sanction: [], criteria: [] };
 
   for (const cat of tagCategories) {
@@ -102,105 +102,26 @@ export async function GET(_request: Request, context: RouteContext) {
     } else if (cat.slug === "sanction") {
       tagOptions.sanction = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name }));
     } else if (cat.slug === "criteria") {
-      tagOptions.criteria = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name, isPlayOnCriteria: t.isPlayOnCriteria }));
+      tagOptions.criteria = cat.tags.map((t) => ({ id: t.id, slug: t.slug, name: t.name, isPlayOnCriteria: t.isPlayOnCriteria, parentCategory: t.parentCategory }));
     }
   }
 
   const criteriaCategory = tagCategories.find((cat) => cat.slug === "criteria");
-  const criteriaByClipId: Record<string, { id: string; slug: string; name: string; isPlayOnCriteria: boolean }[]> = {};
 
-  const LENDING_GROUP = new Set([
-    "challenges", "dogso", "spa", "holding",
-    "illegal use of arms", "penalty area decisions", "simulation",
-  ]);
-  const MIN_CRITERIA_PER_TYPE = 7;
-
-  function shuffle<T>(arr: T[]): T[] {
-    const s = [...arr];
-    for (let i = s.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [s[i], s[j]] = [s[j], s[i]];
-    }
-    return s;
-  }
-
-  type CriteriaTag = { id: string; slug: string; name: string; parentCategory: string | null; isPlayOnCriteria: boolean; order: number; isActive: boolean; [k: string]: unknown };
+  type CriteriaTagOut = { id: string; slug: string; name: string; isPlayOnCriteria: boolean; parentCategory: string | null };
+  const criteriaByParentCategory: Record<string, CriteriaTagOut[]> = {};
+  const decisionCategories: string[] = [];
 
   if (criteriaCategory) {
-    const allCriteriaTags = criteriaCategory.tags as CriteriaTag[];
-
-    for (const video of orderedClips) {
-      if (!video) continue;
-      const clipCategoryNames = new Set(
-        video.tags
-          .filter((entry) => entry.tag.category?.slug === "category")
-          .map((entry) => entry.tag.name)
-      );
-
-      const nativeCriteria: CriteriaTag[] = allCriteriaTags
-        .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory));
-
-      const clipInLendingGroup = [...clipCategoryNames].some(
-        (name) => LENDING_GROUP.has(name.toLowerCase())
-      );
-
-      if (clipInLendingGroup) {
-        const nativeIds = new Set(nativeCriteria.map((t) => t.id));
-        const nativeNames = new Set(nativeCriteria.map((t) => t.name.trim().toLowerCase()));
-        const playOnCount = nativeCriteria.filter((t) => t.isPlayOnCriteria).length;
-        const offenseCount = nativeCriteria.filter((t) => !t.isPlayOnCriteria).length;
-        const playOnDeficit = Math.max(0, MIN_CRITERIA_PER_TYPE - playOnCount);
-        const offenseDeficit = Math.max(0, MIN_CRITERIA_PER_TYPE - offenseCount);
-
-        if (playOnDeficit > 0 || offenseDeficit > 0) {
-          const clipCatLower = new Set([...clipCategoryNames].map((n) => n.toLowerCase()));
-          const lendingPool: CriteriaTag[] = allCriteriaTags.filter((tag) => {
-            if (nativeIds.has(tag.id)) return false;
-            if (!tag.parentCategory) return false;
-            const parentLower = tag.parentCategory.toLowerCase();
-            return LENDING_GROUP.has(parentLower) && !clipCatLower.has(parentLower);
-          });
-
-          const usedNames = new Set(nativeNames);
-          const fillers: CriteriaTag[] = [];
-
-          const pickUnique = (pool: CriteriaTag[], count: number) => {
-            const picked: CriteriaTag[] = [];
-            for (const tag of shuffle(pool)) {
-              if (picked.length >= count) break;
-              const norm = tag.name.trim().toLowerCase();
-              if (usedNames.has(norm)) continue;
-              usedNames.add(norm);
-              picked.push(tag);
-            }
-            return picked;
-          };
-
-          if (playOnDeficit > 0) {
-            fillers.push(...pickUnique(lendingPool.filter((t) => t.isPlayOnCriteria), playOnDeficit));
-          }
-          if (offenseDeficit > 0) {
-            const alreadyUsedIds = new Set(fillers.map((f) => f.id));
-            fillers.push(
-              ...pickUnique(lendingPool.filter((t) => !t.isPlayOnCriteria && !alreadyUsedIds.has(t.id)), offenseDeficit)
-            );
-          }
-
-          const combined = [...nativeCriteria, ...fillers];
-          criteriaByClipId[video.id] = combined.map((tag) => ({
-            id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
-          }));
-        } else {
-          criteriaByClipId[video.id] = nativeCriteria.map((tag) => ({
-            id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
-          }));
-        }
-      } else {
-        criteriaByClipId[video.id] = nativeCriteria.map((tag) => ({
-          id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
-        }));
-      }
+    for (const tag of criteriaCategory.tags) {
+      const parent = tag.parentCategory ?? "__none__";
+      if (!criteriaByParentCategory[parent]) criteriaByParentCategory[parent] = [];
+      criteriaByParentCategory[parent].push({
+        id: tag.id, slug: tag.slug, name: tag.name,
+        isPlayOnCriteria: tag.isPlayOnCriteria, parentCategory: tag.parentCategory,
+      });
     }
+    decisionCategories.push(...Object.keys(criteriaByParentCategory).filter((k) => k !== "__none__").sort());
   }
 
   const formattedClips = orderedClips.map((video) => {
@@ -242,7 +163,8 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json({
     clips: formattedClips.filter(Boolean),
     tagOptions,
-    criteriaByClipId,
+    criteriaByParentCategory,
+    decisionCategories,
     totalClips: videoSession.totalClips,
     maxViewsPerClip: videoSession.maxViewsPerClip,
     clipViewCounts: videoSession.clipViewCounts ?? {},

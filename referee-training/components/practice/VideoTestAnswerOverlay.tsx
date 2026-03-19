@@ -9,9 +9,10 @@ export type VideoTestAnswerValue = {
   restartTagId: string | null;
   sanctionTagId: string | null;
   criteriaTagIds: string[];
+  selectedCriteriaCategory: string | null;
 };
 
-type TagOption = { id: string; slug: string; name: string; isPlayOnCriteria?: boolean };
+type TagOption = { id: string; slug: string; name: string; isPlayOnCriteria?: boolean; parentCategory?: string | null };
 
 interface VideoTestAnswerOverlayProps {
   isOpen: boolean;
@@ -24,20 +25,19 @@ interface VideoTestAnswerOverlayProps {
     sanction: TagOption[];
     criteria: TagOption[];
   };
+  decisionCategories: string[];
   value: VideoTestAnswerValue;
   onChange: (value: VideoTestAnswerValue) => void;
 }
 
-// Colour palette matching the site's filter system
 const CATEGORY_COLORS: Record<string, string> = {
-  restarts: "#4A90E2",  // blue
-  sanction: "#EC4899",  // pink
-  criteria: "#FFD93D",  // yellow
+  restarts: "#4A90E2",
+  sanction: "#EC4899",
+  criteria: "#FFD93D",
 };
 const ANSWER_GREEN = "#22c55e";
 const ANSWER_RED = "#ef4444";
 
-/* ─── Single-choice searchable panel (Restart / Sanction) ─── */
 function OptionPanel({
   label,
   color,
@@ -140,7 +140,6 @@ function OptionPanel({
   );
 }
 
-/* ─── Multi-choice searchable panel (Criteria — pick one or more) ─── */
 function CriteriaPanel({
   color,
   options,
@@ -148,6 +147,9 @@ function CriteriaPanel({
   onToggle,
   onClearAll,
   disabled,
+  decisionCategories,
+  selectedCategory,
+  onCategoryChange,
 }: {
   color: string;
   options: TagOption[];
@@ -155,6 +157,9 @@ function CriteriaPanel({
   onToggle: (id: string) => void;
   onClearAll: () => void;
   disabled?: boolean;
+  decisionCategories: string[];
+  selectedCategory: string | null;
+  onCategoryChange: (cat: string | null) => void;
 }) {
   const [query, setQuery] = useState("");
 
@@ -180,97 +185,130 @@ function CriteriaPanel({
             </span>
           )}
         </div>
-        {count > 0 && (
+        {(count > 0 || selectedCategory) && (
           <button
             type="button"
-            onClick={onClearAll}
+            onClick={() => { onClearAll(); onCategoryChange(null); }}
             className="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:bg-dark-700/80"
             style={{ color }}
           >
-            Clear all
+            Reset
           </button>
         )}
       </div>
 
-      {options.length > 0 && (
-        <div className="relative mb-2">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: `${color}80` }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search criteria..."
-            disabled={disabled}
-            className={cn(
-              "w-full rounded-md border bg-dark-800 pl-8 pr-3 py-2 text-xs text-white placeholder:text-text-secondary focus:outline-none focus:ring-1",
-              disabled && "opacity-50 cursor-not-allowed"
-            )}
-            style={{ borderColor: `${color}45`, boxShadow: `0 0 0 1px ${color}20` }}
-          />
-        </div>
-      )}
-
-      {options.length > 0 && (
-        <p className="mb-2 text-[10px] text-text-muted">Select one or more</p>
-      )}
-
-      {options.length === 0 ? (
-        <div className="py-4 text-center text-xs text-text-secondary italic">
-          No criteria for this category — not required.
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-3 text-center text-xs text-text-secondary">No matches</div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {filtered.map((tag) => {
-            const isSelected = selectedSet.has(tag.id);
-            const isLong = tag.name.length > 35;
-            return (
+      {!selectedCategory ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-text-muted text-center">Select the decision category first</p>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {decisionCategories.map((cat) => (
               <button
-                key={tag.id}
+                key={cat}
                 type="button"
-                disabled={disabled}
-                onClick={() => onToggle(tag.id)}
-                className={cn(
-                  "rounded-lg border px-2.5 py-2 text-left text-xs font-medium leading-snug transition-all",
-                  disabled && "opacity-50 cursor-not-allowed",
-                  isSelected ? "shadow-md" : "hover:bg-dark-700/70",
-                  isLong && "sm:col-span-2"
-                )}
-                style={
-                  isSelected
-                    ? { borderColor: `${color}b3`, backgroundColor: `${color}20`, color, boxShadow: `0 8px 20px -12px ${color}` }
-                    : { borderColor: `${color}35`, color: "#f5f8ff" }
-                }
+                onClick={() => onCategoryChange(cat)}
+                className="rounded-lg border px-2.5 py-2 text-left text-xs font-medium leading-snug transition-all hover:bg-dark-700/70"
+                style={{ borderColor: `${color}35`, color: "#f5f8ff" }}
               >
-                <div className="flex items-start gap-2">
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded border transition-all",
-                      isSelected ? "border-transparent" : "border-current opacity-40"
-                    )}
-                    style={isSelected ? { backgroundColor: color } : {}}
-                  >
-                    {isSelected && (
-                      <svg className="h-2.5 w-2.5 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="flex-1">{tag.name}</span>
-                </div>
+                {cat}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { onClearAll(); onCategoryChange(null); }}
+              className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:bg-dark-700/80 text-text-secondary"
+            >
+              ← Back
+            </button>
+            <span className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ backgroundColor: `${color}20`, color }}>
+              {selectedCategory}
+            </span>
+          </div>
+
+          {options.length > 0 && (
+            <div className="relative mb-2">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: `${color}80` }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search criteria..."
+                disabled={disabled}
+                className={cn(
+                  "w-full rounded-md border bg-dark-800 pl-8 pr-3 py-2 text-xs text-white placeholder:text-text-secondary focus:outline-none focus:ring-1",
+                  disabled && "opacity-50 cursor-not-allowed"
+                )}
+                style={{ borderColor: `${color}45`, boxShadow: `0 0 0 1px ${color}20` }}
+              />
+            </div>
+          )}
+
+          {options.length > 0 && (
+            <p className="mb-2 text-[10px] text-text-muted">Select one or more</p>
+          )}
+
+          {options.length === 0 ? (
+            <div className="py-4 text-center text-xs text-text-secondary italic">
+              No criteria for this category — not required.
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-3 text-center text-xs text-text-secondary">No matches</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {filtered.map((tag) => {
+                const isSelected = selectedSet.has(tag.id);
+                const isLong = tag.name.length > 35;
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onToggle(tag.id)}
+                    className={cn(
+                      "rounded-lg border px-2.5 py-2 text-left text-xs font-medium leading-snug transition-all",
+                      disabled && "opacity-50 cursor-not-allowed",
+                      isSelected ? "shadow-md" : "hover:bg-dark-700/70",
+                      isLong && "sm:col-span-2"
+                    )}
+                    style={
+                      isSelected
+                        ? { borderColor: `${color}b3`, backgroundColor: `${color}20`, color, boxShadow: `0 8px 20px -12px ${color}` }
+                        : { borderColor: `${color}35`, color: "#f5f8ff" }
+                    }
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded border transition-all",
+                          isSelected ? "border-transparent" : "border-current opacity-40"
+                        )}
+                        style={isSelected ? { backgroundColor: color } : {}}
+                      >
+                        {isSelected && (
+                          <svg className="h-2.5 w-2.5 text-dark-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="flex-1">{tag.name}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-/* ─── Main overlay ─── */
 export function VideoTestAnswerOverlay({
   isOpen,
   onClose,
@@ -278,10 +316,10 @@ export function VideoTestAnswerOverlay({
   actionLabel,
   actionDisabled = false,
   tagOptions,
+  decisionCategories,
   value,
   onChange,
 }: VideoTestAnswerOverlayProps) {
-  // All hooks must be above any early returns
   const selectedOutcome = value.selectedOutcome
     ?? (value.playOnNoOffence
       ? "play_on"
@@ -292,44 +330,22 @@ export function VideoTestAnswerOverlay({
   const isOffenceSelected = selectedOutcome === "offence";
   const showPanels = isPlayOnSelected || isOffenceSelected;
 
-  // Auto-detect the canonical "play on" restart and "no card" sanction tags
-  const playOnRestartTag = useMemo(() =>
-    tagOptions.restarts.find((t) =>
-      t.name.toLowerCase().includes("play on") ||
-      t.name.toLowerCase().includes("play-on") ||
-      t.slug.toLowerCase().includes("play-on") ||
-      t.slug.toLowerCase().includes("play_on")
-    ) ?? null,
-    [tagOptions.restarts]
-  );
-  const noCardSanctionTag = useMemo(() =>
-    tagOptions.sanction.find((t) =>
-      t.name.toLowerCase().includes("no card") ||
-      t.name.toLowerCase().includes("no disciplinary") ||
-      t.name.toLowerCase().includes("no sanction") ||
-      t.slug.toLowerCase().includes("no-card") ||
-      t.slug.toLowerCase().includes("no-disciplinary")
-    ) ?? null,
-    [tagOptions.sanction]
-  );
-
-  // Only show criteria matching the current outcome type
   const visibleCriteria = useMemo(() => {
-    if (isPlayOnSelected) return tagOptions.criteria.filter((t) => t.isPlayOnCriteria === true);
-    if (isOffenceSelected) return tagOptions.criteria.filter((t) => t.isPlayOnCriteria !== true);
-    return tagOptions.criteria;
-  }, [tagOptions.criteria, isPlayOnSelected, isOffenceSelected]);
+    if (!value.selectedCriteriaCategory) return [];
+    const forCategory = tagOptions.criteria.filter(
+      (t) => t.parentCategory === value.selectedCriteriaCategory
+    );
+    if (isPlayOnSelected) return forCategory.filter((t) => t.isPlayOnCriteria === true);
+    if (isOffenceSelected) return forCategory.filter((t) => t.isPlayOnCriteria !== true);
+    return forCategory;
+  }, [tagOptions.criteria, value.selectedCriteriaCategory, isPlayOnSelected, isOffenceSelected]);
 
-  // Criteria required only when options actually exist for the current outcome
-  const criteriaRequired = useMemo(() => {
-    if (isPlayOnSelected) return tagOptions.criteria.filter((t) => t.isPlayOnCriteria === true).length > 0;
-    if (isOffenceSelected) return tagOptions.criteria.filter((t) => t.isPlayOnCriteria !== true).length > 0;
-    return false;
-  }, [tagOptions.criteria, isPlayOnSelected, isOffenceSelected]);
+  const criteriaRequired = visibleCriteria.length > 0;
 
   const isComplete = showPanels &&
     value.restartTagId !== null &&
     value.sanctionTagId !== null &&
+    value.selectedCriteriaCategory !== null &&
     (!criteriaRequired || value.criteriaTagIds.length > 0);
 
   if (!isOpen) return null;
@@ -339,10 +355,10 @@ export function VideoTestAnswerOverlay({
       ...value,
       selectedOutcome: "play_on",
       playOnNoOffence: true,
-      // Auto-fill restart and sanction; user can still change them in the panels
-      restartTagId: playOnRestartTag?.id ?? null,
-      sanctionTagId: noCardSanctionTag?.id ?? null,
+      restartTagId: null,
+      sanctionTagId: null,
       criteriaTagIds: [],
+      selectedCriteriaCategory: null,
     });
   };
 
@@ -351,10 +367,10 @@ export function VideoTestAnswerOverlay({
       ...value,
       selectedOutcome: "offence",
       playOnNoOffence: false,
-      // Clear auto-filled play-on values so the user selects offense-specific ones
       restartTagId: null,
       sanctionTagId: null,
       criteriaTagIds: [],
+      selectedCriteriaCategory: null,
     });
   };
 
@@ -368,8 +384,7 @@ export function VideoTestAnswerOverlay({
     });
   };
 
-  // Border colour for the panels section
-  const panelsBorderColor = isPlayOnSelected ? `${ANSWER_GREEN}40` : "rgba(0,232,248,0.25)";
+  const panelsBorderColor = isPlayOnSelected ? `${ANSWER_GREEN}40` : `${ANSWER_RED}25`;
 
   return (
     <>
@@ -391,17 +406,14 @@ export function VideoTestAnswerOverlay({
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="px-6 pt-6 pb-3 border-b border-accent/20">
             <h2 className="text-xl font-bold uppercase tracking-wider text-center text-accent">
               Your answer
             </h2>
           </div>
 
-          {/* Body */}
           <div className="px-4 py-4 md:px-6 md:py-5">
             <div className="space-y-5">
-              {/* Play On / Offense toggle */}
               <div className="rounded-xl border border-dark-600 bg-dark-800/60 p-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <button
@@ -453,11 +465,10 @@ export function VideoTestAnswerOverlay({
                 </div>
               </div>
 
-              {/* Restart / Sanction / Criteria panels — shown for both play on AND offense */}
               <div
                 className={cn(
                   "transition-all duration-300 ease-out",
-                  showPanels ? "max-h-[720px] opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
+                  showPanels ? "max-h-[900px] opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
                 )}
               >
                 {showPanels && (
@@ -465,13 +476,6 @@ export function VideoTestAnswerOverlay({
                     className="space-y-3 rounded-xl bg-dark-900/50 p-3 md:p-4"
                     style={{ border: `1px solid ${panelsBorderColor}` }}
                   >
-                    {/* Auto-fill hint for play on */}
-                    {isPlayOnSelected && (
-                      <p className="text-[11px] text-text-muted text-center">
-                        Restart and sanction are auto-filled.{" "}
-                        <span style={{ color: ANSWER_GREEN }}>Select criteria below.</span>
-                      </p>
-                    )}
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <OptionPanel
                         label="Restart"
@@ -479,7 +483,6 @@ export function VideoTestAnswerOverlay({
                         options={tagOptions.restarts}
                         selectedId={value.restartTagId}
                         onSelect={(id) => onChange({ ...value, restartTagId: id })}
-                        disabled={isPlayOnSelected}
                       />
                       <OptionPanel
                         label="Sanction"
@@ -487,7 +490,6 @@ export function VideoTestAnswerOverlay({
                         options={tagOptions.sanction}
                         selectedId={value.sanctionTagId}
                         onSelect={(id) => onChange({ ...value, sanctionTagId: id })}
-                        disabled={isPlayOnSelected}
                       />
                       <CriteriaPanel
                         color={CATEGORY_COLORS.criteria}
@@ -495,6 +497,9 @@ export function VideoTestAnswerOverlay({
                         selectedIds={value.criteriaTagIds}
                         onToggle={handleCriteriaToggle}
                         onClearAll={() => onChange({ ...value, criteriaTagIds: [] })}
+                        decisionCategories={decisionCategories}
+                        selectedCategory={value.selectedCriteriaCategory}
+                        onCategoryChange={(cat) => onChange({ ...value, selectedCriteriaCategory: cat, criteriaTagIds: [] })}
                       />
                     </div>
                   </div>
@@ -503,7 +508,6 @@ export function VideoTestAnswerOverlay({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-6 py-4 border-t border-accent/20 flex justify-end gap-3">
             <button
               onClick={onAction}

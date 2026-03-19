@@ -121,6 +121,8 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
     ? true
     : [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id));
 
+  const computedCorrect = restartOk && sanctionOk && criteriaOk;
+
   return (
     <>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100100] transition-opacity" onClick={onClose} />
@@ -133,25 +135,25 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
             "relative flex w-full max-w-4xl flex-col overflow-hidden backdrop-blur-xl bg-gradient-to-br from-dark-900/95 to-dark-800/95",
             "max-h-[calc(100dvh-5.5rem)] rounded-xl shadow-2xl border",
             "animate-in fade-in zoom-in-95 duration-200",
-            answer.isCorrect ? "border-[#22c55e]/45" : "border-[#ef4444]/45"
+            computedCorrect ? "border-[#22c55e]/45" : "border-[#ef4444]/45"
           )}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className={cn(
             "px-6 pt-4 pb-2 border-b-2",
-            answer.isCorrect ? "border-[#22c55e]/60" : "border-[#ef4444]/60"
+            computedCorrect ? "border-[#22c55e]/60" : "border-[#ef4444]/60"
           )}>
             <div className="flex items-center justify-center gap-2 mt-2">
               <div
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                  answer.isCorrect
+                  computedCorrect
                     ? "bg-[#22c55e]/15 text-[#22c55e] border border-[#22c55e]/45"
                     : "bg-[#ef4444]/15 text-[#ef4444] border border-[#ef4444]/45"
                 )}
               >
-                {answer.isCorrect ? (
+                {computedCorrect ? (
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
@@ -160,7 +162,7 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 )}
-                {answer.isCorrect ? "Correct" : "Incorrect"}
+                {computedCorrect ? "Correct" : "Incorrect"}
               </div>
             </div>
           </div>
