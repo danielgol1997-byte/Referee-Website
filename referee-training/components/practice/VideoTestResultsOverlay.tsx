@@ -100,36 +100,31 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
 
   const { clip, answer } = item;
 
-  // Did the user select play-on?
   const userSelectedPlayOn = answer.playOnNoOffence;
-  // Is the correct answer actually play-on/no-offence?
   const correctIsPlayOn = !!(clip.playOn || clip.noOffence);
 
-  // Expected answers per category (for when the answer is NOT play-on)
   const correctRestart = clip.correctRestart?.name ?? "—";
   const correctSanction = clip.correctSanction?.name ?? "—";
   const correctCriteria = clip.correctCriteria?.map((t) => t.name).join(", ") || "—";
 
-  // User answers per category (only meaningful if user didn't select play-on)
   const userRestart = answer.userRestartTag?.name ?? "—";
   const userSanction = answer.userSanctionTag?.name ?? "—";
   const userCriteria = answer.userCriteriaTags?.map((t) => t.name).join(", ") || "—";
 
-  // Per-category correctness (only when user did NOT select play-on)
-  const restartOk = !userSelectedPlayOn &&
-    (answer.restartTagId && clip.correctRestart ? answer.restartTagId === clip.correctRestart.id : !clip.correctRestart && !answer.restartTagId);
-  const sanctionOk = !userSelectedPlayOn &&
-    (answer.sanctionTagId && clip.correctSanction ? answer.sanctionTagId === clip.correctSanction.id : !clip.correctSanction && !answer.sanctionTagId);
+  const decisionOk = correctIsPlayOn === userSelectedPlayOn;
+
+  const restartOk = userSelectedPlayOn
+    ? decisionOk
+    : (answer.restartTagId && clip.correctRestart ? answer.restartTagId === clip.correctRestart.id : !clip.correctRestart && !answer.restartTagId);
+  const sanctionOk = userSelectedPlayOn
+    ? decisionOk
+    : (answer.sanctionTagId && clip.correctSanction ? answer.sanctionTagId === clip.correctSanction.id : !clip.correctSanction && !answer.sanctionTagId);
+
   const criteriaCorrectSet = new Set(clip.correctCriteria?.map((c) => c.id) ?? []);
   const userCriteriaSet = new Set(answer.criteriaTagIds ?? []);
-  const criteriaOk = !userSelectedPlayOn &&
-    (
-      (criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) ||
-      [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id))
-    );
-
-  // Overall play-on correctness
-  const playOnOk = userSelectedPlayOn && correctIsPlayOn;
+  const criteriaOk = userSelectedPlayOn
+    ? (criteriaCorrectSet.size === 0 ? decisionOk : [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id)))
+    : ((criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) || [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id)));
 
   return (
     <>
@@ -188,55 +183,27 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {userSelectedPlayOn ? (
-                <>
-                  <DecisionCard
-                    label="Restart"
-                    color={CATEGORY_COLORS.restarts}
-                    userAnswer="Play on / No offence"
-                    expectedAnswer={correctIsPlayOn ? "Play on / No offence" : correctRestart}
-                    isCorrect={playOnOk}
-                  />
-                  <DecisionCard
-                    label="Sanction"
-                    color={CATEGORY_COLORS.sanction}
-                    userAnswer="—"
-                    expectedAnswer={correctIsPlayOn ? "—" : correctSanction}
-                    isCorrect={playOnOk}
-                  />
-                  <DecisionCard
-                    label="Criteria"
-                    color={CATEGORY_COLORS.criteria}
-                    userAnswer="—"
-                    expectedAnswer={correctIsPlayOn ? "—" : correctCriteria}
-                    isCorrect={playOnOk}
-                  />
-                </>
-              ) : (
-                <>
-                  <DecisionCard
-                    label="Restart"
-                    color={CATEGORY_COLORS.restarts}
-                    userAnswer={userRestart}
-                    expectedAnswer={correctIsPlayOn ? "Play on / No offence" : correctRestart}
-                    isCorrect={correctIsPlayOn ? false : !!restartOk}
-                  />
-                  <DecisionCard
-                    label="Sanction"
-                    color={CATEGORY_COLORS.sanction}
-                    userAnswer={userSanction}
-                    expectedAnswer={correctIsPlayOn ? "—" : correctSanction}
-                    isCorrect={correctIsPlayOn ? false : !!sanctionOk}
-                  />
-                  <DecisionCard
-                    label="Criteria"
-                    color={CATEGORY_COLORS.criteria}
-                    userAnswer={userCriteria || "—"}
-                    expectedAnswer={correctIsPlayOn ? "—" : correctCriteria}
-                    isCorrect={correctIsPlayOn ? false : !!criteriaOk}
-                  />
-                </>
-              )}
+              <DecisionCard
+                label="Restart"
+                color={CATEGORY_COLORS.restarts}
+                userAnswer={userRestart}
+                expectedAnswer={correctIsPlayOn ? (clip.correctRestart?.name ?? "Play On") : correctRestart}
+                isCorrect={!!restartOk}
+              />
+              <DecisionCard
+                label="Sanction"
+                color={CATEGORY_COLORS.sanction}
+                userAnswer={userSanction}
+                expectedAnswer={correctIsPlayOn ? (clip.correctSanction?.name ?? "No Disciplinary Sanction") : correctSanction}
+                isCorrect={!!sanctionOk}
+              />
+              <DecisionCard
+                label="Criteria"
+                color={CATEGORY_COLORS.criteria}
+                userAnswer={userCriteria || "—"}
+                expectedAnswer={correctIsPlayOn ? (correctCriteria !== "—" ? correctCriteria : "N/A") : correctCriteria}
+                isCorrect={!!criteriaOk}
+              />
             </div>
           </div>
 

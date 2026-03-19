@@ -108,6 +108,22 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const criteriaCategory = tagCategories.find((cat) => cat.slug === "criteria");
   const criteriaByClipId: Record<string, { id: string; slug: string; name: string; isPlayOnCriteria: boolean }[]> = {};
+
+  const LENDING_GROUP = new Set([
+    "challenges", "dogso", "spa", "holding",
+    "illegal use of arms", "penalty area decisions", "simulation",
+  ]);
+  const MIN_CRITERIA_PER_TYPE = 7;
+
+  function shuffle<T>(arr: T[]): T[] {
+    const s = [...arr];
+    for (let i = s.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [s[i], s[j]] = [s[j], s[i]];
+    }
+    return s;
+  }
+
   if (criteriaCategory) {
     for (const video of orderedClips) {
       if (!video) continue;
@@ -116,9 +132,55 @@ export async function GET(_request: Request, context: RouteContext) {
           .filter((entry) => entry.tag.category?.slug === "category")
           .map((entry) => entry.tag.name)
       );
-      criteriaByClipId[video.id] = criteriaCategory.tags
-        .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory))
-        .map((tag) => ({ id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria }));
+
+      const nativeCriteria = criteriaCategory.tags
+        .filter((tag) => !tag.parentCategory || clipCategoryNames.has(tag.parentCategory));
+
+      const clipInLendingGroup = [...clipCategoryNames].some(
+        (name) => LENDING_GROUP.has(name.toLowerCase())
+      );
+
+      if (clipInLendingGroup) {
+        const nativeIds = new Set(nativeCriteria.map((t) => t.id));
+        const playOnCount = nativeCriteria.filter((t) => t.isPlayOnCriteria).length;
+        const offenseCount = nativeCriteria.filter((t) => !t.isPlayOnCriteria).length;
+        const playOnDeficit = Math.max(0, MIN_CRITERIA_PER_TYPE - playOnCount);
+        const offenseDeficit = Math.max(0, MIN_CRITERIA_PER_TYPE - offenseCount);
+
+        if (playOnDeficit > 0 || offenseDeficit > 0) {
+          const clipCatLower = new Set([...clipCategoryNames].map((n) => n.toLowerCase()));
+          const lendingPool = criteriaCategory.tags.filter((tag) => {
+            if (nativeIds.has(tag.id)) return false;
+            if (!tag.parentCategory) return false;
+            const parentLower = tag.parentCategory.toLowerCase();
+            return LENDING_GROUP.has(parentLower) && !clipCatLower.has(parentLower);
+          });
+
+          const fillers: typeof nativeCriteria = [];
+          if (playOnDeficit > 0) {
+            fillers.push(...shuffle(lendingPool.filter((t) => t.isPlayOnCriteria)).slice(0, playOnDeficit));
+          }
+          if (offenseDeficit > 0) {
+            const alreadyUsedIds = new Set(fillers.map((f) => f.id));
+            fillers.push(
+              ...shuffle(lendingPool.filter((t) => !t.isPlayOnCriteria && !alreadyUsedIds.has(t.id))).slice(0, offenseDeficit)
+            );
+          }
+
+          const combined = [...nativeCriteria, ...fillers];
+          criteriaByClipId[video.id] = combined.map((tag) => ({
+            id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
+          }));
+        } else {
+          criteriaByClipId[video.id] = nativeCriteria.map((tag) => ({
+            id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
+          }));
+        }
+      } else {
+        criteriaByClipId[video.id] = nativeCriteria.map((tag) => ({
+          id: tag.id, slug: tag.slug, name: tag.name, isPlayOnCriteria: tag.isPlayOnCriteria,
+        }));
+      }
     }
   }
 

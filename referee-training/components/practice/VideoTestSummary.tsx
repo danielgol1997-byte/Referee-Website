@@ -187,23 +187,30 @@ export function VideoTestSummary({
           const clip = item.clip;
           const userSelectedPlayOn = !!answer?.playOnNoOffence;
           const correctIsPlayOn = !!(clip?.playOn || clip?.noOffence);
+          const decisionOk = correctIsPlayOn === userSelectedPlayOn;
+
           const restartOk = answer && clip
             ? (userSelectedPlayOn
-              ? correctIsPlayOn
+              ? decisionOk
               : answer.restartTagId && clip.correctRestart
                 ? answer.restartTagId === clip.correctRestart.id
                 : !clip.correctRestart && !answer.restartTagId)
             : false;
           const sanctionOk = answer && clip
             ? (userSelectedPlayOn
-              ? correctIsPlayOn
+              ? decisionOk
               : answer.sanctionTagId && clip.correctSanction
                 ? answer.sanctionTagId === clip.correctSanction.id
                 : !clip.correctSanction && !answer.sanctionTagId)
             : false;
           const criteriaOk = answer && clip
             ? (userSelectedPlayOn
-              ? correctIsPlayOn
+              ? (() => {
+                  const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
+                  if (correctSet.size === 0) return decisionOk;
+                  const userSet = new Set(answer.criteriaTagIds);
+                  return [...userSet].some((id) => correctSet.has(id));
+                })()
               : (() => {
                   const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
                   const userSet = new Set(answer.criteriaTagIds);

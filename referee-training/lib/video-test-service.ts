@@ -88,14 +88,27 @@ function scoreAnswer(
   clip: { playOn: boolean; noOffence: boolean; tags: { tagId: string; isCorrectDecision: boolean; tag: { category: { slug: string } } }[] },
   answer: AnswerInput
 ): { isCorrect: boolean; isPartial: boolean } {
-  const correctRestart = clip.tags.find((t) => t.isCorrectDecision && t.tag.category.slug === "restarts");
-  const correctSanction = clip.tags.find((t) => t.isCorrectDecision && t.tag.category.slug === "sanction");
   const correctCriteria = clip.tags.filter((t) => t.isCorrectDecision && t.tag.category.slug === "criteria");
 
-  if (clip.playOn || clip.noOffence) {
-    const correct = answer.playOnNoOffence && !answer.restartTagId && !answer.sanctionTagId && (answer.criteriaTagIds?.length ?? 0) === 0;
-    return { isCorrect: correct, isPartial: false };
+  const clipIsPlayOn = clip.playOn || clip.noOffence;
+  const userSaidPlayOn = !!answer.playOnNoOffence;
+
+  if (clipIsPlayOn !== userSaidPlayOn) {
+    return { isCorrect: false, isPartial: false };
   }
+
+  if (clipIsPlayOn) {
+    if (correctCriteria.length === 0) {
+      return { isCorrect: true, isPartial: false };
+    }
+    const correctCriteriaIds = new Set(correctCriteria.map((c) => c.tagId));
+    const userCriteriaIds = new Set(answer.criteriaTagIds ?? []);
+    const criteriaOk = [...userCriteriaIds].some((id) => correctCriteriaIds.has(id));
+    return { isCorrect: criteriaOk, isPartial: false };
+  }
+
+  const correctRestart = clip.tags.find((t) => t.isCorrectDecision && t.tag.category.slug === "restarts");
+  const correctSanction = clip.tags.find((t) => t.isCorrectDecision && t.tag.category.slug === "sanction");
 
   const restartOk = !correctRestart ? !answer.restartTagId : answer.restartTagId === correctRestart.tagId;
   const sanctionOk = !correctSanction ? !answer.sanctionTagId : answer.sanctionTagId === correctSanction.tagId;
@@ -107,8 +120,7 @@ function scoreAnswer(
       : [...userCriteriaSet].some((id) => correctCriteriaIds.has(id));
 
   const isCorrect = restartOk && sanctionOk && criteriaOk;
-  const isPartial = false;
-  return { isCorrect, isPartial };
+  return { isCorrect, isPartial: false };
 }
 
 export async function submitVideoTestAnswers(
