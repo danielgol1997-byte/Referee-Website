@@ -100,31 +100,26 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
 
   const { clip, answer } = item;
 
-  const userSelectedPlayOn = answer.playOnNoOffence;
-  const correctIsPlayOn = !!(clip.playOn || clip.noOffence);
-
-  const correctRestart = clip.correctRestart?.name ?? "—";
-  const correctSanction = clip.correctSanction?.name ?? "—";
-  const correctCriteria = clip.correctCriteria?.map((t) => t.name).join(", ") || "—";
+  const correctRestartName = clip.correctRestart?.name ?? "—";
+  const correctSanctionName = clip.correctSanction?.name ?? "—";
+  const correctCriteriaNames = clip.correctCriteria?.map((t) => t.name).join(", ") || "—";
 
   const userRestart = answer.userRestartTag?.name ?? "—";
   const userSanction = answer.userSanctionTag?.name ?? "—";
   const userCriteria = answer.userCriteriaTags?.map((t) => t.name).join(", ") || "—";
 
-  const decisionOk = correctIsPlayOn === userSelectedPlayOn;
-
-  const restartOk = userSelectedPlayOn
-    ? decisionOk
-    : (answer.restartTagId && clip.correctRestart ? answer.restartTagId === clip.correctRestart.id : !clip.correctRestart && !answer.restartTagId);
-  const sanctionOk = userSelectedPlayOn
-    ? decisionOk
-    : (answer.sanctionTagId && clip.correctSanction ? answer.sanctionTagId === clip.correctSanction.id : !clip.correctSanction && !answer.sanctionTagId);
+  const restartOk = !clip.correctRestart
+    ? !answer.restartTagId
+    : answer.restartTagId === clip.correctRestart.id;
+  const sanctionOk = !clip.correctSanction
+    ? !answer.sanctionTagId
+    : answer.sanctionTagId === clip.correctSanction.id;
 
   const criteriaCorrectSet = new Set(clip.correctCriteria?.map((c) => c.id) ?? []);
   const userCriteriaSet = new Set(answer.criteriaTagIds ?? []);
-  const criteriaOk = userSelectedPlayOn
-    ? (criteriaCorrectSet.size === 0 ? decisionOk : [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id)))
-    : ((criteriaCorrectSet.size === 0 && userCriteriaSet.size === 0) || [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id)));
+  const criteriaOk = criteriaCorrectSet.size === 0
+    ? true
+    : [...userCriteriaSet].some((id) => criteriaCorrectSet.has(id));
 
   return (
     <>
@@ -187,21 +182,21 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
                 label="Restart"
                 color={CATEGORY_COLORS.restarts}
                 userAnswer={userRestart}
-                expectedAnswer={correctIsPlayOn ? (clip.correctRestart?.name ?? "Play On") : correctRestart}
+                expectedAnswer={correctRestartName}
                 isCorrect={!!restartOk}
               />
               <DecisionCard
                 label="Sanction"
                 color={CATEGORY_COLORS.sanction}
                 userAnswer={userSanction}
-                expectedAnswer={correctIsPlayOn ? (clip.correctSanction?.name ?? "No Disciplinary Sanction") : correctSanction}
+                expectedAnswer={correctSanctionName}
                 isCorrect={!!sanctionOk}
               />
               <DecisionCard
                 label="Criteria"
                 color={CATEGORY_COLORS.criteria}
                 userAnswer={userCriteria || "—"}
-                expectedAnswer={correctIsPlayOn ? (correctCriteria !== "—" ? correctCriteria : "N/A") : correctCriteria}
+                expectedAnswer={correctCriteriaNames}
                 isCorrect={!!criteriaOk}
               />
             </div>

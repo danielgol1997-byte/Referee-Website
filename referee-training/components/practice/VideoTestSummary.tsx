@@ -185,38 +185,23 @@ export function VideoTestSummary({
         {data.items.map((item, index) => {
           const answer = item.answer;
           const clip = item.clip;
-          const userSelectedPlayOn = !!answer?.playOnNoOffence;
-          const correctIsPlayOn = !!(clip?.playOn || clip?.noOffence);
-          const decisionOk = correctIsPlayOn === userSelectedPlayOn;
-
           const restartOk = answer && clip
-            ? (userSelectedPlayOn
-              ? decisionOk
-              : answer.restartTagId && clip.correctRestart
+            ? (answer.restartTagId && clip.correctRestart
                 ? answer.restartTagId === clip.correctRestart.id
                 : !clip.correctRestart && !answer.restartTagId)
             : false;
           const sanctionOk = answer && clip
-            ? (userSelectedPlayOn
-              ? decisionOk
-              : answer.sanctionTagId && clip.correctSanction
+            ? (answer.sanctionTagId && clip.correctSanction
                 ? answer.sanctionTagId === clip.correctSanction.id
                 : !clip.correctSanction && !answer.sanctionTagId)
             : false;
           const criteriaOk = answer && clip
-            ? (userSelectedPlayOn
-              ? (() => {
-                  const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
-                  if (correctSet.size === 0) return decisionOk;
-                  const userSet = new Set(answer.criteriaTagIds);
-                  return [...userSet].some((id) => correctSet.has(id));
-                })()
-              : (() => {
-                  const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
-                  const userSet = new Set(answer.criteriaTagIds);
-                  if (correctSet.size === 0 && userSet.size === 0) return true;
-                  return [...userSet].some((id) => correctSet.has(id));
-                })())
+            ? (() => {
+                const correctSet = new Set(clip.correctCriteria.map((c) => c.id));
+                if (correctSet.size === 0) return true;
+                const userSet = new Set(answer.criteriaTagIds);
+                return [...userSet].some((id) => correctSet.has(id));
+              })()
             : false;
           const frameClass = answer?.isCorrect
             ? "border-[#22c55e]"
