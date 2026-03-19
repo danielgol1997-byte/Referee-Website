@@ -129,16 +129,17 @@ async function fallbackKeywordSearch(
   tagSlugs: string[],
   limit: number
 ): Promise<SemanticSearchResult[]> {
-  const where: any = { isActive: true, AND: [] as any[] };
+  const andFilters: any[] = [];
 
-  if (tagSlugs.length > 0) {
-    where.AND.push({
-      tags: { some: { tag: { slug: { in: tagSlugs } } } },
-    });
+  // Tag filters are always hard constraints — each slug must be present.
+  for (const slug of tagSlugs) {
+    andFilters.push({ tags: { some: { tag: { slug } } } });
   }
 
-  if (keywords.length > 0) {
-    where.AND.push({
+  // Only require text match when no tags were given — otherwise tagged videos
+  // without the keyword in their text fields would be incorrectly excluded.
+  if (tagSlugs.length === 0 && keywords.length > 0) {
+    andFilters.push({
       OR: [
         ...keywords.map((kw) => ({
           canonicalSearchText: { contains: kw, mode: "insensitive" as const },
@@ -153,7 +154,8 @@ async function fallbackKeywordSearch(
     });
   }
 
-  if (where.AND.length === 0) delete where.AND;
+  const where: any = { isActive: true };
+  if (andFilters.length > 0) where.AND = andFilters;
 
   const videos = await prisma.videoClip.findMany({
     where,

@@ -77,8 +77,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: keyword-based search via Prisma
-    if (!results) {
+    // Fallback: keyword-based search via Prisma.
+    // Trigger when: (a) vector search was not attempted, (b) threw an error,
+    // OR (c) returned 0 results (which happens when tagged videos have no
+    // stored embeddings yet — the most common case before all clips are indexed).
+    if (!results || results.length === 0) {
       results = await keywordFallbackSearch(
         enhanced.keywords,
         enhanced.cleanedQuery,
@@ -168,37 +171,41 @@ async function keywordFallbackSearch(
   tagSlugs: string[],
   limit: number
 ) {
-  const where: any = { isActive: true, AND: [] as any[] };
+  const andFilters: any[] = [];
 
-  if (tagSlugs.length > 0) {
-    for (const slug of tagSlugs) {
-      where.AND.push({
-        tags: { some: { tag: { slug } } },
+  // Tag filters are always hard constraints — each slug must be present.
+  for (const slug of tagSlugs) {
+    andFilters.push({ tags: { some: { tag: { slug } } } });
+  }
+
+  // Text matching is only a hard constraint when no tags were specified.
+  // When tags already narrow the result set, text is used for ordering only
+  // (via the orderBy below) so we don't accidentally hide tagged videos that
+  // don't happen to mention the search term in their title/description.
+  if (tagSlugs.length === 0) {
+    const textConditions = [cleanedQuery, ...keywords].filter(Boolean);
+    if (textConditions.length > 0) {
+      andFilters.push({
+        OR: [
+          ...textConditions.map((term) => ({
+            canonicalSearchText: { contains: term, mode: "insensitive" as const },
+          })),
+          ...textConditions.map((term) => ({
+            title: { contains: term, mode: "insensitive" as const },
+          })),
+          ...textConditions.map((term) => ({
+            description: { contains: term, mode: "insensitive" as const },
+          })),
+          ...textConditions.map((term) => ({
+            searchSummary: { contains: term, mode: "insensitive" as const },
+          })),
+        ],
       });
     }
   }
 
-  const textConditions = [cleanedQuery, ...keywords].filter(Boolean);
-  if (textConditions.length > 0) {
-    where.AND.push({
-      OR: [
-        ...textConditions.map((term) => ({
-          canonicalSearchText: { contains: term, mode: "insensitive" as const },
-        })),
-        ...textConditions.map((term) => ({
-          title: { contains: term, mode: "insensitive" as const },
-        })),
-        ...textConditions.map((term) => ({
-          description: { contains: term, mode: "insensitive" as const },
-        })),
-        ...textConditions.map((term) => ({
-          searchSummary: { contains: term, mode: "insensitive" as const },
-        })),
-      ],
-    });
-  }
-
-  if (where.AND.length === 0) delete where.AND;
+  const where: any = { isActive: true };
+  if (andFilters.length > 0) where.AND = andFilters;
 
   const videos = await prisma.videoClip.findMany({
     where,
