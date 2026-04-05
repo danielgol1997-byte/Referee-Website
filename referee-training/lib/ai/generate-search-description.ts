@@ -1,5 +1,6 @@
 import { getOpenAI } from "@/lib/openai";
 import { loadPrompt } from "./prompt-loader";
+import { getTagTaxonomyCategories } from "./tag-taxonomy-cache";
 
 interface VideoMetadata {
   title: string;
@@ -164,11 +165,47 @@ export async function generateSearchDescription(
     ? rawSuggestedTags.filter((t: unknown) => typeof t === "string")
     : [];
 
+  // Validate suggested tags against the real taxonomy to prevent hallucinated slugs
+  const validatedTags = await validateSuggestedTags(
+    filteredTags,
+    metadata.tags.map((t) => t.slug)
+  );
+
   return {
     canonicalDescription: parsed.canonicalDescription || "",
     searchSummary: parsed.searchSummary || "",
     searchKeywords: Array.isArray(parsed.searchKeywords) ? parsed.searchKeywords : [],
     embeddingText: parsed.embeddingText || parsed.canonicalDescription || "",
-    suggestedTags: filteredTags,
+    suggestedTags: validatedTags,
   };
+}
+
+async function validateSuggestedTags(
+  slugs: string[],
+  existingTagSlugs: string[]
+): Promise<string[]> {
+  if (slugs.length === 0) return slugs;
+
+  const categories = await getTagTaxonomyCategories();
+  const allValidSlugs = new Set<string>();
+  for (const cat of categories) {
+    for (const tag of cat.tags) {
+      allValidSlugs.add(tag.slug);
+    }
+  }
+
+  const existingSet = new Set(existingTagSlugs);
+
+  return slugs.filter((slug) => {
+    if (!allValidSlugs.has(slug)) {
+      console.warn(
+        `[AI suggested tags] Non-existent tag slug "${slug}" — filtering out`
+      );
+      return false;
+    }
+    if (existingSet.has(slug)) {
+      return false;
+    }
+    return true;
+  });
 }

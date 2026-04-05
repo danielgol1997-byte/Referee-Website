@@ -1004,33 +1004,16 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           }))}
           onSuggestedTags={(slugs) => {
             if (!Array.isArray(slugs) || slugs.length === 0 || tags.length === 0) return;
-            const normalize = (s: string) =>
-              s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
             const allCurrentTags = [...correctDecisionTags, ...invisibleTags];
             const tagsToAdd: Tag[] = [];
             for (const slug of slugs) {
-              const normalizedSlug = normalize(slug);
-              // Try multiple matching strategies in order of precision
-              const match = tags.find((t) => {
-                const tSlug = t.slug ?? "";
-                const tNameNorm = normalize(t.name);
-                return (
-                  tSlug === slug ||                   // exact slug match
-                  tSlug === normalizedSlug ||          // normalized slug match
-                  tNameNorm === normalizedSlug ||      // name normalizes to slug
-                  tNameNorm === normalize(slug) ||     // both normalized match
-                  // partial: slug starts with or ends with (catches minor suffix differences)
-                  (tSlug.length > 3 && normalizedSlug.startsWith(tSlug)) ||
-                  (tSlug.length > 3 && tSlug.startsWith(normalizedSlug))
-                );
-              });
+              const match = tags.find((t) => (t.slug ?? "") === slug);
               if (!match) {
-                console.warn(`[AI tag autofill] No system tag found for suggested slug: "${slug}"`);
+                console.warn(`[AI tag autofill] No system tag found for slug: "${slug}"`);
                 continue;
               }
               const alreadyPresent = allCurrentTags.some((t) => t.id === match.id);
               if (alreadyPresent) continue;
-              // Criteria allows multiple tags; all other categories allow only one
               const matchCategorySlug = match.category?.slug;
               if (matchCategorySlug && matchCategorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
                 const categoryAlreadyHasTag = [...allCurrentTags, ...tagsToAdd].some(

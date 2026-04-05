@@ -36,13 +36,6 @@ export interface VideoFilters {
   searchText?: string;
 }
 
-export interface AiInferredTag {
-  tagSlug: string;
-  categorySlug: string;
-  confidence: "high" | "medium";
-  tagName?: string;
-}
-
 interface Tag {
   id: string;
   name: string;
@@ -65,8 +58,6 @@ interface TagCategory {
 interface VideoFilterBarProps {
   filters: VideoFilters;
   onFiltersChange: (filters: VideoFilters) => void;
-  aiInferredTags?: AiInferredTag[];
-  onRemoveInferredTag?: (tagSlug: string) => void;
   isSearching?: boolean;
 }
 
@@ -128,7 +119,7 @@ const GROUP_COLORS: Record<string, string> = {
  * - Auto-hides/shows on hover
  * - Criteria requires category selection
  */
-export function VideoFilterBar({ filters, onFiltersChange, aiInferredTags, onRemoveInferredTag, isSearching }: VideoFilterBarProps) {
+export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoFilterBarProps) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -652,13 +643,7 @@ export function VideoFilterBar({ filters, onFiltersChange, aiInferredTags, onRem
               <p className="text-xs text-orange-400 mt-1">{speechError}</p>
             )}
 
-            {/* AI medium-confidence tag suggestions — collapsed by default */}
-            {aiInferredTags && aiInferredTags.length > 0 && (
-              <AiSuggestionsPanel
-                tags={aiInferredTags}
-                onRemove={onRemoveInferredTag}
-              />
-            )}
+            {/* AI medium-confidence tags are used internally for search boosting only */}
           </div>
 
           {/* Filter Controls */}
@@ -985,52 +970,3 @@ function FilterDropdown({
   );
 }
 
-function AiSuggestionsPanel({
-  tags,
-  onRemove,
-}: {
-  tags: AiInferredTag[];
-  onRemove?: (slug: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  if (tags.length === 0) return null;
-  return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors font-medium"
-      >
-        <svg
-          className={cn("w-3 h-3 transition-transform", open && "rotate-90")}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-        </svg>
-        AI suggestions ({tags.length})
-      </button>
-      {open && (
-        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-          {tags.map((tag) => (
-            <span
-              key={tag.tagSlug}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20"
-            >
-              {tag.tagName || tag.tagSlug}
-              {onRemove && (
-                <button
-                  type="button"
-                  onClick={() => onRemove(tag.tagSlug)}
-                  className="hover:text-red-300 transition-colors ml-0.5"
-                >
-                  &times;
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

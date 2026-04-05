@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { VideoCard3D } from "./VideoCard3D";
 import { InlineVideoPlayer } from "./InlineVideoPlayer";
-import { VideoFilterBar, VideoFilters, AiInferredTag } from "./VideoFilterBar";
+import { VideoFilterBar, VideoFilters } from "./VideoFilterBar";
 import { LayoutGroup, motion } from "framer-motion";
 
 interface Video {
@@ -93,7 +93,6 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   // Semantic search state
   const [searchResults, setSearchResults] = useState<Video[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [aiInferredTags, setAiInferredTags] = useState<AiInferredTag[]>([]); // medium confidence only — shown as suggestions
   const [searchMeta, setSearchMeta] = useState<{ totalResults: number; searchMethod: string } | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,7 +115,6 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     
     if (!searchText) {
       setSearchResults(null);
-      setAiInferredTags([]);
       setSearchMeta(null);
       setIsSearching(false);
       if (searchAbortRef.current) {
@@ -194,16 +192,13 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
           setSearchResults(results);
           setSearchMeta(data.meta);
 
-          const allInferred: AiInferredTag[] = (data.query?.inferredTags || []).map((t: any) => ({
-            tagSlug: t.tagSlug,
-            categorySlug: t.categorySlug,
-            confidence: t.confidence,
-            tagName: t.tagSlug.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          }));
+          const allInferred = (data.query?.inferredTags || []) as Array<{
+            tagSlug: string;
+            categorySlug: string;
+            confidence: "high" | "medium";
+          }>;
 
-          // High confidence → auto-apply as real filters so user sees them in the filter bar
           const highConf = allInferred.filter((t) => t.confidence === "high");
-          const mediumConf = allInferred.filter((t) => t.confidence === "medium");
 
           if (highConf.length > 0) {
             const newlyApplied = new Set<string>();
@@ -234,9 +229,6 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
             // Track what was applied so we can remove it on search clear
             newlyApplied.forEach((s) => aiAppliedTagSlugsRef.current.add(s));
           }
-
-          // Only show medium confidence as suggestions
-          setAiInferredTags(mediumConf);
         } else {
           console.error("Search failed:", res.status);
           setSearchResults(null);
@@ -257,10 +249,6 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [filters.searchText, filters.categoryTags, filters.restarts, filters.criteria, filters.sanctions, filters.scenarios, filters.customTagFilters]);
-
-  const handleRemoveInferredTag = useCallback((tagSlug: string) => {
-    setAiInferredTags((prev) => prev.filter((t) => t.tagSlug !== tagSlug));
-  }, []);
 
   const handleFiltersChange = (newFilters: VideoFilters) => {
     setFilters(newFilters);
@@ -576,8 +564,6 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
           <VideoFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            aiInferredTags={aiInferredTags}
-            onRemoveInferredTag={handleRemoveInferredTag}
             isSearching={isSearching}
           />
         </div>
