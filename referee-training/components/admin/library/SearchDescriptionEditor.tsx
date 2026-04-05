@@ -213,7 +213,7 @@ export function SearchDescriptionEditor({
   const hasResult = !!(canonicalText || status === "ai_generated");
 
   return (
-    <div className="rounded-2xl border border-dark-600 bg-dark-800/40 overflow-hidden">
+    <div className="rounded-2xl border border-dark-600 bg-dark-800/40">
 
       {/* ── Collapsible header ── */}
       <button
@@ -339,7 +339,7 @@ export function SearchDescriptionEditor({
             />
             {speech.isSupported && (
               <div
-                className="absolute bottom-3 right-3 flex h-8 rounded-lg border border-dark-600 bg-dark-900/90 overflow-hidden shadow-sm shadow-black/25"
+                className="absolute bottom-3 right-3 flex h-8 rounded-lg border border-dark-600 bg-dark-900/90 shadow-sm shadow-black/25"
                 ref={speechLangRef}
               >
                 <button
@@ -347,7 +347,7 @@ export function SearchDescriptionEditor({
                   onClick={() => setShowSpeechLangMenu((v) => !v)}
                   disabled={speech.status === "listening"}
                   className={cn(
-                    "flex items-center gap-1 px-2 text-text-muted transition-colors",
+                    "flex items-center gap-1 px-2 text-text-muted transition-colors rounded-l-lg",
                     speech.status === "listening"
                       ? "opacity-45 cursor-not-allowed"
                       : "hover:bg-dark-800 hover:text-text-primary"
@@ -371,7 +371,7 @@ export function SearchDescriptionEditor({
                   onClick={speech.toggle}
                   title={speech.status === "listening" ? "Stop" : "Dictate"}
                   className={cn(
-                    "flex items-center justify-center px-2.5 transition-colors",
+                    "flex items-center justify-center px-2.5 transition-colors rounded-r-lg",
                     speech.status === "listening"
                       ? "bg-red-500/20 text-red-400"
                       : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
