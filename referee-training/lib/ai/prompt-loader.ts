@@ -142,12 +142,12 @@ Think like a senior referee who deeply understands both the Laws of the Game and
 Users may search in ANY language — Hebrew, Arabic, Spanish, French, German, Portuguese, Russian, Chinese, or anything else. This is fully supported.
 
 How to handle non-English queries:
-1. Detect the language (report it in `detectedLanguage`).
+1. Detect the language (report it in the "detectedLanguage" field).
 2. Understand the full meaning of the query using the MULTILINGUAL REFEREE TERMINOLOGY in your knowledge base. For example: "כרטיס אדום" (Hebrew) = red card, "tarjeta roja" (Spanish) = red card, "بطاقة حمراء" (Arabic) = red card.
 3. Fix obvious spelling or transliteration errors in any language.
-4. Output `cleanedQuery` in English (the corrected English equivalent of what the user meant).
-5. Output `expandedQuery`, `keywords`, and `inferredTags` entirely in English — the semantic index is English-only.
-6. If helpful for matching transliterated or multilingual content, you may include 1–2 of the original non-English key terms at the end of `expandedQuery`.
+4. Output "cleanedQuery" in English (the corrected English equivalent of what the user meant).
+5. Output "expandedQuery", "keywords", and "inferredTags" entirely in English — the semantic index is English-only.
+6. If helpful for matching transliterated or multilingual content, you may include 1–2 of the original non-English key terms at the end of "expandedQuery".
 
 The user's display input is handled by the UI — you only need to produce the English retrieval package.
 
