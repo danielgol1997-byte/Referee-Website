@@ -58,9 +58,9 @@ export async function POST(request: Request) {
     ];
     const boostSlugs = mediumConfidenceTags.map((t) => t.tagSlug);
 
-    // Step 3: Try semantic search, fall back to keyword search
+    // Step 3: Try semantic search, then supplement with tag-based results
     const vectorSupport = await hasVectorSupport();
-    let results;
+    let results: Awaited<ReturnType<typeof keywordFallbackSearch>> | null = null;
 
     if (vectorSupport) {
       try {
@@ -77,10 +77,28 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: keyword-based search via Prisma.
-    // Trigger when: (a) vector search was not attempted, (b) threw an error,
-    // OR (c) returned 0 results (which happens when tagged videos have no
-    // stored embeddings yet — the most common case before all clips are indexed).
+    // When hard tag filters are present, ALWAYS run the tag-based query as well.
+    // The vector search only finds videos that already have a stored embedding —
+    // most tagged videos won't have one yet. Merging the two ensures all tagged
+    // videos appear; vector-matched ones float to the top via their similarity
+    // score, the rest are appended ordered by featured/viewCount.
+    if (hardFilterSlugs.length > 0) {
+      const tagResults = await keywordFallbackSearch(
+        enhanced.keywords,
+        enhanced.cleanedQuery,
+        hardFilterSlugs,
+        50
+      );
+      if (results && results.length > 0) {
+        const vectorIds = new Set(results.map((r) => r.id));
+        const extras = tagResults.filter((r) => !vectorIds.has(r.id));
+        results = [...results, ...extras];
+      } else {
+        results = tagResults;
+      }
+    }
+
+    // Pure text/semantic fallback when no tags were inferred at all.
     if (!results || results.length === 0) {
       results = await keywordFallbackSearch(
         enhanced.keywords,
