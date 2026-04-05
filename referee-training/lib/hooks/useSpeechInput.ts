@@ -21,15 +21,18 @@ interface UseSpeechInputOptions {
   append?: boolean;
 }
 
+const LAST_SPEECH_LANG_STORAGE_KEY = "speechInput:lastLang";
+
 /**
  * Detects the dominant script in a string and returns the best BCP-47 language
  * tag for the Web Speech API.
  *
- * When the input is empty (user presses mic before typing), falls back to the
- * browser's ordered language preference list (`navigator.languages`).  This
- * means users who have Hebrew (or any non-English language) configured as a
- * preferred language in their browser/OS will get the correct speech engine
- * automatically — no manual selection required.
+ * Order of detection:
+ * 1) Script in current text (best signal) and persist it
+ * 2) Last successful/detected language from storage
+ * 3) HTML document language
+ * 4) Browser language preference list (navigator.languages)
+ * 5) navigator.language fallback
  */
 const SCRIPT_LANGS: Array<{ pattern: RegExp; lang: string }> = [
   { pattern: /[\u0590-\u05FF]/, lang: "he-IL" },   // Hebrew
@@ -47,6 +50,7 @@ const SCRIPT_LANGS: Array<{ pattern: RegExp; lang: string }> = [
 // users with a mixed list like ["en-US", "he-IL"] get Hebrew.
 const LANG_CODE_MAP: Record<string, string> = {
   he: "he-IL",
+  iw: "he-IL",
   ar: "ar-SA",
   ru: "ru-RU",
   uk: "uk-UA",
@@ -65,29 +69,91 @@ const LANG_CODE_MAP: Record<string, string> = {
   tr: "tr-TR",
 };
 
-export function detectInputLanguage(text: string): string {
-  if (typeof navigator === "undefined") return "en-US";
+// Timezone fallback for brand-new users with no typed text, no stored speech
+// lang, and English-only browser language prefs.
+const TIMEZONE_LANG_MAP: Array<{ prefix: string; lang: string }> = [
+  { prefix: "Asia/Jerusalem", lang: "he-IL" },
+  { prefix: "Asia/Tel_Aviv", lang: "he-IL" },
+  { prefix: "Asia/Riyadh", lang: "ar-SA" },
+  { prefix: "Asia/Dubai", lang: "ar-SA" },
+  { prefix: "Asia/Amman", lang: "ar-SA" },
+  { prefix: "Asia/Baghdad", lang: "ar-SA" },
+  { prefix: "Europe/Moscow", lang: "ru-RU" },
+  { prefix: "Asia/Shanghai", lang: "zh-CN" },
+  { prefix: "Asia/Hong_Kong", lang: "zh-CN" },
+  { prefix: "Asia/Taipei", lang: "zh-CN" },
+  { prefix: "Asia/Tokyo", lang: "ja-JP" },
+  { prefix: "Asia/Seoul", lang: "ko-KR" },
+];
+
+export function detectInputLanguage(text: string): string | undefined {
+  if (typeof navigator === "undefined") return undefined;
 
   // 1. Script detection — most reliable when text is present
   if (text && text.trim().length >= 1) {
     for (const { pattern, lang } of SCRIPT_LANGS) {
-      if (pattern.test(text)) return lang;
+      if (pattern.test(text)) {
+        try {
+          localStorage.setItem(LAST_SPEECH_LANG_STORAGE_KEY, lang);
+        } catch {
+          // Ignore storage failures.
+        }
+        return lang;
+      }
     }
   }
 
-  // 2. Walk the browser's ordered language preference list.
+  // 2. Last known language from previous usage/session
+  try {
+    const lastLang = localStorage.getItem(LAST_SPEECH_LANG_STORAGE_KEY);
+    if (lastLang) return lastLang;
+  } catch {
+    // Ignore storage failures.
+  }
+
+  // 3. HTML document language (if configured)
+  if (typeof document !== "undefined") {
+    const docLang = document.documentElement.lang;
+    if (docLang) {
+      const docBase = docLang.split("-")[0].toLowerCase();
+      if (LANG_CODE_MAP[docBase]) return LANG_CODE_MAP[docBase];
+    }
+  }
+
+  // 4. Walk the browser's ordered language preference list.
   //    Skip English entries so a user with ["en-US", "he-IL"] gets Hebrew.
   const preferred: readonly string[] =
     navigator.languages?.length ? navigator.languages : [navigator.language || "en-US"];
 
   for (const pref of preferred) {
     const base = pref.split("-")[0].toLowerCase();
-    if (LANG_CODE_MAP[base]) return LANG_CODE_MAP[base];
+    if (LANG_CODE_MAP[base]) {
+      const resolved = LANG_CODE_MAP[base];
+      try {
+        localStorage.setItem(LAST_SPEECH_LANG_STORAGE_KEY, resolved);
+      } catch {
+        // Ignore storage failures.
+      }
+      return resolved;
+    }
     // If we hit a pure-English entry, keep looking (don't return early)
     // If the entire list is English, the loop ends and we fall through.
   }
 
-  return navigator.language || "en-US";
+  // 5. Timezone hint fallback (useful for first-use non-English voice)
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    const tzMatch = TIMEZONE_LANG_MAP.find((m) => tz.startsWith(m.prefix));
+    if (tzMatch) {
+      localStorage.setItem(LAST_SPEECH_LANG_STORAGE_KEY, tzMatch.lang);
+      return tzMatch.lang;
+    }
+  } catch {
+    // Ignore timezone detection failures.
+  }
+
+  // 6) No strong signal: return undefined and let browser choose default.
+  return undefined;
 }
 
 export function useSpeechInput({
@@ -129,7 +195,9 @@ export function useSpeechInput({
       (window as any).webkitSpeechRecognition;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = lang || navigator.language || "en-US";
+    if (lang) {
+      recognition.lang = lang;
+    }
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     // In append mode keep listening for multiple phrases; in replace mode stop after first result

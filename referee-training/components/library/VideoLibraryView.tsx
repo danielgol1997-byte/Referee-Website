@@ -57,26 +57,14 @@ interface VideoLibraryViewProps {
  * - Decision reveal overlay
  */
 export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
-  const [filters, setFilters] = useState<VideoFilters>(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = localStorage.getItem('videoLibraryFilters');
-      if (savedFilters) {
-        try {
-          return JSON.parse(savedFilters);
-        } catch (e) {
-          console.error('Failed to parse saved filters');
-        }
-      }
-    }
-    return {
-      categoryTags: [],
-      restarts: [],
-      criteria: [],
-      sanctions: [],
-      scenarios: [],
-      laws: [],
-      customTagFilters: {},
-    };
+  const [filters, setFilters] = useState<VideoFilters>({
+    categoryTags: [],
+    restarts: [],
+    criteria: [],
+    sanctions: [],
+    scenarios: [],
+    laws: [],
+    customTagFilters: {},
   });
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [expandedVideoDetails, setExpandedVideoDetails] = useState<Video | null>(null);
@@ -107,6 +95,23 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     if (width >= 1024) return 3; // lg
     if (width >= 768) return 2;  // md
     return 1; // mobile
+  }, []);
+
+  // Hydration-safe localStorage restore for filter state.
+  useEffect(() => {
+    const savedFilters = localStorage.getItem("videoLibraryFilters");
+    if (!savedFilters) return;
+    try {
+      const parsed = JSON.parse(savedFilters) as Partial<VideoFilters>;
+      setFilters((prev) => ({
+        ...prev,
+        ...parsed,
+        // Keep searchText unmanaged by persisted filters
+        searchText: prev.searchText,
+      }));
+    } catch {
+      console.error("Failed to parse saved filters");
+    }
   }, []);
 
   // Semantic search effect - fires only when committedSearchText changes (user pressed Enter / Search button)

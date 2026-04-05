@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useSpeechInput, detectInputLanguage } from "@/lib/hooks/useSpeechInput";
+import {
+  SPEECH_LANGUAGE_OPTIONS,
+  useSpeechLanguagePreference,
+} from "@/lib/hooks/useSpeechLanguagePreference";
 
 interface SearchDescriptionEditorProps {
   videoId: string;
@@ -58,6 +62,15 @@ export function SearchDescriptionEditor({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [showSpeechLangMenu, setShowSpeechLangMenu] = useState(false);
+  const speechLangRef = useRef<HTMLDivElement>(null);
+  const { preference: speechLangPref, setPreference: setSpeechLangPref } =
+    useSpeechLanguagePreference();
+  const resolvedSpeechLang =
+    speechLangPref === "auto" ? detectInputLanguage(rawDescription) : speechLangPref;
+  const activeSpeechOption =
+    SPEECH_LANGUAGE_OPTIONS.find((opt) => opt.value === speechLangPref) ||
+    SPEECH_LANGUAGE_OPTIONS[0];
 
   const videoRef = useRef<HTMLVideoElement>(null);
   // Keep a ref to existingData so the videoId-change effect always reads
@@ -69,7 +82,7 @@ export function SearchDescriptionEditor({
   const prevVideoIdRef = useRef<string | null>(null);
 
   const speech = useSpeechInput({
-    lang: detectInputLanguage(rawDescription),
+    lang: resolvedSpeechLang,
     append: true,
     onResult: (text) => {
       setRawDescription((prev) => (prev.trim() ? prev + " " + text : text));
@@ -99,6 +112,19 @@ export function SearchDescriptionEditor({
       setIsOpen(shouldOpen);
     }
   }, [videoId]);
+
+  useEffect(() => {
+    function handleOutsideSpeechLang(event: MouseEvent) {
+      if (
+        speechLangRef.current &&
+        !speechLangRef.current.contains(event.target as Node)
+      ) {
+        setShowSpeechLangMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideSpeechLang);
+    return () => document.removeEventListener("mousedown", handleOutsideSpeechLang);
+  }, []);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -310,23 +336,68 @@ export function SearchDescriptionEditor({
                   : "border-dark-600 focus:ring-purple-500/30 focus:border-purple-500/40"
               )}
             />
-            {/* Mic button inside textarea corner */}
+            {/* Mic button and language picker inside textarea corner */}
             {speech.isSupported && (
-              <button
-                type="button"
-                onClick={speech.toggle}
-                title={speech.status === "listening" ? "Stop" : "Dictate"}
-                className={cn(
-                  "absolute bottom-3 right-3 w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                  speech.status === "listening"
-                    ? "bg-red-500 text-white animate-pulse"
-                    : "bg-dark-700 text-text-muted hover:text-text-primary hover:bg-dark-600 border border-dark-600"
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5" ref={speechLangRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowSpeechLangMenu((v) => !v)}
+                  className="h-7 px-2 rounded-full border border-dark-600 bg-dark-900/80 text-text-muted hover:text-text-primary hover:border-dark-500 transition-colors inline-flex items-center gap-1"
+                  aria-label="Voice language"
+                  title={`Voice language: ${activeSpeechOption.label}`}
+                >
+                  <svg className="w-3 h-3 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+                  </svg>
+                  <span className="text-[11px]">{activeSpeechOption.flag}</span>
+                  <span className="text-[10px] font-semibold">{activeSpeechOption.abbr}</span>
+                </button>
+                {showSpeechLangMenu && (
+                  <div className="absolute bottom-8 right-0 w-56 rounded-xl border border-dark-600 bg-dark-900/95 backdrop-blur-md shadow-2xl z-50 p-1">
+                    {SPEECH_LANGUAGE_OPTIONS.map((opt) => {
+                      const selected = opt.value === speechLangPref;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setSpeechLangPref(opt.value);
+                            setShowSpeechLangMenu(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors",
+                            selected
+                              ? "bg-cyan-500/15 text-cyan-300"
+                              : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{opt.flag}</span>
+                            <span className="text-xs">{opt.label}</span>
+                          </span>
+                          <span className="text-[10px] font-semibold opacity-80">{opt.abbr}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
-                </svg>
-              </button>
+                <button
+                  type="button"
+                  onClick={speech.toggle}
+                  title={speech.status === "listening" ? "Stop" : "Dictate"}
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                    speech.status === "listening"
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "bg-dark-700 text-text-muted hover:text-text-primary hover:bg-dark-600 border border-dark-600"
+                  )}
+                >
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
           {speechError && <p className="text-xs text-orange-400 -mt-2">{speechError}</p>}
