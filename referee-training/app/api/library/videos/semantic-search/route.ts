@@ -60,7 +60,8 @@ export async function POST(request: Request) {
 
     // Step 3: Try semantic search, then supplement with tag-based results
     const vectorSupport = await hasVectorSupport();
-    let results: Awaited<ReturnType<typeof keywordFallbackSearch>> | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let results: any[] | null = null;
 
     if (vectorSupport) {
       try {
