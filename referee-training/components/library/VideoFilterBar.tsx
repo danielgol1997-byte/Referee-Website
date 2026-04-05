@@ -676,13 +676,13 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch
               </button>
               {/* Voice: unified language + mic (single control, one globe for Auto) */}
               {isClient && speech.isSupported && (
-                <div className="relative shrink-0 flex rounded-xl border border-dark-600 bg-dark-900/80 overflow-hidden shadow-sm shadow-black/20" ref={speechLangRef}>
+                <div className="relative shrink-0 flex rounded-xl border border-dark-600 bg-dark-900/80 shadow-sm shadow-black/20" ref={speechLangRef}>
                   <button
                     type="button"
                     onClick={() => setShowSpeechLangMenu((v) => !v)}
                     disabled={speech.status === "listening"}
                     className={cn(
-                      "flex items-center gap-1.5 pl-2.5 pr-2 py-2.5 text-text-muted transition-colors",
+                      "flex items-center gap-1.5 pl-2.5 pr-2 py-2.5 rounded-l-xl text-text-muted transition-colors",
                       speech.status === "listening"
                         ? "opacity-45 cursor-not-allowed"
                         : "hover:bg-dark-800 hover:text-text-primary"
@@ -707,7 +707,7 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch
                     type="button"
                     onClick={speech.toggle}
                     className={cn(
-                      "flex items-center justify-center px-3 py-2.5 transition-colors",
+                      "flex items-center justify-center px-3 py-2.5 rounded-r-xl transition-colors",
                       speech.status === "listening"
                         ? "bg-red-500/15 text-red-400"
                         : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
