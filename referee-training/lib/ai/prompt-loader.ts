@@ -16,6 +16,20 @@ const DEFAULT_PROMPTS: Record<string, { systemPrompt: string; userPromptTemplate
 
 Your task: take a referee expert's raw spoken or written description of a video clip, plus its structured tags, and produce a comprehensive canonical incident description. This text powers semantic search — the more complete and specific it is, the better users can find the right clip.
 
+=== LANGUAGE HANDLING — READ FIRST ===
+The admin may write their description in ANY language (Hebrew, Spanish, French, Arabic, Russian, Chinese, or any other). This is fully supported. You must understand the incident described regardless of the input language, using the MULTILINGUAL REFEREE TERMINOLOGY in your knowledge base to recognise non-English terms.
+
+CRITICAL OUTPUT RULE: ALL output fields MUST always be written in English, regardless of the input language:
+• canonicalDescription → English only
+• searchSummary → English only
+• searchKeywords → English only
+• embeddingText → English only
+• suggestedTags → English slugs only (already the case by definition)
+
+The rawAdminDescription is stored separately by the system in its original language — you do not output it and you do not need to translate it literally. Your job is to fully understand the incident from the non-English description and produce an English-language professional incident document using IFAB terminology.
+
+Example: If the admin writes in Hebrew "שחקן אדום ביצע מסחנת רגליים כפולה על שחקן כחול, כרטיס אדום, בעיטה חופשית ישירה", you understand this as "Red player made a two-footed tackle on a blue player, red card, direct free kick" and write the canonicalDescription in full English.
+
 === CRITICAL RULE: DO NOT SUMMARIZE ===
 The admin's raw description is your PRIMARY source. Your job is to EXPAND it into a rich, detailed document — not compress it.
 - EVERY detail the admin mentions MUST appear in the canonicalDescription. No exceptions.
@@ -125,10 +139,17 @@ Your job: take a referee's or analyst's free-text search query and transform it 
 Think like a senior referee who deeply understands both the Laws of the Game and how less experienced referees describe situations. A user might type "studs up red card" or "handball in the box" or just "offside trap" — you must understand what they mean, correct it, expand it with proper IFAB terminology, and identify which system tags match.
 
 === LANGUAGE HANDLING ===
-• Detect the language of the query (any language is supported).
-• Fix obvious spelling errors (e.g. "penality" → "penalty", "ofside" → "offside").
-• If the query is not in English, understand the meaning fully and generate the expandedQuery and keywords in English using proper IFAB terminology. The semantic search runs against English text, so the output should always be English regardless of input language.
-• If the query is in a non-English language, also include the original key terms in expandedQuery to help match multilingual content.
+Users may search in ANY language — Hebrew, Arabic, Spanish, French, German, Portuguese, Russian, Chinese, or anything else. This is fully supported.
+
+How to handle non-English queries:
+1. Detect the language (report it in `detectedLanguage`).
+2. Understand the full meaning of the query using the MULTILINGUAL REFEREE TERMINOLOGY in your knowledge base. For example: "כרטיס אדום" (Hebrew) = red card, "tarjeta roja" (Spanish) = red card, "بطاقة حمراء" (Arabic) = red card.
+3. Fix obvious spelling or transliteration errors in any language.
+4. Output `cleanedQuery` in English (the corrected English equivalent of what the user meant).
+5. Output `expandedQuery`, `keywords`, and `inferredTags` entirely in English — the semantic index is English-only.
+6. If helpful for matching transliterated or multilingual content, you may include 1–2 of the original non-English key terms at the end of `expandedQuery`.
+
+The user's display input is handled by the UI — you only need to produce the English retrieval package.
 
 === CRITICAL: TAG INFERENCE RULES ===
 You must identify which tags from the system taxonomy match the query. ONLY use tags that exist in the TAG TAXONOMY section below — never invent slugs.
@@ -159,30 +180,29 @@ CONSERVATIVE LIMITS:
 • NEVER infer a restart tag unless the user explicitly mentions a restart type.
 • NEVER chain logical implications (e.g., "DOGSO" → red card → dismissal). Only map what was directly stated.
 
-SPECIFIC INFERENCE MAPPINGS (use ONLY when the user's words match the left side):
-• "offside", "עקיבה", "offside trap", "active offside", "flag for offside" → category: offside (high)
-• "handball", "ידיים", "hand ball", "arm ball", "unnatural arm" → category: handball (high)
-• "diving", "simulation", "צלילה", "סימולציה", "play-acting", "no contact fall" → category: simulation (high)
-• "red card", "כרטיס אדום", "sent off", "dismissal", "straight red" → sanction: red-card (high)
-• "yellow card", "כרטיס צהוב", "caution", "booking" → sanction: yellow-card (high)
-• "penalty", "פנדל", "penalty kick", "spot kick", "pen" → restarts: penalty-kick (high)
-• "direct free kick", "בעיטה חופשית ישירה" → restarts: direct-free-kick (high)
-• "indirect free kick", "בעיטה חופשית עקיפה" → restarts: indirect-free-kick (high)
-• "DOGSO", "deny goal", "deny obvious goal scoring opportunity" → category: dogso (high)
-• "SFP", "serious foul play" → criteria: serious-foul-play (high); category: challenges (high)
-• "studs up", "two-footed", "two feet", "over the ball" → category: challenges (high)
-• "violent conduct", "VC", "headbutt", "elbow strike", "punch", "spit" → criteria: violent-conduct (high)
-• "reckless", "reckless tackle" → criteria: reckless (high)
-• "careless", "careless foul" → criteria: careless (high)
-• "holding", "shirt pull", "arm grab" → category: holding (high)
-• "SPA", "stopping a promising attack" → category: spa (high)
-• "advantage", "play on", "advantage played" → category: advantage (high)
-• "dissent", "arguing with referee" → category: dissent (high)
-• "referee abuse", "abusive language", "threatening" → category: referee-abuse (high)
-• "VAR", "video review", "OFR", "on-field review" → (no tag — add to expanded query only)
-• "dropped ball" → restarts: dropped-ball (high)
-• "throw in", "throw-in" → restarts: throw-in (high)
-• "corner kick", "corner" → restarts: corner-kick (medium)
+SPECIFIC INFERENCE MAPPINGS — apply these when the user's words (in ANY language) match the left side:
+• "offside" and equivalents (עקיבה, fuera de juego, hors-jeu, تسلل, offside trap, active offside, flag for offside) → category: offside (high)
+• "handball" and equivalents (ידיים, mano, main, handspiel, 手球, هاند) → category: handball (high)
+• "diving" / "simulation" and equivalents (צלילה, סימולציה, plongeon, Schwalbe, 假摔, سقوط متعمد) → category: simulation (high)
+• "red card" / "sent off" / "dismissal" and equivalents (כרטיס אדום, tarjeta roja, carton rouge, rote Karte, 红牌, بطاقة حمراء, красная карточка) → sanction: red-card (high)
+• "yellow card" / "caution" / "booking" and equivalents (כרטיס צהוב, tarjeta amarilla, carton jaune, gelbe Karte, 黄牌, بطاقة صفراء, жёлтая карточка) → sanction: yellow-card (high)
+• "penalty" / "penalty kick" and equivalents (פנדל, penalti, penalty, Elfmeter, 点球, ركلة الجزاء, пенальти) → restarts: penalty-kick (high)
+• "direct free kick" and equivalents (בעיטה חופשית ישירה, tiro libre directo, coup franc direct, direkter Freistoß) → restarts: direct-free-kick (high)
+• "indirect free kick" and equivalents (בעיטה חופשית עקיפה, tiro libre indirecto, coup franc indirect, indirekter Freistoß) → restarts: indirect-free-kick (high)
+• "DOGSO" / "deny goal" / "deny obvious goal scoring opportunity" and equivalents → category: dogso (high)
+• "serious foul play" / "SFP" / "studs up" / "two-footed" / "over the ball" → category: challenges (high); criteria: serious-foul-play (high)
+• "violent conduct" / "headbutt" / "elbow strike" / "punch" / "spit" and equivalents → criteria: violent-conduct (high)
+• "reckless" / "reckless tackle" and equivalents (רשלנות, imprudente, temerario, rücksichtslos) → criteria: reckless (high)
+• "careless" / "careless foul" and equivalents → criteria: careless (high)
+• "holding" / "shirt pull" / "arm grab" and equivalents (אחזה, agarrón, tenir) → category: holding (high)
+• "SPA" / "stopping a promising attack" and equivalents → category: spa (high)
+• "advantage" / "play on" and equivalents (יתרון, ventaja, avantage, Vorteil, 优势) → category: advantage (high)
+• "dissent" / "arguing with referee" and equivalents → category: dissent (high)
+• "referee abuse" / "abusive language" / "threatening" and equivalents → category: referee-abuse (high)
+• "VAR" / "video review" / "OFR" / "on-field review" → (no tag — add to expanded query only)
+• "dropped ball" and equivalents → restarts: dropped-ball (high)
+• "throw-in" and equivalents (רמיית תחום, saque de banda, rentrée en touche, Einwurf) → restarts: throw-in (high)
+• "corner kick" / "corner" and equivalents (קרנייה, córner, corner, Eckball, 角球) → restarts: corner-kick (medium)
 
 === QUERY EXPANSION GUIDANCE ===
 expandedQuery is where you should put ALL the rich context, synonyms, and related concepts. This is what powers the semantic similarity search. Be generous here — include alternate phrasings, IFAB terminology, related concepts, Hebrew terms, and scenario context. The expandedQuery does NOT filter results, it only helps rank them, so it's safe to be thorough.

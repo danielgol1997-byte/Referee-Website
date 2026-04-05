@@ -201,7 +201,178 @@ Simulation-related:
 • Diving, going down easily, exaggerating contact, play-acting, buying a foul, theatrics, buying a penalty
 
 
-=== MULTILINGUAL NOTES ===
+=== MULTILINGUAL REFEREE TERMINOLOGY ===
 
-This library serves a multilingual audience. The AI should handle queries in any language — detect the language and translate/expand into English IFAB terminology for retrieval. The semantic search index is in English, so non-English queries must be translated to English for effective matching.
+This library serves a global, multilingual audience. The AI must understand referee terminology in any language and always translate/expand it into English IFAB terminology for search and tagging. Below are the most common non-English terms for key concepts.
+
+HEBREW (עברית) — primary secondary language for this platform:
+• כרטיס אדום = red card (sanction: red-card)
+• כרטיס צהוב = yellow card (sanction: yellow-card)
+• פנדל / עונשין = penalty kick (restarts: penalty-kick)
+• עקיבה / אופסייד = offside (category: offside)
+• עבירה = foul / offence
+• בעיטה חופשית = free kick
+• בעיטה חופשית ישירה = direct free kick (restarts: direct-free-kick)
+• בעיטה חופשית עקיפה = indirect free kick (restarts: indirect-free-kick)
+• ידיים / עבירת יד = handball (category: handball)
+• צלילה / סימולציה = simulation / diving (category: simulation)
+• דוגסו / דוגסו = DOGSO (category: dogso)
+• אדום ישיר = straight red card
+• זהירות = caution
+• הרחקה = dismissal / sending off
+• הגנה / אחזה = holding (category: holding)
+• עבירה מסוכנת = serious foul play (criteria: serious-foul-play)
+• אלימות = violent conduct (criteria: violent-conduct)
+• יתרון = advantage (category: advantage)
+• מריבה / פגיעה ברגליים = tackle / challenge (category: challenges)
+• רשלנות = reckless (criteria: reckless)
+• חוסר זהירות = careless (criteria: careless)
+• סמכות שיפוטית = referee authority
+• קרנייה = corner kick (restarts: corner-kick)
+• חומת אנוש = wall (in free kick situations)
+• שוטר = referee
+• עוזר שופט = assistant referee
+
+SPANISH (Español):
+• tarjeta roja = red card (sanction: red-card)
+• tarjeta amarilla = yellow card (sanction: yellow-card)
+• penalti / penal = penalty kick (restarts: penalty-kick)
+• fuera de juego / offside = offside (category: offside)
+• mano / handball = handball (category: handball)
+• falta = foul
+• tiro libre directo = direct free kick (restarts: direct-free-kick)
+• tiro libre indirecto = indirect free kick (restarts: indirect-free-kick)
+• simulación / clavado = simulation (category: simulation)
+• expulsión = dismissal / sending off
+• amonestación = caution / booking
+• ventaja = advantage (category: advantage)
+• falta grave = serious foul play (criteria: serious-foul-play)
+• conducta violenta = violent conduct (criteria: violent-conduct)
+• entrada imprudente / temeraria = reckless tackle (criteria: reckless)
+• saque de esquina = corner kick (restarts: corner-kick)
+• saque de banda = throw-in (restarts: throw-in)
+• portero = goalkeeper
+• árbitro = referee
+
+FRENCH (Français):
+• carton rouge = red card (sanction: red-card)
+• carton jaune = yellow card (sanction: yellow-card)
+• penalty = penalty kick (restarts: penalty-kick)
+• hors-jeu = offside (category: offside)
+• main / faute de main = handball (category: handball)
+• faute = foul
+• coup franc direct = direct free kick (restarts: direct-free-kick)
+• coup franc indirect = indirect free kick (restarts: indirect-free-kick)
+• simulation / plongeon = simulation / diving (category: simulation)
+• expulsion = dismissal / sending off
+• avertissement = caution / booking
+• avantage = advantage (category: advantage)
+• brutalité / jeu brutal = serious foul play (criteria: serious-foul-play)
+• violence / geste violent = violent conduct (criteria: violent-conduct)
+• corner = corner kick (restarts: corner-kick)
+• rentrée en touche = throw-in (restarts: throw-in)
+• gardien de but = goalkeeper
+• arbitre = referee
+
+PORTUGUESE (Português):
+• cartão vermelho = red card (sanction: red-card)
+• cartão amarelo = yellow card (sanction: yellow-card)
+• pênalti / penálti = penalty kick (restarts: penalty-kick)
+• impedimento / fora de jogo = offside (category: offside)
+• mão / toque de mão = handball (category: handball)
+• falta = foul
+• tiro livre direto = direct free kick (restarts: direct-free-kick)
+• tiro livre indireto = indirect free kick (restarts: indirect-free-kick)
+• simulação / mergulho = simulation (category: simulation)
+• expulsão = dismissal / sending off
+• advertência / amarelo = caution / booking
+• vantagem = advantage (category: advantage)
+• jogo brusco grave = serious foul play (criteria: serious-foul-play)
+• conduta violenta = violent conduct (criteria: violent-conduct)
+• escanteio / córner = corner kick (restarts: corner-kick)
+• lateral = throw-in (restarts: throw-in)
+• goleiro / guarda-redes = goalkeeper
+• árbitro = referee
+
+GERMAN (Deutsch):
+• rote Karte = red card (sanction: red-card)
+• gelbe Karte = yellow card (sanction: yellow-card)
+• Elfmeter / Strafstoß = penalty kick (restarts: penalty-kick)
+• Abseits = offside (category: offside)
+• Handspiel / Hand = handball (category: handball)
+• Foul / Regelverstoß = foul
+• direkter Freistoß = direct free kick (restarts: direct-free-kick)
+• indirekter Freistoß = indirect free kick (restarts: indirect-free-kick)
+• Schwalbe / Simulation = simulation / diving (category: simulation)
+• Platzverweis / Rote Karte = dismissal / sending off
+• Verwarnung = caution / booking
+• Vorteil = advantage (category: advantage)
+• grobes Foulspiel = serious foul play (criteria: serious-foul-play)
+• brutales Spiel / rohe Gewalt = violent conduct (criteria: violent-conduct)
+• rücksichtslos = reckless (criteria: reckless)
+• Eckball = corner kick (restarts: corner-kick)
+• Einwurf = throw-in (restarts: throw-in)
+• Torwart = goalkeeper
+• Schiedsrichter = referee
+
+ARABIC (العربية):
+• بطاقة حمراء = red card (sanction: red-card)
+• بطاقة صفراء = yellow card (sanction: yellow-card)
+• ركلة الجزاء / بنلتي = penalty kick (restarts: penalty-kick)
+• تسلل = offside (category: offside)
+• لمس باليد / هاند = handball (category: handball)
+• خطأ / مخالفة = foul
+• ركلة حرة مباشرة = direct free kick (restarts: direct-free-kick)
+• ركلة حرة غير مباشرة = indirect free kick (restarts: indirect-free-kick)
+• احتيال / سقوط متعمد = simulation / diving (category: simulation)
+• طرد = dismissal / sending off
+• إنذار = caution / booking
+• ميزة / أفضلية = advantage (category: advantage)
+• عنف شديد = serious foul play (criteria: serious-foul-play)
+• سلوك عنيف = violent conduct (criteria: violent-conduct)
+• ركلة ركنية = corner kick (restarts: corner-kick)
+• رمية التماس = throw-in (restarts: throw-in)
+• حارس المرمى = goalkeeper
+• الحكم = referee
+
+RUSSIAN (Русский):
+• красная карточка = red card (sanction: red-card)
+• жёлтая карточка = yellow card (sanction: yellow-card)
+• пенальти / одиннадцатиметровый = penalty kick (restarts: penalty-kick)
+• офсайд / вне игры = offside (category: offside)
+• игра рукой / рука = handball (category: handball)
+• фол / нарушение = foul
+• штрафной удар = direct free kick (restarts: direct-free-kick)
+• свободный удар = indirect free kick (restarts: indirect-free-kick)
+• симуляция / нырок = simulation / diving (category: simulation)
+• удаление = dismissal / sending off
+• предупреждение = caution / booking
+• преимущество = advantage (category: advantage)
+• грубая игра = serious foul play (criteria: serious-foul-play)
+• жестокое поведение = violent conduct (criteria: violent-conduct)
+• безрассудство = reckless (criteria: reckless)
+• угловой удар = corner kick (restarts: corner-kick)
+• вбрасывание = throw-in (restarts: throw-in)
+• вратарь = goalkeeper
+• арбитр / судья = referee
+
+CHINESE MANDARIN (普通话):
+• 红牌 (hóng pái) = red card (sanction: red-card)
+• 黄牌 (huáng pái) = yellow card (sanction: yellow-card)
+• 点球 / 点球大战 (diǎn qiú) = penalty kick (restarts: penalty-kick)
+• 越位 (yuè wèi) = offside (category: offside)
+• 手球 (shǒu qiú) = handball (category: handball)
+• 犯规 (fàn guī) = foul
+• 直接任意球 = direct free kick (restarts: direct-free-kick)
+• 间接任意球 = indirect free kick (restarts: indirect-free-kick)
+• 假摔 / 模拟犯规 = simulation / diving (category: simulation)
+• 被罚出场 = dismissal / sending off
+• 警告 = caution / booking
+• 优势 = advantage (category: advantage)
+• 恶意犯规 = serious foul play (criteria: serious-foul-play)
+• 暴力行为 = violent conduct (criteria: violent-conduct)
+• 角球 = corner kick (restarts: corner-kick)
+• 界外球 = throw-in (restarts: throw-in)
+• 守门员 = goalkeeper
+• 裁判 = referee
 `.trim();
