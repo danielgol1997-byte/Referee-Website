@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSpeechInput, detectInputLanguage } from "@/lib/hooks/useSpeechInput";
 import {
+  GlobeIcon,
   SPEECH_LANGUAGE_OPTIONS,
   useSpeechLanguagePreference,
 } from "@/lib/hooks/useSpeechLanguagePreference";
@@ -617,7 +618,7 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      onSearch?.();
+                      if (filters.searchText?.trim()) onSearch?.();
                     }
                   }}
                   onFocus={() => setSearchFocused(true)}
@@ -645,55 +646,80 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch
                   )}
                 </div>
               </div>
-              {/* Search submit button — appears when there's text to search */}
-              {filters.searchText?.trim() && (
-                <button
-                  type="button"
-                  onClick={onSearch}
-                  disabled={isSearching}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 text-sm font-medium",
-                    isSearching
-                      ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400 cursor-wait"
-                      : "border-cyan-500/60 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400"
-                  )}
-                  aria-label="Search"
-                >
-                  {isSearching ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                    </svg>
-                  )}
-                  <span className="hidden sm:inline">{isSearching ? "Searching…" : "Search"}</span>
-                </button>
-              )}
-              {/* Language picker + mic — gated behind isClient to avoid SSR hydration mismatch */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (filters.searchText?.trim()) onSearch?.();
+                }}
+                disabled={isSearching || !filters.searchText?.trim()}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 text-sm font-medium",
+                  isSearching
+                    ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400 cursor-wait"
+                    : !filters.searchText?.trim()
+                    ? "border-dark-700 bg-dark-900/40 text-text-muted/50 cursor-not-allowed opacity-60"
+                    : "border-cyan-500/60 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400"
+                )}
+                aria-label="Search"
+              >
+                {isSearching ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                )}
+                <span className="hidden sm:inline">{isSearching ? "Searching…" : "Search"}</span>
+              </button>
+              {/* Voice: unified language + mic (single control, one globe for Auto) */}
               {isClient && speech.isSupported && (
-                <div className="relative flex items-stretch gap-2 shrink-0" ref={speechLangRef}>
+                <div className="relative shrink-0 flex rounded-xl border border-dark-600 bg-dark-900/80 overflow-hidden shadow-sm shadow-black/20" ref={speechLangRef}>
                   <button
                     type="button"
                     onClick={() => setShowSpeechLangMenu((v) => !v)}
-                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dark-600 bg-dark-900/75 text-text-muted hover:text-text-primary hover:border-dark-500 transition-colors"
-                    aria-label="Voice language"
-                    title={`Voice language: ${activeSpeechOption.label}`}
+                    disabled={speech.status === "listening"}
+                    className={cn(
+                      "flex items-center gap-1.5 pl-2.5 pr-2 py-2.5 text-text-muted transition-colors",
+                      speech.status === "listening"
+                        ? "opacity-45 cursor-not-allowed"
+                        : "hover:bg-dark-800 hover:text-text-primary"
+                    )}
+                    aria-label="Voice input language"
+                    title={`Voice: ${activeSpeechOption.labelNative}`}
                   >
-                    <svg className="w-3.5 h-3.5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
-                    </svg>
-                    <span className="text-xs">{activeSpeechOption.flag}</span>
-                    <span className="text-[11px] font-semibold tracking-wide">{activeSpeechOption.abbr}</span>
-                    <svg className="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {speechLangPref === "auto" ? (
+                      <GlobeIcon className="w-3.5 h-3.5 shrink-0 opacity-90" />
+                    ) : (
+                      <span className="text-sm leading-none">{activeSpeechOption.flag}</span>
+                    )}
+                    <span className="text-[11px] font-semibold tracking-wide tabular-nums">
+                      {activeSpeechOption.abbr}
+                    </span>
+                    <svg className="w-3 h-3 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                  <div className="w-px self-stretch bg-dark-600" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={speech.toggle}
+                    className={cn(
+                      "flex items-center justify-center px-3 py-2.5 transition-colors",
+                      speech.status === "listening"
+                        ? "bg-red-500/15 text-red-400"
+                        : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
+                    )}
+                    aria-label={speech.status === "listening" ? "Stop listening" : "Voice search"}
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
+                    </svg>
+                  </button>
                   {showSpeechLangMenu && (
-                    <div className="absolute right-14 top-full mt-1 w-56 rounded-xl border border-dark-600 bg-dark-900/95 backdrop-blur-md shadow-2xl z-50 p-1">
+                    <div className="absolute right-0 top-full mt-1 w-[min(17.5rem,calc(100vw-2rem))] rounded-xl border border-dark-600 bg-dark-900/96 backdrop-blur-md shadow-2xl z-50 p-1">
                       {SPEECH_LANGUAGE_OPTIONS.map((opt) => {
                         const selected = opt.value === speechLangPref;
                         return (
@@ -705,37 +731,26 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch
                               setShowSpeechLangMenu(false);
                             }}
                             className={cn(
-                              "w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors",
+                              "w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
                               selected
                                 ? "bg-cyan-500/15 text-cyan-300"
                                 : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
                             )}
                           >
-                            <span className="flex items-center gap-2">
-                              <span>{opt.flag}</span>
-                              <span className="text-xs">{opt.label}</span>
+                            <span className="flex min-w-0 items-center gap-2">
+                              {opt.value === "auto" ? (
+                                <GlobeIcon className="w-4 h-4 shrink-0 opacity-85" />
+                              ) : (
+                                <span className="text-base leading-none shrink-0">{opt.flag}</span>
+                              )}
+                              <span className="text-xs truncate">{opt.labelNative}</span>
                             </span>
-                            <span className="text-[10px] font-semibold opacity-80">{opt.abbr}</span>
+                            <span className="text-[10px] font-semibold opacity-80 tabular-nums shrink-0">{opt.abbr}</span>
                           </button>
                         );
                       })}
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={speech.toggle}
-                    className={cn(
-                      "flex items-center justify-center px-3 py-2.5 rounded-xl border transition-all",
-                      speech.status === "listening"
-                        ? "border-red-500/70 bg-red-500/10 text-red-400"
-                        : "border-dark-600 text-text-muted hover:text-text-primary hover:border-dark-500 hover:bg-dark-800"
-                    )}
-                    aria-label={speech.status === "listening" ? "Stop listening" : "Voice search"}
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
-                    </svg>
-                  </button>
                 </div>
               )}
             </div>
