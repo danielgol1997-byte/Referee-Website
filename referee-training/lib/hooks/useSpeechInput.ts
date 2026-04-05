@@ -6,9 +6,8 @@ export type SpeechStatus = "idle" | "listening" | "processing" | "unsupported";
 
 interface UseSpeechInputOptions {
   /**
-   * Language hint for recognition. "he-IL" for Hebrew, "en-US" for English.
+   * Language hint for recognition. "he-IL" for Hebrew, "en-US" for English, etc.
    * If not provided, the browser uses the system language.
-   * When undefined the browser auto-detects, which works well for bilingual admins.
    */
   lang?: string;
   /** Called with the final transcript text each time a phrase is recognized */
@@ -20,6 +19,35 @@ interface UseSpeechInputOptions {
    * If false, each result replaces the current text (search mode - one shot query).
    */
   append?: boolean;
+}
+
+/**
+ * Detects the dominant script in a string and returns the best BCP-47 language
+ * tag for the Web Speech API.  Falls back to navigator.language (or "en-US")
+ * when the text is empty or uses only Latin characters.
+ *
+ * This lets the mic automatically follow whatever language the user is typing in —
+ * no manual language selection needed.
+ */
+const SCRIPT_LANGS: Array<{ pattern: RegExp; lang: string }> = [
+  { pattern: /[\u0590-\u05FF]/, lang: "he-IL" },   // Hebrew
+  { pattern: /[\u0600-\u06FF]/, lang: "ar-SA" },   // Arabic
+  { pattern: /[\u0400-\u04FF]/, lang: "ru-RU" },   // Cyrillic
+  { pattern: /[\u4E00-\u9FFF\u3400-\u4DBF]/, lang: "zh-CN" }, // CJK
+  { pattern: /[\u3040-\u30FF]/, lang: "ja-JP" },   // Hiragana/Katakana
+  { pattern: /[\uAC00-\uD7AF]/, lang: "ko-KR" },   // Korean
+  { pattern: /[\u0900-\u097F]/, lang: "hi-IN" },   // Devanagari
+  { pattern: /[\u0E00-\u0E7F]/, lang: "th-TH" },   // Thai
+];
+
+export function detectInputLanguage(text: string): string {
+  const browserLang =
+    (typeof navigator !== "undefined" ? navigator.language : null) || "en-US";
+  if (!text || text.trim().length < 2) return browserLang;
+  for (const { pattern, lang } of SCRIPT_LANGS) {
+    if (pattern.test(text)) return lang;
+  }
+  return browserLang;
 }
 
 export function useSpeechInput({

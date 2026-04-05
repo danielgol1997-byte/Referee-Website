@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useSpeechInput } from "@/lib/hooks/useSpeechInput";
+import { useSpeechInput, detectInputLanguage } from "@/lib/hooks/useSpeechInput";
 
 const SUGGESTED_SEARCHES = [
   "reckless tackle outside the penalty area",
@@ -126,6 +126,7 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoF
   const [speechError, setSpeechError] = useState<string | null>(null);
 
   const speech = useSpeechInput({
+    lang: detectInputLanguage(filters.searchText || ""),
     append: false, // In search mode, replace text with the spoken query
     onResult: (text) => {
       onFiltersChange({ ...filters, searchText: text });
@@ -165,6 +166,7 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoF
       }
     }
   }, []);
+
   const [draggedFilter, setDraggedFilter] = useState<FilterType | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<FilterType | null>(null);
   const [optionCounts, setOptionCounts] = useState<Record<string, Record<string, number>>>({});

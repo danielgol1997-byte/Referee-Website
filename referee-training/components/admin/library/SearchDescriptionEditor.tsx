@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useSpeechInput } from "@/lib/hooks/useSpeechInput";
+import { useSpeechInput, detectInputLanguage } from "@/lib/hooks/useSpeechInput";
 
 interface SearchDescriptionEditorProps {
   videoId: string;
@@ -69,6 +69,7 @@ export function SearchDescriptionEditor({
   const prevVideoIdRef = useRef<string | null>(null);
 
   const speech = useSpeechInput({
+    lang: detectInputLanguage(rawDescription),
     append: true,
     onResult: (text) => {
       setRawDescription((prev) => (prev.trim() ? prev + " " + text : text));
