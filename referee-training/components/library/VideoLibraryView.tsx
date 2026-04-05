@@ -95,9 +95,9 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchMeta, setSearchMeta] = useState<{ totalResults: number; searchMethod: string } | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track which tag slugs were auto-applied by AI so we can remove them when search is cleared
-  const aiAppliedTagSlugsRef = useRef<Set<string>>(new Set());
+  // committedSearchText is what was last actually submitted (Enter / button).
+  // filters.searchText is the live typed value shown in the input.
+  const [committedSearchText, setCommittedSearchText] = useState<string>("");
 
   // Calculate columns per row based on window width
   const getColumnsPerRow = useCallback(() => {
@@ -109,10 +109,10 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
     return 1; // mobile
   }, []);
 
-  // Semantic search effect - triggers when searchText changes
+  // Semantic search effect - fires only when committedSearchText changes (user pressed Enter / Search button)
   useEffect(() => {
-    const searchText = filters.searchText?.trim();
-    
+    const searchText = committedSearchText.trim();
+
     if (!searchText) {
       setSearchResults(null);
       setSearchMeta(null);
@@ -121,54 +121,21 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
         searchAbortRef.current.abort();
         searchAbortRef.current = null;
       }
-      // Remove AI-applied filters when search is cleared
-      if (aiAppliedTagSlugsRef.current.size > 0) {
-        const applied = aiAppliedTagSlugsRef.current;
-        setFilters((prev) => ({
-          ...prev,
-          categoryTags: prev.categoryTags.filter((s) => !applied.has(s)),
-          restarts: prev.restarts.filter((s) => !applied.has(s)),
-          criteria: prev.criteria.filter((s) => !applied.has(s)),
-          sanctions: prev.sanctions.filter((s) => !applied.has(s)),
-          scenarios: prev.scenarios.filter((s) => !applied.has(s)),
-          customTagFilters: Object.fromEntries(
-            Object.entries(prev.customTagFilters || {}).map(([k, v]) => [
-              k,
-              v.filter((s) => !applied.has(s)),
-            ])
-          ),
-        }));
-        aiAppliedTagSlugsRef.current = new Set();
-      }
       return;
     }
 
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    setIsSearching(true);
 
-    searchDebounceRef.current = setTimeout(async () => {
-      if (searchAbortRef.current) searchAbortRef.current.abort();
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-      setIsSearching(true);
-
+    (async () => {
       try {
-        // Collect active tag slugs from current filters
-        const activeTags: string[] = [
-          ...filters.categoryTags,
-          ...filters.restarts,
-          ...filters.criteria,
-          ...filters.sanctions,
-          ...filters.scenarios,
-          ...Object.values(filters.customTagFilters || {}).flat(),
-        ];
-
         const res = await fetch("/api/library/videos/semantic-search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: searchText,
-            tagFilters: activeTags.length > 0 ? activeTags : undefined,
-          }),
+          // Tag filters are intentionally omitted: they were cleared when search was submitted
+          body: JSON.stringify({ query: searchText }),
           signal: controller.signal,
         });
 
@@ -192,42 +159,31 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
           setSearchResults(results);
           setSearchMeta(data.meta);
 
-          const allInferred = (data.query?.inferredTags || []) as Array<{
+          // Apply high-confidence inferred tags so users can see what the AI matched
+          const highConf = ((data.query?.inferredTags || []) as Array<{
             tagSlug: string;
             categorySlug: string;
             confidence: "high" | "medium";
-          }>;
-
-          const highConf = allInferred.filter((t) => t.confidence === "high");
+          }>).filter((t) => t.confidence === "high");
 
           if (highConf.length > 0) {
-            const newlyApplied = new Set<string>();
             setFilters((prev) => {
               const next = { ...prev };
               for (const tag of highConf) {
-                const slug = tag.tagSlug;
-                const cat = tag.categorySlug;
-                if (cat === "category" && !next.categoryTags.includes(slug)) {
+                const { tagSlug: slug, categorySlug: cat } = tag;
+                if (cat === "category" && !next.categoryTags.includes(slug))
                   next.categoryTags = [...next.categoryTags, slug];
-                  newlyApplied.add(slug);
-                } else if (cat === "restarts" && !next.restarts.includes(slug)) {
+                else if (cat === "restarts" && !next.restarts.includes(slug))
                   next.restarts = [...next.restarts, slug];
-                  newlyApplied.add(slug);
-                } else if (cat === "sanction" && !next.sanctions.includes(slug)) {
+                else if (cat === "sanction" && !next.sanctions.includes(slug))
                   next.sanctions = [...next.sanctions, slug];
-                  newlyApplied.add(slug);
-                } else if (cat === "criteria" && !next.criteria.includes(slug)) {
+                else if (cat === "criteria" && !next.criteria.includes(slug))
                   next.criteria = [...next.criteria, slug];
-                  newlyApplied.add(slug);
-                } else if (cat === "scenario" && !next.scenarios.includes(slug)) {
+                else if (cat === "scenario" && !next.scenarios.includes(slug))
                   next.scenarios = [...next.scenarios, slug];
-                  newlyApplied.add(slug);
-                }
               }
               return next;
             });
-            // Track what was applied so we can remove it on search clear
-            newlyApplied.forEach((s) => aiAppliedTagSlugsRef.current.add(s));
           }
         } else {
           console.error("Search failed:", res.status);
@@ -239,19 +195,47 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
           setSearchResults(null);
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setIsSearching(false);
-        }
+        if (!controller.signal.aborted) setIsSearching(false);
       }
-    }, 600);
+    })();
 
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    return () => controller.abort();
+  }, [committedSearchText]);
+
+  // Submit the current search text: clear all previous filters, then fire search
+  const handleSearch = useCallback(() => {
+    const text = filters.searchText?.trim() || "";
+    // Clear all tag filters so every new search starts fresh
+    const freshFilters: VideoFilters = {
+      categoryTags: [],
+      restarts: [],
+      criteria: [],
+      sanctions: [],
+      scenarios: [],
+      laws: [],
+      customTagFilters: {},
+      searchText: filters.searchText,
     };
-  }, [filters.searchText, filters.categoryTags, filters.restarts, filters.criteria, filters.sanctions, filters.scenarios, filters.customTagFilters]);
+    setFilters(freshFilters);
+    if (typeof window !== "undefined") {
+      const { searchText: _st, ...toSave } = freshFilters;
+      localStorage.setItem("videoLibraryFilters", JSON.stringify(toSave));
+    }
+    setCommittedSearchText(text);
+    if (!text) {
+      setSearchResults(null);
+      setSearchMeta(null);
+    }
+  }, [filters.searchText]);
 
   const handleFiltersChange = (newFilters: VideoFilters) => {
     setFilters(newFilters);
+    // If searchText was cleared, also clear the committed search
+    if (!newFilters.searchText?.trim()) {
+      setCommittedSearchText("");
+      setSearchResults(null);
+      setSearchMeta(null);
+    }
     // Persist filters to localStorage (exclude searchText)
     if (typeof window !== 'undefined') {
       const { searchText, ...filtersToSave } = newFilters;
@@ -499,6 +483,10 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
   // Keyboard navigation for video grid
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Never steal keys while an input or textarea is focused (e.g. the search box)
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
       // Only handle keyboard navigation when no video is expanded
       if (expandedVideoId || displayVideos.length === 0) return;
 
@@ -565,6 +553,7 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
             filters={filters}
             onFiltersChange={handleFiltersChange}
             isSearching={isSearching}
+            onSearch={handleSearch}
           />
         </div>
 

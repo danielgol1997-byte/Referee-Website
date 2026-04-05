@@ -59,6 +59,7 @@ interface VideoFilterBarProps {
   filters: VideoFilters;
   onFiltersChange: (filters: VideoFilters) => void;
   isSearching?: boolean;
+  onSearch?: () => void;
 }
 
 type FilterType = 'category' | 'criteria' | 'restart' | 'sanction' | 'scenario' | `custom:${string}`;
@@ -119,7 +120,7 @@ const GROUP_COLORS: Record<string, string> = {
  * - Auto-hides/shows on hover
  * - Criteria requires category selection
  */
-export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoFilterBarProps) {
+export function VideoFilterBar({ filters, onFiltersChange, isSearching, onSearch }: VideoFilterBarProps) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -585,9 +586,15 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoF
                   onChange={(e) =>
                     onFiltersChange({ ...filters, searchText: e.target.value })
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onSearch?.();
+                    }
+                  }}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  placeholder={searchFocused ? "Search..." : ""}
+                  placeholder={searchFocused ? "Type then press Enter to search…" : ""}
                   className={cn(
                     "w-full pl-10 py-2.5 rounded-xl bg-dark-900/80 border-2 text-text-primary placeholder-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all",
                     speech.status === "listening"
@@ -595,19 +602,13 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoF
                       : "border-dark-600 focus:border-cyan-500/60 pr-10"
                   )}
                 />
-                {/* Right-side: clear & loading — inside input area */}
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-                  {isSearching && (
-                    <svg className="w-4 h-4 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  )}
-                  {filters.searchText && !isSearching && (
+                {/* Right-side: clear button inside input */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {filters.searchText && (
                     <button
                       type="button"
                       onClick={() => onFiltersChange({ ...filters, searchText: "" })}
-                      className="pointer-events-auto text-text-muted hover:text-text-primary transition-colors p-1"
+                      className="text-text-muted hover:text-text-primary transition-colors p-1"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -616,9 +617,35 @@ export function VideoFilterBar({ filters, onFiltersChange, isSearching }: VideoF
                   )}
                 </div>
               </div>
-              {/* Mic button — gated behind isClient to avoid SSR hydration mismatch */}
-              {isClient && speech.isSupported && (
+              {/* Search submit button — appears when there's text to search */}
+              {filters.searchText?.trim() && (
                 <button
+                  type="button"
+                  onClick={onSearch}
+                  disabled={isSearching}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 text-sm font-medium",
+                    isSearching
+                      ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400 cursor-wait"
+                      : "border-cyan-500/60 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400"
+                  )}
+                  aria-label="Search"
+                >
+                  {isSearching ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline">{isSearching ? "Searching…" : "Search"}</span>
+                </button>
+              )}
+              {/* Mic button — gated behind isClient to avoid SSR hydration mismatch */}
+              {isClient && speech.isSupported && (                <button
                   type="button"
                   onClick={speech.toggle}
                   className={cn(

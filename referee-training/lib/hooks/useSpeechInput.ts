@@ -23,11 +23,13 @@ interface UseSpeechInputOptions {
 
 /**
  * Detects the dominant script in a string and returns the best BCP-47 language
- * tag for the Web Speech API.  Falls back to navigator.language (or "en-US")
- * when the text is empty or uses only Latin characters.
+ * tag for the Web Speech API.
  *
- * This lets the mic automatically follow whatever language the user is typing in —
- * no manual language selection needed.
+ * When the input is empty (user presses mic before typing), falls back to the
+ * browser's ordered language preference list (`navigator.languages`).  This
+ * means users who have Hebrew (or any non-English language) configured as a
+ * preferred language in their browser/OS will get the correct speech engine
+ * automatically — no manual selection required.
  */
 const SCRIPT_LANGS: Array<{ pattern: RegExp; lang: string }> = [
   { pattern: /[\u0590-\u05FF]/, lang: "he-IL" },   // Hebrew
@@ -40,14 +42,52 @@ const SCRIPT_LANGS: Array<{ pattern: RegExp; lang: string }> = [
   { pattern: /[\u0E00-\u0E7F]/, lang: "th-TH" },   // Thai
 ];
 
+// Maps BCP-47 base language codes to full speech-API codes.
+// Does NOT include English intentionally — we skip English entries so that
+// users with a mixed list like ["en-US", "he-IL"] get Hebrew.
+const LANG_CODE_MAP: Record<string, string> = {
+  he: "he-IL",
+  ar: "ar-SA",
+  ru: "ru-RU",
+  uk: "uk-UA",
+  zh: "zh-CN",
+  ja: "ja-JP",
+  ko: "ko-KR",
+  hi: "hi-IN",
+  th: "th-TH",
+  fr: "fr-FR",
+  es: "es-ES",
+  de: "de-DE",
+  pt: "pt-BR",
+  it: "it-IT",
+  nl: "nl-NL",
+  pl: "pl-PL",
+  tr: "tr-TR",
+};
+
 export function detectInputLanguage(text: string): string {
-  const browserLang =
-    (typeof navigator !== "undefined" ? navigator.language : null) || "en-US";
-  if (!text || text.trim().length < 2) return browserLang;
-  for (const { pattern, lang } of SCRIPT_LANGS) {
-    if (pattern.test(text)) return lang;
+  if (typeof navigator === "undefined") return "en-US";
+
+  // 1. Script detection — most reliable when text is present
+  if (text && text.trim().length >= 1) {
+    for (const { pattern, lang } of SCRIPT_LANGS) {
+      if (pattern.test(text)) return lang;
+    }
   }
-  return browserLang;
+
+  // 2. Walk the browser's ordered language preference list.
+  //    Skip English entries so a user with ["en-US", "he-IL"] gets Hebrew.
+  const preferred: readonly string[] =
+    navigator.languages?.length ? navigator.languages : [navigator.language || "en-US"];
+
+  for (const pref of preferred) {
+    const base = pref.split("-")[0].toLowerCase();
+    if (LANG_CODE_MAP[base]) return LANG_CODE_MAP[base];
+    // If we hit a pure-English entry, keep looking (don't return early)
+    // If the entire list is English, the loop ends and we fall through.
+  }
+
+  return navigator.language || "en-US";
 }
 
 export function useSpeechInput({
