@@ -206,10 +206,17 @@ export function useSpeechInput({
     recognition.onstart = () => setStatus("listening");
 
     recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((result: any) => result[0].transcript)
-        .join(" ")
-        .trim();
+      // In continuous mode event.results is a cumulative array — ALL phrases
+      // seen so far. We must only process results from event.resultIndex
+      // onwards (the newly recognised phrase) to avoid duplicating text that
+      // was already appended on a previous onresult call.
+      const newPhrases: string[] = [];
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          newPhrases.push(event.results[i][0].transcript);
+        }
+      }
+      const transcript = newPhrases.join(" ").trim();
       if (transcript) {
         onResult(transcript);
       }

@@ -1,0 +1,1 @@
+Please commit all changes, push to git and verify deployment success by monitoring the vercel deployment using our cursor vercel mcp tool

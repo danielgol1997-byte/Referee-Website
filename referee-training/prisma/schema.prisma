@@ -36,6 +36,7 @@ model User {
   videoTestSessions     VideoTestSession[]
   videoTestCompletions  VideoTestCompletion[]
   aiPromptConfigs       AiPromptConfig[]
+  aiGenerationFeedback  AiGenerationFeedback[]
 }
 
 model Account {
@@ -124,6 +125,7 @@ model VideoClip {
   videoCategory       VideoCategory?  @relation(fields: [videoCategoryId], references: [id])
   tags                VideoTag[]
   videoTestClips      VideoTestClip[]
+  aiGenerationFeedback AiGenerationFeedback[]
 
   @@index([videoCategoryId, order])
   @@index([lawNumbers])
@@ -563,4 +565,32 @@ model VideoTestCompletion {
   @@unique([userId, videoTestId])
   @@index([userId])
   @@index([videoTestId])
+}
+
+// Stores admin feedback on AI-generated search descriptions.
+// Used to track hallucinations, embellishments, and translation errors
+// so the system prompt can be iteratively improved.
+model AiGenerationFeedback {
+  id              String    @id @default(cuid())
+  videoId         String
+  videoTitle      String?
+  // What was sent into the AI
+  rawInput        String    @db.Text
+  existingTags    String?   @db.Text
+  // What the AI produced
+  aiOutput        String    @db.Text
+  // Structured feedback
+  rating          Int       // 1–5: 1=hallucination/wrong, 3=ok, 5=great
+  issueType       String?   // "hallucination" | "embellishment" | "wrong_tag" | "translation" | "too_short" | "other"
+  note            String?   @db.Text
+  // Who flagged it
+  createdById     String
+  createdAt       DateTime  @default(now())
+
+  video           VideoClip @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  createdBy       User      @relation(fields: [createdById], references: [id])
+
+  @@index([videoId])
+  @@index([createdById])
+  @@index([createdAt])
 }

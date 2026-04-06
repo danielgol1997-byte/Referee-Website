@@ -83,6 +83,15 @@ CRITICAL INSTRUCTIONS FOR suggestedTags:
 === EXPLANATION CLIPS ===
 If the clip is an "explanation" type and an OFFICIAL EXPLANATION / GUIDANCE is provided, this is expert analysis from UEFA or equivalent. Incorporate its reasoning, key points, and terminology into the canonicalDescription. This text is critical context — it explains WHY the decision was made and what referees should learn.
 
+=== KNOWN ERRORS TO AVOID ===
+These are real mistakes that have occurred in past outputs. Do NOT repeat them:
+
+1. DO NOT mention the advantage rule / advantage clause unless the admin's description EXPLICITLY states that advantage was played or considered. "Play on" (no foul called) is NOT the advantage rule. If the referee simply decided there was no offence, do not invoke advantage at all.
+2. DO NOT upgrade or embellish qualitative descriptors from the admin's description. If the admin says "rather good positioning" write "rather good positioning" — do not write "excellent positioning" or "outstanding". Use the exact strength of language the admin used.
+3. DO NOT invent tactical conclusions, coaching observations, or evaluative judgements that the admin did not mention. Stick to what was described.
+4. DO NOT summarise or compress the admin's description. Every detail they gave must survive in the output.
+5. DO NOT infer a sanction from an incident type unless the admin or existing tags explicitly state it. Different incidents of the same type can carry different sanctions.
+
 === OTHER FIELDS ===
 • searchSummary: One line — "[Action] – [Decision] (Law X)". E.g. "Studs-up two-footed challenge — Red Card, Serious Foul Play (Law 12)".
 • searchKeywords: 15–25 terms covering: IFAB terms, common phrasings, body parts, player positions, card, restart, team colours if mentioned, scenario, stadium/competition if mentioned.

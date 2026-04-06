@@ -62,6 +62,14 @@ export function SearchDescriptionEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Feedback state — snapshot of the last generation for attaching to a report
+  const lastGenerationRef = useRef<{ rawInput: string; existingTags: string; aiOutput: string } | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(3);
+  const [feedbackIssueType, setFeedbackIssueType] = useState("");
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [showSpeechLangMenu, setShowSpeechLangMenu] = useState(false);
   const speechLangRef = useRef<HTMLDivElement>(null);
@@ -166,6 +174,14 @@ export function SearchDescriptionEditor({
       setKeywords(result.searchKeywords || []);
       setStatus("ai_generated");
       setSuccessMsg(null);
+      setFeedbackSent(false);
+      setShowFeedback(false);
+      // Snapshot for potential feedback submission
+      lastGenerationRef.current = {
+        rawInput: rawDescription,
+        existingTags: tags.map((t) => `[${t.category?.slug ?? ""}] ${t.name}`).join(", "),
+        aiOutput: result.canonicalDescription || "",
+      };
       const sugTags = Array.isArray(result.suggestedTags) ? result.suggestedTags : [];
       if (sugTags.length > 0 && onSuggestedTags) {
         onSuggestedTags(sugTags);
@@ -206,6 +222,34 @@ export function SearchDescriptionEditor({
       setError(err.message || "Save failed");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleFeedback = async () => {
+    const snap = lastGenerationRef.current;
+    if (!snap) return;
+    setIsSendingFeedback(true);
+    try {
+      await fetch("/api/admin/ai-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoId,
+          videoTitle: undefined,
+          rawInput: snap.rawInput,
+          existingTags: snap.existingTags,
+          aiOutput: snap.aiOutput,
+          rating: feedbackRating,
+          issueType: feedbackIssueType || null,
+          note: feedbackNote || null,
+        }),
+      });
+      setFeedbackSent(true);
+      setShowFeedback(false);
+    } catch {
+      // Silently ignore — feedback is best-effort
+    } finally {
+      setIsSendingFeedback(false);
     }
   };
 
@@ -492,6 +536,80 @@ export function SearchDescriptionEditor({
                 <button type="button" onClick={() => { const kw = keywordInput.trim(); if (kw && !keywords.includes(kw)) { setKeywords([...keywords, kw]); setKeywordInput(""); } }} className="px-3 py-1.5 rounded-lg bg-dark-700 border border-dark-600 text-text-muted hover:text-text-primary text-sm transition-colors">
                   Add
                 </button>
+              </div>
+
+              {/* ── Feedback row ── */}
+              <div className="pt-1 border-t border-dark-700">
+                {feedbackSent ? (
+                  <p className="text-xs text-green-400">Feedback recorded — thank you.</p>
+                ) : showFeedback ? (
+                  <div className="space-y-2">
+                    {/* Star rating */}
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setFeedbackRating(n)}
+                          className={cn("w-6 h-6 transition-colors", n <= feedbackRating ? "text-amber-400" : "text-dark-500 hover:text-amber-300")}
+                        >
+                          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z"/></svg>
+                        </button>
+                      ))}
+                      <span className="text-xs text-text-muted ml-1">{feedbackRating === 5 ? "Great" : feedbackRating === 4 ? "Good" : feedbackRating === 3 ? "OK" : feedbackRating === 2 ? "Issues" : "Wrong"}</span>
+                    </div>
+                    {/* Issue type */}
+                    <select
+                      value={feedbackIssueType}
+                      onChange={(e) => setFeedbackIssueType(e.target.value)}
+                      className="w-full rounded-lg bg-dark-900 border border-dark-600 text-sm text-text-primary px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                    >
+                      <option value="">Issue type (optional)</option>
+                      <option value="hallucination">Hallucination — invented detail</option>
+                      <option value="embellishment">Embellishment — language upgraded</option>
+                      <option value="wrong_tag">Wrong / missing tag suggested</option>
+                      <option value="translation">Translation error</option>
+                      <option value="too_short">Too short / missing detail</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {/* Note */}
+                    <textarea
+                      value={feedbackNote}
+                      onChange={(e) => setFeedbackNote(e.target.value)}
+                      rows={2}
+                      placeholder="What was wrong? (optional but helpful)"
+                      className="w-full rounded-lg bg-dark-900 border border-dark-600 text-xs text-text-primary px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleFeedback}
+                        disabled={isSendingFeedback}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-400 text-xs font-medium hover:bg-amber-600/30 transition-colors disabled:opacity-50"
+                      >
+                        {isSendingFeedback ? "Sending…" : "Submit"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowFeedback(false)}
+                        className="px-3 py-1.5 rounded-lg text-text-muted text-xs hover:text-text-primary transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowFeedback(true)}
+                    className="flex items-center gap-1.5 text-xs text-text-muted hover:text-amber-400 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Flag an issue with this output
+                  </button>
+                )}
               </div>
             </div>
           )}
