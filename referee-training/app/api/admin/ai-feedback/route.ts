@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { videoId, videoTitle, rawInput, existingTags, aiOutput, rating, issueType, note } = body;
+    const { videoId, videoTitle, rawInput, existingTags, aiOutput, aiSuggestedTags, rating, issueType, note } = body;
 
     if (!videoId || !rawInput || !aiOutput || typeof rating !== "number") {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
         rawInput,
         existingTags: existingTags ?? null,
         aiOutput,
+        aiSuggestedTags: Array.isArray(aiSuggestedTags) ? aiSuggestedTags : [],
         rating: Math.min(5, Math.max(1, rating)),
         issueType: issueType ?? null,
         note: note ?? null,

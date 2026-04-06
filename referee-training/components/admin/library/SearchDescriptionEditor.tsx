@@ -63,7 +63,7 @@ export function SearchDescriptionEditor({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   // Feedback state — snapshot of the last generation for attaching to a report
-  const lastGenerationRef = useRef<{ rawInput: string; existingTags: string; aiOutput: string } | null>(null);
+  const lastGenerationRef = useRef<{ rawInput: string; existingTags: string; aiOutput: string; aiSuggestedTags: string[] } | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(3);
   const [feedbackIssueType, setFeedbackIssueType] = useState("");
@@ -176,13 +176,14 @@ export function SearchDescriptionEditor({
       setSuccessMsg(null);
       setFeedbackSent(false);
       setShowFeedback(false);
+      const sugTags = Array.isArray(result.suggestedTags) ? result.suggestedTags : [];
       // Snapshot for potential feedback submission
       lastGenerationRef.current = {
         rawInput: rawDescription,
         existingTags: tags.map((t) => `[${t.category?.slug ?? ""}] ${t.name}`).join(", "),
         aiOutput: result.canonicalDescription || "",
+        aiSuggestedTags: sugTags,
       };
-      const sugTags = Array.isArray(result.suggestedTags) ? result.suggestedTags : [];
       if (sugTags.length > 0 && onSuggestedTags) {
         onSuggestedTags(sugTags);
       }
@@ -232,6 +233,7 @@ export function SearchDescriptionEditor({
       rawInput: rawDescription,
       existingTags: tags.map((t) => `[${t.category?.slug ?? ""}] ${t.name}`).join(", "),
       aiOutput: canonicalText,
+      aiSuggestedTags: [] as string[],
     };
     if (!snap.aiOutput) return;
     setIsSendingFeedback(true);
@@ -244,6 +246,7 @@ export function SearchDescriptionEditor({
           rawInput: snap.rawInput,
           existingTags: snap.existingTags,
           aiOutput: snap.aiOutput,
+          aiSuggestedTags: snap.aiSuggestedTags,
           rating: feedbackRating,
           issueType: feedbackIssueType || null,
           note: feedbackNote || null,

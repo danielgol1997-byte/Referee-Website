@@ -9,6 +9,7 @@ interface FeedbackEntry {
   rawInput: string;
   existingTags: string | null;
   aiOutput: string;
+  aiSuggestedTags: string[];
   rating: number;
   issueType: string | null;
   note: string | null;
@@ -208,6 +209,23 @@ export function AiFeedbackLog() {
                           <ExpandableText text={entry.aiOutput} />
                         </p>
                       </div>
+                      {entry.aiSuggestedTags?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+                            AI suggested tags
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {entry.aiSuggestedTags.map((slug) => (
+                              <span
+                                key={slug}
+                                className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-mono"
+                              >
+                                {slug}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {entry.note && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
