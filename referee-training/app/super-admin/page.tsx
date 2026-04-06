@@ -3,8 +3,6 @@ import { LawsAdminPanel } from "@/components/admin/laws/LawsAdminPanel";
 import { VideoLibraryContent } from "@/components/admin/library/VideoLibraryContent";
 import { UserManagementPanel } from "@/components/admin/users/UserManagementPanel";
 import { VideoTestsAdminPanel } from "@/components/admin/video-tests/VideoTestsAdminPanel";
-import { AiPromptConfigEditor } from "@/components/admin/library/AiPromptConfigEditor";
-import { AiFeedbackLog } from "@/components/admin/library/AiFeedbackLog";
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
@@ -12,8 +10,6 @@ const TABS = [
   { label: "VAR Practice", value: "var" },
   { label: "AR Practice", value: "ar" },
   { label: "Video Library", value: "library" },
-  { label: "AI Search", value: "ai-config" },
-  { label: "AI Feedback", value: "ai-feedback" },
   { label: "Users", value: "users" },
 ];
 
@@ -55,12 +51,6 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
         
         {/* Video Library Management */}
         {activeTab === "library" && <VideoLibraryContent />}
-
-        {/* AI Search Configuration */}
-        {activeTab === "ai-config" && <AiPromptConfigEditor />}
-
-        {/* AI Generation Feedback Log */}
-        {activeTab === "ai-feedback" && <AiFeedbackLog />}
 
         {/* User Management */}
         {activeTab === "users" && <UserManagementPanel />}

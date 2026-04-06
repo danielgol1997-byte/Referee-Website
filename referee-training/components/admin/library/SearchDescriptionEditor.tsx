@@ -226,16 +226,21 @@ export function SearchDescriptionEditor({
   };
 
   const handleFeedback = async () => {
-    const snap = lastGenerationRef.current;
-    if (!snap) return;
+    // Use the snapshot captured at generation time, or fall back to current
+    // state values so feedback works even on existing (pre-loaded) AI content.
+    const snap = lastGenerationRef.current ?? {
+      rawInput: rawDescription,
+      existingTags: tags.map((t) => `[${t.category?.slug ?? ""}] ${t.name}`).join(", "),
+      aiOutput: canonicalText,
+    };
+    if (!snap.aiOutput) return;
     setIsSendingFeedback(true);
     try {
-      await fetch("/api/admin/ai-feedback", {
+      const res = await fetch("/api/admin/ai-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           videoId,
-          videoTitle: undefined,
           rawInput: snap.rawInput,
           existingTags: snap.existingTags,
           aiOutput: snap.aiOutput,
@@ -244,10 +249,15 @@ export function SearchDescriptionEditor({
           note: feedbackNote || null,
         }),
       });
-      setFeedbackSent(true);
-      setShowFeedback(false);
-    } catch {
-      // Silently ignore — feedback is best-effort
+      if (res.ok) {
+        setFeedbackSent(true);
+        setShowFeedback(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        console.error("Feedback error:", data);
+      }
+    } catch (err) {
+      console.error("Feedback submit failed:", err);
     } finally {
       setIsSendingFeedback(false);
     }
