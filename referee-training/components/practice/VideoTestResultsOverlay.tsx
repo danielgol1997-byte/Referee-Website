@@ -75,11 +75,11 @@ function DecisionCard({
               : "border-[#ef4444] bg-[#ef4444]/20 text-[#ef4444]"
           )}
         >
-          <span className="mr-1.5 text-[10px] uppercase tracking-wider opacity-90">You:</span>
+          <span className="mr-1.5 text-[10px] uppercase tracking-wider opacity-90">Your Answer:</span>
           {userAnswer}
         </div>
         <div className="rounded-md border border-white/35 bg-white/10 px-2.5 py-1.5 text-sm font-medium text-white">
-          <span className="mr-1.5 text-[10px] uppercase tracking-wider text-text-secondary">Correct:</span>
+          <span className="mr-1.5 text-[10px] uppercase tracking-wider text-text-secondary">Correct Answer:</span>
           {expectedAnswer}
         </div>
       </div>
@@ -174,7 +174,9 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
                   src={clip.fileUrl}
                   poster={clip.thumbnailUrl ?? undefined}
                   controls
-                  preload="metadata"
+                  autoPlay
+                  muted
+                  preload="auto"
                   className="h-full w-full object-contain"
                 />
               </div>

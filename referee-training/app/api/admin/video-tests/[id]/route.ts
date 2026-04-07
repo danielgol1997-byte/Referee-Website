@@ -79,9 +79,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const hasPassingScore =
       passingScore !== undefined && passingScore !== null && String(passingScore).trim() !== "";
-    if (type === VideoTestType.MANDATORY && !hasPassingScore) {
-      return NextResponse.json({ error: "passingScore is required for mandatory tests" }, { status: 400 });
-    }
     if (hasPassingScore) {
       const numericPassingScore = Number(passingScore);
       if (!Number.isFinite(numericPassingScore) || numericPassingScore < 0 || numericPassingScore > 100) {

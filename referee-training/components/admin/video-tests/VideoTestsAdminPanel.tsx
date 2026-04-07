@@ -203,8 +203,6 @@ export function VideoTestsAdminPanel() {
       return;
     }
     setMaxViewsPerClip("0");
-    setUsePassingScore(false);
-    // Only run when switching type so public value is editable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
@@ -264,7 +262,6 @@ export function VideoTestsAdminPanel() {
         return prev.filter((x) => x !== id);
       }
       if (prev.length >= totalClips) {
-        setSelectionError("Increase total clips to select more.");
         return prev;
       }
       return [...prev, id];
@@ -275,8 +272,7 @@ export function VideoTestsAdminPanel() {
     name.trim().length > 0 &&
     totalClips > 0 &&
     (type !== "MANDATORY" ||
-      (Number(passingScore || 0) >= 0 &&
-        Number(maxViewsPerClip || 0) > 0 &&
+      (Number(maxViewsPerClip || 0) > 0 &&
         dueDate.trim().length > 0));
 
   const moveToStepTwo = () => {
@@ -339,7 +335,7 @@ export function VideoTestsAdminPanel() {
     const clipCount = test.clips?.length ?? test.totalClips ?? 1;
     setTotalClips(Math.max(1, clipCount));
     setPassingScore(String(test.passingScore ?? 70));
-    setUsePassingScore(test.type === "PUBLIC" && test.passingScore !== null && test.passingScore !== undefined);
+    setUsePassingScore(test.passingScore !== null && test.passingScore !== undefined);
     setMaxViewsPerClip(
       String(test.maxViewsPerClip ?? (test.type === "MANDATORY" ? 2 : 0))
     );
@@ -367,10 +363,7 @@ export function VideoTestsAdminPanel() {
         type,
         totalClips,
         isActive,
-        passingScore:
-          type === "MANDATORY" || usePassingScore
-            ? Number(passingScore) || 70
-            : null,
+        passingScore: usePassingScore ? Number(passingScore) || 70 : null,
         maxViewsPerClip: maxViewsPerClip.trim() ? Number(maxViewsPerClip) : null,
         dueDate: dueDate || null,
         selectedClipIds,
@@ -605,44 +598,42 @@ export function VideoTestsAdminPanel() {
                   <div
                     className={cn(
                       "transition-opacity",
-                      type === "PUBLIC" && !usePassingScore && "opacity-50"
+                      !usePassingScore && "opacity-50"
                     )}
                   >
                     <p className="text-sm font-medium text-text-secondary">
-                      Passing score {type === "MANDATORY" ? "(required)" : "(optional)"}
+                      Passing score (optional)
                     </p>
                     <p className="text-xs text-text-muted">0–100%</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    {type === "PUBLIC" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUsePassingScore((prev) => {
-                            const next = !prev;
-                            if (next && !passingScore.trim()) setPassingScore("70");
-                            return next;
-                          });
-                        }}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUsePassingScore((prev) => {
+                          const next = !prev;
+                          if (next && !passingScore.trim()) setPassingScore("70");
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-all duration-200",
+                        "focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900",
+                        "shadow-lg ring-2",
+                        usePassingScore
+                          ? "bg-accent ring-accent/50 shadow-cyan-500/20"
+                          : "bg-dark-600 ring-dark-500"
+                      )}
+                      role="switch"
+                      aria-checked={usePassingScore}
+                    >
+                      <span
                         className={cn(
-                          "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-all duration-200",
-                          "focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-dark-900",
-                          "shadow-lg ring-2",
-                          usePassingScore
-                            ? "bg-accent ring-accent/50 shadow-cyan-500/20"
-                            : "bg-dark-600 ring-dark-500"
+                          "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
+                          usePassingScore ? "translate-x-6" : "translate-x-1"
                         )}
-                        role="switch"
-                        aria-checked={usePassingScore}
-                      >
-                        <span
-                          className={cn(
-                            "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
-                            usePassingScore ? "translate-x-6" : "translate-x-1"
-                          )}
-                        />
-                      </button>
-                    )}
+                      />
+                    </button>
                     <div
                       className={cn(
                         "transition-opacity",
@@ -729,7 +720,7 @@ export function VideoTestsAdminPanel() {
                 <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-4 flex items-center justify-between">
                   <div className="text-sm text-text-secondary">
                     <span className="text-white font-semibold">{name || "Untitled test"}</span> · {type} · {totalClips} clips
-                    {(type === "MANDATORY" || usePassingScore) && ` · Pass ${passingScore || 70}%`}
+                    {usePassingScore && ` · Pass ${passingScore || 70}%`}
                     {" · "}Max views {type === "PUBLIC" && Number(maxViewsPerClip || 0) === 0 ? "∞" : maxViewsPerClip}
                   </div>
                   <button
@@ -767,7 +758,17 @@ export function VideoTestsAdminPanel() {
                 <div className="rounded-2xl border border-dark-600 bg-dark-800/50 p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-text-secondary">Selected clips</p>
-                    <span className="text-xs text-text-muted">{selectedClipIds.length}/{totalClips} chosen · Auto-fill {Math.max(totalClips - selectedClipIds.length, 0)}</span>
+                    <span className={cn(
+                      "text-xs font-semibold tabular-nums",
+                      selectedClipIds.length >= totalClips ? "text-[#22c55e]" : "text-text-muted"
+                    )}>
+                      {selectedClipIds.length} / {totalClips} selected
+                      {selectedClipIds.length < totalClips && (
+                        <span className="ml-1.5 font-normal text-text-muted">
+                          · {totalClips - selectedClipIds.length} auto-filled
+                        </span>
+                      )}
+                    </span>
                   </div>
                   {selectionError && <p className="text-xs text-status-danger">{selectionError}</p>}
                   {eligibleLoading ? (
@@ -782,6 +783,8 @@ export function VideoTestsAdminPanel() {
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {eligibleClips.map((clip) => {
                         const selected = selectedClipIds.includes(clip.id);
+                        const atMax = selectedClipIds.length >= totalClips;
+                        const isDisabled = !selected && atMax;
                         return (
                           <div
                             key={clip.id}
@@ -798,7 +801,9 @@ export function VideoTestsAdminPanel() {
                               "group flex items-center gap-4 rounded-xl border p-3 text-left transition-all cursor-pointer",
                               selected
                                 ? "border-accent bg-accent/10"
-                                : "border-dark-600 bg-dark-900/60 hover:border-cyan-500/50"
+                                : isDisabled
+                                  ? "border-dark-700 bg-dark-900/20 opacity-35 cursor-not-allowed pointer-events-none"
+                                  : "border-dark-600 bg-dark-900/60 hover:border-cyan-500/50"
                             )}
                           >
                             <div className="relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-dark-800">
@@ -924,7 +929,7 @@ export function VideoTestsAdminPanel() {
                   eligibleTotal === 0 ||
                   totalClips <= 0 ||
                   totalClips > eligibleTotal ||
-                  (type === "MANDATORY" && (Number(passingScore || 0) < 0 || Number(maxViewsPerClip || 0) <= 0))
+                  (type === "MANDATORY" && Number(maxViewsPerClip || 0) <= 0)
                 }
               >
                 {loading ? (editingTestId ? "Saving…" : "Creating…") : (editingTestId ? "Save changes" : "Create video test")}
