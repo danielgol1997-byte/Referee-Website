@@ -33,10 +33,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     // Allow super admin to edit any test, or users to edit their own user-generated tests
-    const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+    const callerIsSuperAdmin = isSuperAdmin(session.user.role);
     const isOwner = existingTest.createdById === session.user.id && existingTest.isUserGenerated;
     
-    if (!isSuperAdmin && !isOwner) {
+    if (!callerIsSuperAdmin && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -160,7 +160,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     // Fields that ONLY super admins can update
     // Regular users cannot make tests mandatory or change visibility
-    if (isSuperAdmin) {
+    if (callerIsSuperAdmin) {
       if (isActive !== undefined) updateData.isActive = isActive;
       if (isMandatory !== undefined) updateData.isMandatory = isMandatory;
     }
@@ -196,10 +196,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     // Allow super admin to delete any test, or users to delete their own user-generated tests
-    const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+    const callerIsSuperAdmin = isSuperAdmin(session.user.role);
     const isOwner = existingTest.createdById === session.user.id && existingTest.isUserGenerated;
     
-    if (!isSuperAdmin && !isOwner) {
+    if (!callerIsSuperAdmin && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -11,7 +11,7 @@ function unauthorized() {
 
 async function requireSuperAdmin() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  if (!isSuperAdmin(session?.user?.role)) {
     return { ok: false as const, session };
   }
   return { ok: true as const, session };

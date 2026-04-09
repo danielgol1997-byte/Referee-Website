@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !["SUPER_ADMIN", "ADMIN"].includes((session.user as any).role)) {
+    if (!session?.user || !isSuperAdmin((session.user as any).role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "SUPER_ADMIN") {
+    if (!session?.user || !isSuperAdmin((session.user as any).role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

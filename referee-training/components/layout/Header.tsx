@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { isSuperAdmin } from "@/lib/roles";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -209,7 +210,7 @@ export function Header() {
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
-              {displaySession.user.role === "SUPER_ADMIN" && (
+              {isSuperAdmin(displaySession.user.role) && (
                 <>
                   <Link 
                     href="/super-admin"

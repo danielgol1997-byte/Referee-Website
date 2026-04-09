@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
     
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || session.user.role !== 'SUPER_ADMIN') {
+    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
       console.error('❌ Unauthorized video creation attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
