@@ -67,10 +67,16 @@ const CATEGORY_TAG_CATEGORY_SLUG = 'category';
 const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
 const RESTARTS_TAG_CATEGORY_SLUG = 'restarts';
 const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
+const SCENARIO_TAG_CATEGORY_SLUG = 'scenario';
 const ANSWER_TAG_CATEGORY_SLUGS = new Set([
   RESTARTS_TAG_CATEGORY_SLUG,
   SANCTION_TAG_CATEGORY_SLUG,
   CRITERIA_TAG_CATEGORY_SLUG,
+]);
+const SINGLE_SELECT_FILTER_CATEGORY_SLUGS = new Set([
+  CATEGORY_TAG_CATEGORY_SLUG,
+  SCENARIO_TAG_CATEGORY_SLUG,
+  LAW_TAG_CATEGORY_SLUG,
 ]);
 
 const NO_OFFENCE_PATTERNS = [
@@ -128,6 +134,7 @@ const TAG_SHORTHAND_ALIASES: Record<string, string[]> = {
   "verbal-warning": ["verbal warning", "verbal only"],
   "yellow-card": ["caution", "cautioned", "booking"],
   "red-card": ["sending off", "sent off", "dismissal"],
+  "during-play": ["open play", "in open play", "during play"],
 };
 
 const dedupeTagsById = (input: Tag[]) => {
@@ -141,6 +148,104 @@ const dedupeTagsById = (input: Tag[]) => {
   return deduped;
 };
 
+const getTagMatchScore = (normalizedText: string, tag: Tag): number => {
+  const aliases = [tag.name, tag.slug ?? ""]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  let bestScore = 0;
+  for (const alias of aliases) {
+    const score = phraseMatchScore(normalizedText, alias);
+    bestScore = Math.max(bestScore, score);
+  }
+
+  if (bestScore === 0 && tag.slug) {
+    const shorthandPhrases = TAG_SHORTHAND_ALIASES[tag.slug];
+    if (shorthandPhrases) {
+      for (const phrase of shorthandPhrases) {
+        const normalized = normalizeTextForMatching(phrase);
+        if (normalized.length >= 3 && normalizedText.includes(normalized)) {
+          bestScore = Math.max(bestScore, normalized.length);
+        }
+      }
+    }
+  }
+
+  return bestScore;
+};
+
+const inferBestTagForCategoryFromText = (
+  text: string,
+  availableTags: Tag[],
+  categorySlug: string
+): Tag | null => {
+  if (!text.trim() || availableTags.length === 0) return null;
+  const normalizedText = normalizeTextForMatching(text).replace(/-/g, " ");
+  let bestMatch: { tag: Tag; score: number } | null = null;
+
+  for (const tag of availableTags) {
+    if (tag.category?.slug !== categorySlug) continue;
+    if (tag.useInVideoLibrary === false) continue;
+
+    const score = getTagMatchScore(normalizedText, tag);
+    if (score === 0) continue;
+    if (!bestMatch || score > bestMatch.score) {
+      bestMatch = { tag, score };
+    }
+  }
+
+  return bestMatch?.tag ?? null;
+};
+
+const inferLawTagFromText = (text: string, availableTags: Tag[]): Tag | null => {
+  const lawNumberMatch = text.match(/\blaw\s*(\d{1,2})\b/i);
+  if (lawNumberMatch?.[1]) {
+    const lawNumber = Number(lawNumberMatch[1]);
+    const directMatch = availableTags.find((tag) => {
+      if (tag.category?.slug !== LAW_TAG_CATEGORY_SLUG) return false;
+      const slug = (tag.slug ?? "").toLowerCase();
+      if (slug === `law-${lawNumber}`) return true;
+      return normalizeTextForMatching(tag.name).includes(`law ${lawNumber}`);
+    });
+    if (directMatch) return directMatch;
+  }
+  return inferBestTagForCategoryFromText(text, availableTags, LAW_TAG_CATEGORY_SLUG);
+};
+
+const getSelectedCategoryNames = (selectedTags: Tag[]): Set<string> => {
+  return new Set(
+    selectedTags
+      .filter((tag) => tag.category?.slug === CATEGORY_TAG_CATEGORY_SLUG)
+      .map((tag) => normalizeTextForMatching(tag.name))
+      .filter(Boolean)
+  );
+};
+
+const inferBestCriteriaTagFromText = (
+  text: string,
+  availableTags: Tag[],
+  allowedCategoryNames: Set<string>
+): Tag | null => {
+  if (!text.trim() || availableTags.length === 0 || allowedCategoryNames.size === 0) return null;
+  const normalizedText = normalizeTextForMatching(text).replace(/-/g, " ");
+  let bestMatch: { tag: Tag; score: number } | null = null;
+
+  for (const tag of availableTags) {
+    if (tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG) continue;
+    if (tag.useInVideoTests === false) continue;
+    const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
+    if (!parentCategory || !allowedCategoryNames.has(parentCategory)) continue;
+
+    const score = getTagMatchScore(normalizedText, tag);
+    if (score === 0) continue;
+    if (!bestMatch || score > bestMatch.score) {
+      bestMatch = { tag, score };
+    }
+  }
+
+  return bestMatch?.tag ?? null;
+};
+
 const inferDecisionStateFromText = (text: string): "offence" | "play_on" | "no_offence" | null => {
   const hasNoOffence = NO_OFFENCE_PATTERNS.some((pattern) => pattern.test(text));
   if (hasNoOffence) return "no_offence";
@@ -150,46 +255,26 @@ const inferDecisionStateFromText = (text: string): "offence" | "play_on" | "no_o
   return hasOffence ? "offence" : null;
 };
 
-const inferAnswerTagsFromText = (text: string, availableTags: Tag[]): Tag[] => {
+const inferAnswerTagsFromText = (
+  text: string,
+  availableTags: Tag[],
+  allowedCategoryNames: Set<string>
+): Tag[] => {
   if (!text.trim() || availableTags.length === 0) return [];
 
   const normalizedText = normalizeTextForMatching(text).replace(/-/g, " ");
   const singletonMatches = new Map<string, { tag: Tag; score: number }>();
-  const criteriaMatches: Tag[] = [];
+  const criteriaMatch = inferBestCriteriaTagFromText(text, availableTags, allowedCategoryNames);
 
   for (const tag of availableTags) {
     const categorySlug = tag.category?.slug;
     if (!categorySlug || !ANSWER_TAG_CATEGORY_SLUGS.has(categorySlug)) continue;
     if (tag.useInVideoTests === false) continue;
+    if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) continue;
 
-    const aliases = [tag.name, tag.slug ?? ""]
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    let bestScore = 0;
-    for (const alias of aliases) {
-      const score = phraseMatchScore(normalizedText, alias);
-      bestScore = Math.max(bestScore, score);
-    }
-
-    if (bestScore === 0 && tag.slug) {
-      const shorthandPhrases = TAG_SHORTHAND_ALIASES[tag.slug];
-      if (shorthandPhrases) {
-        for (const sh of shorthandPhrases) {
-          const normalized = normalizeTextForMatching(sh);
-          if (normalized.length >= 3 && normalizedText.includes(normalized)) {
-            bestScore = Math.max(bestScore, normalized.length);
-          }
-        }
-      }
-    }
+    const bestScore = getTagMatchScore(normalizedText, tag);
 
     if (bestScore === 0) continue;
-
-    if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
-      criteriaMatches.push(tag);
-      continue;
-    }
 
     const existing = singletonMatches.get(categorySlug);
     if (!existing || bestScore > existing.score) {
@@ -197,10 +282,24 @@ const inferAnswerTagsFromText = (text: string, availableTags: Tag[]): Tag[] => {
     }
   }
 
-  return dedupeTagsById([
-    ...Array.from(singletonMatches.values()).map((entry) => entry.tag),
-    ...criteriaMatches,
-  ]);
+  return dedupeTagsById(
+    [
+      ...Array.from(singletonMatches.values()).map((entry) => entry.tag),
+      criteriaMatch,
+    ].filter((tag): tag is Tag => tag !== null)
+  );
+};
+
+const inferSupportingTagsFromText = (text: string, availableTags: Tag[]): Tag[] => {
+  if (!text.trim() || availableTags.length === 0) return [];
+
+  const categoryTag = inferBestTagForCategoryFromText(text, availableTags, CATEGORY_TAG_CATEGORY_SLUG);
+  const scenarioTag = inferBestTagForCategoryFromText(text, availableTags, SCENARIO_TAG_CATEGORY_SLUG);
+  const lawTag = inferLawTagFromText(text, availableTags);
+
+  return dedupeTagsById(
+    [categoryTag, scenarioTag, lawTag].filter((tag): tag is Tag => tag !== null)
+  );
 };
 
 const extractLawNumber = (tag: Pick<Tag, 'name'>) => {
@@ -264,6 +363,29 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       setInvisibleTags(prev => prev.filter(tag => !tagsToAdd.find(t => t.id === tag.id)));
     }
   }, [invisibleTags]);
+
+  // Criteria must always be linked to a selected category.
+  // If no category is selected, remove criteria tags to avoid mismatched answers.
+  useEffect(() => {
+    const selectedCategoryNames = getSelectedCategoryNames([...correctDecisionTags, ...invisibleTags]);
+    const hasSelectedCategory = selectedCategoryNames.size > 0;
+
+    const criteriaIsValid = (tag: Tag) => {
+      if (tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG) return true;
+      if (!hasSelectedCategory) return false;
+      const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
+      return !!parentCategory && selectedCategoryNames.has(parentCategory);
+    };
+
+    const hasInvalidCriteria =
+      correctDecisionTags.some((tag) => !criteriaIsValid(tag)) ||
+      invisibleTags.some((tag) => !criteriaIsValid(tag));
+
+    if (!hasInvalidCriteria) return;
+
+    setCorrectDecisionTags((prev) => prev.filter(criteriaIsValid));
+    setInvisibleTags((prev) => prev.filter(criteriaIsValid));
+  }, [correctDecisionTags, invisibleTags]);
 
   // Sync form state when editing video changes
   useEffect(() => {
@@ -1151,7 +1273,17 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             const generationText = [rawDescription, canonicalDescription, searchSummary]
               .filter(Boolean)
               .join(" ");
-            const textInferredAnswerTags = inferAnswerTagsFromText(generationText, tags);
+            const textInferredSupportingTags = inferSupportingTagsFromText(generationText, tags);
+            const inferredCategoryNames = getSelectedCategoryNames([
+              ...correctDecisionTags,
+              ...invisibleTags,
+              ...textInferredSupportingTags,
+            ]);
+            const textInferredAnswerTags = inferAnswerTagsFromText(
+              generationText,
+              tags,
+              inferredCategoryNames
+            );
             const aiMatchedTags: Tag[] = Array.isArray(slugs)
               ? slugs
                   .map((slug) => {
@@ -1164,7 +1296,11 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                   .filter((tag): tag is Tag => tag !== null)
               : [];
 
-            const candidateTags = dedupeTagsById([...textInferredAnswerTags, ...aiMatchedTags]);
+            const candidateTags = dedupeTagsById([
+              ...textInferredSupportingTags,
+              ...textInferredAnswerTags,
+              ...aiMatchedTags,
+            ]);
             if (candidateTags.length === 0) return;
 
             let nextCorrect = [...correctDecisionTags];
@@ -1178,12 +1314,12 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
 
               if (isAnswerTag) {
                 if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
-                  if (!alreadyInCorrect) {
-                    nextCorrect = [...nextCorrect, tag];
-                  }
-                  if (alreadyInInvisible) {
-                    nextInvisible = nextInvisible.filter((t) => t.id !== tag.id);
-                  }
+                  // Keep one criteria only, and only from the selected category context.
+                  nextCorrect = nextCorrect.filter((t) => t.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG);
+                  nextInvisible = nextInvisible.filter(
+                    (t) => t.id !== tag.id && t.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG
+                  );
+                  nextCorrect.push(tag);
                   continue;
                 }
 
@@ -1197,6 +1333,16 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                 continue;
               }
 
+              if (categorySlug && SINGLE_SELECT_FILTER_CATEGORY_SLUGS.has(categorySlug)) {
+                // Category/scenario/law are treated as single-select for AI autofill.
+                nextCorrect = nextCorrect.filter((t) => t.category?.slug !== categorySlug);
+                nextInvisible = nextInvisible.filter(
+                  (t) => t.id !== tag.id && t.category?.slug !== categorySlug
+                );
+                nextInvisible.push(tag);
+                continue;
+              }
+
               if (alreadyInCorrect || alreadyInInvisible) continue;
               if (categorySlug && categorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
                 const categoryAlreadyHasTag = [...nextCorrect, ...nextInvisible].some(
@@ -1207,8 +1353,22 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
               nextInvisible.push(tag);
             }
 
-            nextCorrect = dedupeTagsById(nextCorrect);
-            nextInvisible = dedupeTagsById(nextInvisible.filter((tag) => !nextCorrect.some((ct) => ct.id === tag.id)));
+            // Criteria must be tied to a selected category.
+            const selectedCategoryNames = getSelectedCategoryNames([...nextCorrect, ...nextInvisible]);
+            const hasSelectedCategory = selectedCategoryNames.size > 0;
+            const criteriaIsValid = (tag: Tag) => {
+              if (tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG) return true;
+              if (!hasSelectedCategory) return false;
+              const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
+              return !!parentCategory && selectedCategoryNames.has(parentCategory);
+            };
+
+            nextCorrect = dedupeTagsById(nextCorrect.filter(criteriaIsValid));
+            nextInvisible = dedupeTagsById(
+              nextInvisible
+                .filter(criteriaIsValid)
+                .filter((tag) => !nextCorrect.some((ct) => ct.id === tag.id))
+            );
 
             setCorrectDecisionTags(nextCorrect);
             setInvisibleTags(nextInvisible);
@@ -1257,6 +1417,8 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                 filteredOptions = filteredOptions.filter(tag => 
                   tag.parentCategory && selectedCategoryNames.includes(tag.parentCategory)
                 );
+              } else {
+                filteredOptions = [];
               }
             }
             
