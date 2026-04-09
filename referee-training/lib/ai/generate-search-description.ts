@@ -170,7 +170,13 @@ export async function generateSearchDescription(
     ? parsed.suggestedTags
     : firstPassSuggestedTags;
   const filteredTags = Array.isArray(rawSuggestedTags)
-    ? rawSuggestedTags.filter((t: unknown) => typeof t === "string")
+    ? rawSuggestedTags
+        .filter((t: unknown) => typeof t === "string")
+        .map((t: string) => {
+          // AI sometimes returns "categorySlug/tagSlug"; normalise to bare tag slug
+          const slashIdx = t.lastIndexOf("/");
+          return slashIdx !== -1 ? t.slice(slashIdx + 1) : t;
+        })
     : [];
 
   const existingTagSlugs = metadata.tags.map((t) => t.slug);
