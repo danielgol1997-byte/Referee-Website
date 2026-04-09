@@ -25,7 +25,12 @@ interface SearchDescriptionEditorProps {
     category?: { name: string; slug: string } | null;
     isCorrectDecision?: boolean;
   }>;
-  onSuggestedTags?: (slugs: string[]) => void;
+  onSuggestedTags?: (payload: {
+    slugs: string[];
+    rawDescription: string;
+    canonicalDescription: string;
+    searchSummary: string;
+  }) => void;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
@@ -184,8 +189,13 @@ export function SearchDescriptionEditor({
         aiOutput: result.canonicalDescription || "",
         aiSuggestedTags: sugTags,
       };
-      if (sugTags.length > 0 && onSuggestedTags) {
-        onSuggestedTags(sugTags);
+      if (onSuggestedTags) {
+        onSuggestedTags({
+          slugs: sugTags,
+          rawDescription,
+          canonicalDescription: result.canonicalDescription || "",
+          searchSummary: result.searchSummary || "",
+        });
       }
     } catch (err: any) {
       setError(err.message || "Generation failed");

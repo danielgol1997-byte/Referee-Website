@@ -65,6 +65,143 @@ const GROUP_COLORS: Record<string, string> = {
 const LAW_TAG_CATEGORY_SLUG = 'laws';
 const CATEGORY_TAG_CATEGORY_SLUG = 'category';
 const CRITERIA_TAG_CATEGORY_SLUG = 'criteria';
+const RESTARTS_TAG_CATEGORY_SLUG = 'restarts';
+const SANCTION_TAG_CATEGORY_SLUG = 'sanction';
+const ANSWER_TAG_CATEGORY_SLUGS = new Set([
+  RESTARTS_TAG_CATEGORY_SLUG,
+  SANCTION_TAG_CATEGORY_SLUG,
+  CRITERIA_TAG_CATEGORY_SLUG,
+]);
+
+const NO_OFFENCE_PATTERNS = [
+  /\bno\s+offen[cs]e\b/i,
+  /\bno\s+foul\b/i,
+  /\bno\s+handball\s+offen[cs]e\b/i,
+  /\bno\s+offside\s+offen[cs]e\b/i,
+];
+
+const PLAY_ON_PATTERNS = [
+  /\bplay[\s-]*on\b/i,
+];
+
+const POSITIVE_OFFENCE_PATTERNS = [
+  /\boffen[cs]e\b/i,
+  /\bfoul\b/i,
+  /\bpenalty\b/i,
+  /\bdirect\s+free\s+kick\b/i,
+  /\bindirect\s+free\s+kick\b/i,
+  /\byellow\s+card\b/i,
+  /\bred\s+card\b/i,
+  /\bcaution(?:ed)?\b/i,
+  /\bsent\s+off\b/i,
+];
+
+const normalizeTextForMatching = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Returns a match score (0 = no match, positive = length of matching portion).
+ * Tries the full phrase first, then progressively shorter leading sub-phrases
+ * (removing one trailing word at a time, minimum 2 words or 60 % of original).
+ */
+const phraseMatchScore = (haystack: string, phrase: string): number => {
+  const normalizedPhrase = normalizeTextForMatching(phrase).replace(/-/g, " ");
+  if (!normalizedPhrase || normalizedPhrase.length < 3) return 0;
+  if (haystack.includes(normalizedPhrase)) return normalizedPhrase.length;
+
+  const words = normalizedPhrase.split(" ");
+  if (words.length < 3) return 0;
+  const minWords = Math.max(2, Math.ceil(words.length * 0.6));
+  for (let len = words.length - 1; len >= minWords; len--) {
+    const truncated = words.slice(0, len).join(" ");
+    if (truncated.length >= 3 && haystack.includes(truncated)) return truncated.length;
+  }
+  return 0;
+};
+
+const TAG_SHORTHAND_ALIASES: Record<string, string[]> = {
+  "no-disciplinary-sanction-needed": ["no card", "no sanction", "no discipline"],
+  "verbal-warning": ["verbal warning", "verbal only"],
+  "yellow-card": ["caution", "cautioned", "booking"],
+  "red-card": ["sending off", "sent off", "dismissal"],
+};
+
+const dedupeTagsById = (input: Tag[]) => {
+  const seen = new Set<string>();
+  const deduped: Tag[] = [];
+  for (const tag of input) {
+    if (seen.has(tag.id)) continue;
+    seen.add(tag.id);
+    deduped.push(tag);
+  }
+  return deduped;
+};
+
+const inferDecisionStateFromText = (text: string): "offence" | "play_on" | "no_offence" | null => {
+  const hasNoOffence = NO_OFFENCE_PATTERNS.some((pattern) => pattern.test(text));
+  if (hasNoOffence) return "no_offence";
+  const hasPlayOn = PLAY_ON_PATTERNS.some((pattern) => pattern.test(text));
+  if (hasPlayOn) return "play_on";
+  const hasOffence = POSITIVE_OFFENCE_PATTERNS.some((pattern) => pattern.test(text));
+  return hasOffence ? "offence" : null;
+};
+
+const inferAnswerTagsFromText = (text: string, availableTags: Tag[]): Tag[] => {
+  if (!text.trim() || availableTags.length === 0) return [];
+
+  const normalizedText = normalizeTextForMatching(text).replace(/-/g, " ");
+  const singletonMatches = new Map<string, { tag: Tag; score: number }>();
+  const criteriaMatches: Tag[] = [];
+
+  for (const tag of availableTags) {
+    const categorySlug = tag.category?.slug;
+    if (!categorySlug || !ANSWER_TAG_CATEGORY_SLUGS.has(categorySlug)) continue;
+    if (tag.useInVideoTests === false) continue;
+
+    const aliases = [tag.name, tag.slug ?? ""]
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    let bestScore = 0;
+    for (const alias of aliases) {
+      const score = phraseMatchScore(normalizedText, alias);
+      bestScore = Math.max(bestScore, score);
+    }
+
+    if (bestScore === 0 && tag.slug) {
+      const shorthandPhrases = TAG_SHORTHAND_ALIASES[tag.slug];
+      if (shorthandPhrases) {
+        for (const sh of shorthandPhrases) {
+          const normalized = normalizeTextForMatching(sh);
+          if (normalized.length >= 3 && normalizedText.includes(normalized)) {
+            bestScore = Math.max(bestScore, normalized.length);
+          }
+        }
+      }
+    }
+
+    if (bestScore === 0) continue;
+
+    if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
+      criteriaMatches.push(tag);
+      continue;
+    }
+
+    const existing = singletonMatches.get(categorySlug);
+    if (!existing || bestScore > existing.score) {
+      singletonMatches.set(categorySlug, { tag, score: bestScore });
+    }
+  }
+
+  return dedupeTagsById([
+    ...Array.from(singletonMatches.values()).map((entry) => entry.tag),
+    ...criteriaMatches,
+  ]);
+};
 
 const extractLawNumber = (tag: Pick<Tag, 'name'>) => {
   const nameMatch = tag.name.match(/\blaw\s*(\d{1,2})\b/i);
@@ -89,6 +226,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const progressOverlayRef = useRef<HTMLDivElement>(null);
   const lastEditingVideoIdRef = useRef<string | null>(null);
+  const tagsLoadedForVideoRef = useRef<string | null>(null);
 
   // Form data
   const [uploadMode, setUploadMode] = useState<'decisions' | 'explanations'>(
@@ -132,6 +270,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     const nextId = editingVideo?.id ?? null;
     if (lastEditingVideoIdRef.current === nextId) return;
     lastEditingVideoIdRef.current = nextId;
+    tagsLoadedForVideoRef.current = null;
 
     if (!editingVideo) {
       setVideoFile(null);
@@ -267,34 +406,38 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
     }
   }, [editingVideo?.fileUrl, videoPreview, videoDuration]);
 
-  // Load tags when editing video
+  // Load tags when editing video (once per video ID — do NOT re-run when
+  // the parent passes a new `tags` array reference, which would silently
+  // overwrite any unsaved tag changes made via AI enhancement or manual edits).
   useEffect(() => {
-    if (editingVideo?.tags && Array.isArray(editingVideo.tags)) {
-      const videoTags = editingVideo.tags
-        .map((vt: any) => {
-          const tagFromList = tags.find(t => t.id === (vt.tagId || vt.tag?.id));
-          const fallbackTag = vt.tag
-            ? {
-                id: vt.tag.id,
-                name: vt.tag.name,
-                color: vt.tag.color,
-                category: vt.tag.category,
-                parentCategory: vt.tag.parentCategory,
-              }
-            : null;
-          const resolvedTag = tagFromList || fallbackTag;
-          return resolvedTag
-            ? { ...resolvedTag, order: vt.decisionOrder || 0, isCorrect: vt.isCorrectDecision || false }
-            : null;
-        })
-        .filter((t: any) => t !== null);
+    if (!editingVideo?.tags || !Array.isArray(editingVideo.tags)) return;
+    if (tagsLoadedForVideoRef.current === editingVideo.id) return;
+    tagsLoadedForVideoRef.current = editingVideo.id;
 
-      const correct = videoTags.filter((t: any) => t.isCorrect).sort((a: any, b: any) => a.order - b.order);
-      const invisible = videoTags.filter((t: any) => !t.isCorrect);
+    const videoTags = editingVideo.tags
+      .map((vt: any) => {
+        const tagFromList = tags.find(t => t.id === (vt.tagId || vt.tag?.id));
+        const fallbackTag = vt.tag
+          ? {
+              id: vt.tag.id,
+              name: vt.tag.name,
+              color: vt.tag.color,
+              category: vt.tag.category,
+              parentCategory: vt.tag.parentCategory,
+            }
+          : null;
+        const resolvedTag = tagFromList || fallbackTag;
+        return resolvedTag
+          ? { ...resolvedTag, order: vt.decisionOrder || 0, isCorrect: vt.isCorrectDecision || false }
+          : null;
+      })
+      .filter((t: any) => t !== null);
 
-      setCorrectDecisionTags(correct);
-      setInvisibleTags(invisible);
-    }
+    const correct = videoTags.filter((t: any) => t.isCorrect).sort((a: any, b: any) => a.order - b.order);
+    const invisible = videoTags.filter((t: any) => !t.isCorrect);
+
+    setCorrectDecisionTags(correct);
+    setInvisibleTags(invisible);
   }, [editingVideo, tags]);
 
   useEffect(() => {
@@ -1002,29 +1145,93 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
               : null,
             isCorrectDecision: correctDecisionTags.some((ct) => ct.id === tag.id),
           }))}
-          onSuggestedTags={(slugs) => {
-            if (!Array.isArray(slugs) || slugs.length === 0 || tags.length === 0) return;
-            const allCurrentTags = [...correctDecisionTags, ...invisibleTags];
-            const tagsToAdd: Tag[] = [];
-            for (const slug of slugs) {
-              const match = tags.find((t) => (t.slug ?? "") === slug);
-              if (!match) {
-                console.warn(`[AI tag autofill] No system tag found for slug: "${slug}"`);
+          onSuggestedTags={({ slugs, rawDescription, canonicalDescription, searchSummary }) => {
+            if (tags.length === 0) return;
+
+            const generationText = [rawDescription, canonicalDescription, searchSummary]
+              .filter(Boolean)
+              .join(" ");
+            const textInferredAnswerTags = inferAnswerTagsFromText(generationText, tags);
+            const aiMatchedTags: Tag[] = Array.isArray(slugs)
+              ? slugs
+                  .map((slug) => {
+                    const match = tags.find((t) => (t.slug ?? "") === slug);
+                    if (!match) {
+                      console.warn(`[AI tag autofill] No system tag found for slug: "${slug}"`);
+                    }
+                    return match ?? null;
+                  })
+                  .filter((tag): tag is Tag => tag !== null)
+              : [];
+
+            const candidateTags = dedupeTagsById([...textInferredAnswerTags, ...aiMatchedTags]);
+            if (candidateTags.length === 0) return;
+
+            let nextCorrect = [...correctDecisionTags];
+            let nextInvisible = [...invisibleTags];
+
+            for (const tag of candidateTags) {
+              const categorySlug = tag.category?.slug;
+              const isAnswerTag = !!categorySlug && ANSWER_TAG_CATEGORY_SLUGS.has(categorySlug);
+              const alreadyInCorrect = nextCorrect.some((t) => t.id === tag.id);
+              const alreadyInInvisible = nextInvisible.some((t) => t.id === tag.id);
+
+              if (isAnswerTag) {
+                if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
+                  if (!alreadyInCorrect) {
+                    nextCorrect = [...nextCorrect, tag];
+                  }
+                  if (alreadyInInvisible) {
+                    nextInvisible = nextInvisible.filter((t) => t.id !== tag.id);
+                  }
+                  continue;
+                }
+
+                // restart/sanction are singleton answer categories. Prefer the latest
+                // explicit match from AI/admin description to keep one clear answer.
+                nextCorrect = nextCorrect.filter((t) => t.category?.slug !== categorySlug);
+                nextInvisible = nextInvisible.filter(
+                  (t) => t.id !== tag.id && t.category?.slug !== categorySlug
+                );
+                nextCorrect.push(tag);
                 continue;
               }
-              const alreadyPresent = allCurrentTags.some((t) => t.id === match.id);
-              if (alreadyPresent) continue;
-              const matchCategorySlug = match.category?.slug;
-              if (matchCategorySlug && matchCategorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
-                const categoryAlreadyHasTag = [...allCurrentTags, ...tagsToAdd].some(
-                  (t) => t.category?.slug === matchCategorySlug
+
+              if (alreadyInCorrect || alreadyInInvisible) continue;
+              if (categorySlug && categorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
+                const categoryAlreadyHasTag = [...nextCorrect, ...nextInvisible].some(
+                  (t) => t.category?.slug === categorySlug
                 );
                 if (categoryAlreadyHasTag) continue;
               }
-              tagsToAdd.push(match);
+              nextInvisible.push(tag);
             }
-            if (tagsToAdd.length > 0) {
-              setInvisibleTags((prev) => [...prev, ...tagsToAdd]);
+
+            nextCorrect = dedupeTagsById(nextCorrect);
+            nextInvisible = dedupeTagsById(nextInvisible.filter((tag) => !nextCorrect.some((ct) => ct.id === tag.id)));
+
+            setCorrectDecisionTags(nextCorrect);
+            setInvisibleTags(nextInvisible);
+
+            const inferredDecision = inferDecisionStateFromText(generationText);
+            if (inferredDecision === "no_offence") {
+              setPlayOn(false);
+              setNoOffence(true);
+            } else if (inferredDecision === "play_on") {
+              setPlayOn(true);
+              setNoOffence(false);
+            } else if (
+              inferredDecision === "offence" ||
+              nextCorrect.some((tag) => {
+                const categorySlug = tag.category?.slug;
+                return (
+                  categorySlug === RESTARTS_TAG_CATEGORY_SLUG ||
+                  categorySlug === SANCTION_TAG_CATEGORY_SLUG
+                );
+              })
+            ) {
+              setPlayOn(false);
+              setNoOffence(false);
             }
           }}
         />
