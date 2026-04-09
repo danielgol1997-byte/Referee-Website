@@ -29,6 +29,14 @@ export interface SearchDescriptionResult {
   searchKeywords: string[];
   embeddingText: string;
   suggestedTags: string[]; // tag slugs the AI is 100% confident about
+  _debug?: {
+    firstPassSuggestedTags: string[];
+    rawSuggestedTags: string[];
+    filteredTags: string[];
+    validatedTags: string[];
+    existingTagSlugs: string[];
+    allValidSlugsCount: number;
+  };
 }
 
 function replaceConditional(template: string, tag: string, value: boolean | string | null | undefined): string {
@@ -165,10 +173,12 @@ export async function generateSearchDescription(
     ? rawSuggestedTags.filter((t: unknown) => typeof t === "string")
     : [];
 
+  const existingTagSlugs = metadata.tags.map((t) => t.slug);
+
   // Validate suggested tags against the real taxonomy to prevent hallucinated slugs
-  const validatedTags = await validateSuggestedTags(
+  const { validatedTags, allValidSlugsCount } = await validateSuggestedTags(
     filteredTags,
-    metadata.tags.map((t) => t.slug)
+    existingTagSlugs
   );
 
   return {
@@ -177,14 +187,24 @@ export async function generateSearchDescription(
     searchKeywords: Array.isArray(parsed.searchKeywords) ? parsed.searchKeywords : [],
     embeddingText: parsed.embeddingText || parsed.canonicalDescription || "",
     suggestedTags: validatedTags,
+    // #region agent log
+    _debug: {
+      firstPassSuggestedTags,
+      rawSuggestedTags: Array.isArray(rawSuggestedTags) ? rawSuggestedTags : [],
+      filteredTags,
+      validatedTags,
+      existingTagSlugs,
+      allValidSlugsCount,
+    },
+    // #endregion
   };
 }
 
 async function validateSuggestedTags(
   slugs: string[],
   existingTagSlugs: string[]
-): Promise<string[]> {
-  if (slugs.length === 0) return slugs;
+): Promise<{ validatedTags: string[]; allValidSlugsCount: number }> {
+  if (slugs.length === 0) return { validatedTags: [], allValidSlugsCount: 0 };
 
   const categories = await getTagTaxonomyCategories();
   const allValidSlugs = new Set<string>();
@@ -196,7 +216,7 @@ async function validateSuggestedTags(
 
   const existingSet = new Set(existingTagSlugs);
 
-  return slugs.filter((slug) => {
+  const validatedTags = slugs.filter((slug) => {
     if (!allValidSlugs.has(slug)) {
       console.warn(
         `[AI suggested tags] Non-existent tag slug "${slug}" — filtering out`
@@ -208,4 +228,5 @@ async function validateSuggestedTags(
     }
     return true;
   });
+  return { validatedTags, allValidSlugsCount: allValidSlugs.size };
 }
