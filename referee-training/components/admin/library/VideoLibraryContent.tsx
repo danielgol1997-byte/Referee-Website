@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
 import { TagManager } from "./TagManager";
@@ -21,7 +22,9 @@ const INITIAL_VIDEO_FILTERS: AdminVideoFilters = {
 export function VideoLibraryContent() {
   const { data: session } = useSession();
   const isDev = (session?.user as any)?.role === "DEVELOPER";
+  const searchParams = useSearchParams();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('videos');
+  const autoEditVideoIdRef = useRef<string | null>(searchParams.get("editVideo"));
   const [videos, setVideos] = useState<any[]>([]);
   const [videoCategories, setVideoCategories] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
@@ -240,6 +243,23 @@ export function VideoLibraryContent() {
       }
     };
   }, [fetchVideos, fetchCategoriesAndTags]);
+
+  // Auto-open edit panel when ?editVideo=<id> is in the URL (from admin shortcut button)
+  useEffect(() => {
+    const videoId = autoEditVideoIdRef.current;
+    if (!videoId || isInitialLoadingVideos) return;
+    autoEditVideoIdRef.current = null; // only run once
+    fetch(`/api/admin/library/videos/${videoId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.video) {
+          setEditingVideo(data.video);
+          setActiveSubTab("upload");
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialLoadingVideos]);
 
   useEffect(() => {
     if (!hasInitializedVideosRef.current) return;

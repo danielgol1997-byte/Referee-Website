@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { DecisionReveal } from "./DecisionReveal";
 import { useLawTags } from "@/components/hooks/useLawTags";
+import { useSession } from "next-auth/react";
+import { isSuperAdmin } from "@/lib/roles";
 
 interface LoopMarker {
   time: number;
@@ -118,6 +121,8 @@ export function InlineVideoPlayer({
   showDecision = false,
   onCloseDecision,
 }: InlineVideoPlayerProps) {
+  const { data: session } = useSession();
+  const isAdminUser = isSuperAdmin((session?.user as any)?.role);
   const [showControls, setShowControls] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1336,6 +1341,28 @@ export function InlineVideoPlayer({
                       })}
                     </div>
                   )}
+                  {/* Admin Edit Shortcut — only visible to SUPER_ADMIN and DEVELOPER */}
+                  {isAdminUser && (
+                    <Link
+                      href={`/super-admin?tab=library&editVideo=${video.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Edit this video in admin panel"
+                      className={cn(
+                        "w-9 h-9 flex items-center justify-center rounded-lg shrink-0",
+                        "border border-purple-500/50 bg-purple-500/10 text-purple-400",
+                        "hover:bg-purple-500/20 hover:border-purple-400 hover:text-purple-300",
+                        "transition-all duration-200 hover:scale-105 active:scale-95",
+                        "shadow-[0_0_8px_rgba(168,85,247,0.2)]"
+                      )}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </Link>
+                  )}
+
                   {/* Show Answer Button */}
                   {hasAnswer && (
                     <button
