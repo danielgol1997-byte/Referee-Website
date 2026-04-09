@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/lib/utils";
 import { useSpeechInput, detectInputLanguage } from "@/lib/hooks/useSpeechInput";
 import {
@@ -33,6 +33,40 @@ interface SearchDescriptionEditorProps {
   }) => void;
 }
 
+export type SearchDescriptionEditorHandle = {
+  /** Persist current editor fields as approved/indexed when needed (e.g. with Update Video). */
+  commitApprovedWithCurrentEditorState: () => Promise<{
+    ok: boolean;
+    skipped?: boolean;
+    error?: string;
+  }>;
+};
+
+type SearchBaseline = {
+  rawAdminDescription: string;
+  canonicalSearchText: string;
+  searchSummary: string;
+  searchKeywords: string[];
+  searchDescriptionStatus: string;
+};
+
+function normalizeKeywordsList(kw: string[] | undefined | null): string[] {
+  return [...(kw ?? [])]
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .sort();
+}
+
+function baselineFromExisting(d: SearchDescriptionEditorProps["existingData"]): SearchBaseline {
+  return {
+    rawAdminDescription: d?.rawAdminDescription ?? "",
+    canonicalSearchText: d?.canonicalSearchText ?? "",
+    searchSummary: d?.searchSummary ?? "",
+    searchKeywords: normalizeKeywordsList(d?.searchKeywords ?? []),
+    searchDescriptionStatus: d?.searchDescriptionStatus ?? "none",
+  };
+}
+
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   none:         { label: "Not started",     dot: "bg-dark-500" },
   draft:        { label: "Draft",           dot: "bg-yellow-400" },
@@ -40,14 +74,20 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   approved:     { label: "Indexed",         dot: "bg-green-400" },
 };
 
-export function SearchDescriptionEditor({
-  videoId,
-  videoUrl,
-  explanationText,
-  existingData,
-  tags,
-  onSuggestedTags,
-}: SearchDescriptionEditorProps) {
+export const SearchDescriptionEditor = forwardRef<
+  SearchDescriptionEditorHandle,
+  SearchDescriptionEditorProps
+>(function SearchDescriptionEditor(
+  {
+    videoId,
+    videoUrl,
+    explanationText,
+    existingData,
+    tags,
+    onSuggestedTags,
+  },
+  ref
+) {
   const hasData = !!(
     existingData?.rawAdminDescription ||
     existingData?.canonicalSearchText ||
@@ -94,6 +134,21 @@ export function SearchDescriptionEditor({
   const existingDataRef = useRef(existingData);
   existingDataRef.current = existingData;
   const prevVideoIdRef = useRef<string | null>(null);
+  const lastPersistedRef = useRef<SearchBaseline | null>(null);
+  const editorStateRef = useRef({
+    rawDescription: "",
+    canonicalText: "",
+    searchSummary: "",
+    keywords: [] as string[],
+    status: "none",
+  });
+  editorStateRef.current = {
+    rawDescription,
+    canonicalText,
+    searchSummary,
+    keywords,
+    status,
+  };
 
   const speech = useSpeechInput({
     lang: resolvedSpeechLang,
@@ -118,6 +173,7 @@ export function SearchDescriptionEditor({
       setSearchSummary(d?.searchSummary || "");
       setKeywords(d?.searchKeywords || []);
       setStatus(d?.searchDescriptionStatus || "none");
+      lastPersistedRef.current = baselineFromExisting(d);
       const shouldOpen = !!(
         d?.rawAdminDescription ||
         d?.canonicalSearchText ||
@@ -228,6 +284,13 @@ export function SearchDescriptionEditor({
         throw new Error(data.error || `Error ${res.status}`);
       }
       setStatus(newStatus);
+      lastPersistedRef.current = {
+        rawAdminDescription: rawDescription,
+        canonicalSearchText: canonicalText,
+        searchSummary,
+        searchKeywords: [...keywords],
+        searchDescriptionStatus: newStatus,
+      };
       setSuccessMsg(newStatus === "approved" ? "Indexed for search." : "Draft saved.");
     } catch (err: any) {
       setError(err.message || "Save failed");
@@ -275,6 +338,71 @@ export function SearchDescriptionEditor({
       setIsSendingFeedback(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    commitApprovedWithCurrentEditorState: async () => {
+      const s = editorStateRef.current;
+      if (!lastPersistedRef.current) {
+        lastPersistedRef.current = baselineFromExisting(existingDataRef.current);
+      }
+      const baseline = lastPersistedRef.current;
+
+      const hasAnyContent = !!(
+        s.rawDescription.trim() ||
+        s.canonicalText.trim() ||
+        s.searchSummary.trim() ||
+        s.keywords.length > 0
+      );
+      if (!hasAnyContent && s.status === "none") {
+        return { ok: true, skipped: true };
+      }
+
+      const kwDirty =
+        JSON.stringify(normalizeKeywordsList(s.keywords)) !==
+        JSON.stringify(normalizeKeywordsList(baseline.searchKeywords));
+      const isDirty =
+        s.rawDescription !== baseline.rawAdminDescription ||
+        s.canonicalText !== baseline.canonicalSearchText ||
+        s.searchSummary !== baseline.searchSummary ||
+        kwDirty;
+
+      const needsApproval = s.status !== "approved";
+
+      if (!isDirty && !needsApproval) {
+        return { ok: true, skipped: true };
+      }
+
+      try {
+        const res = await fetch(`/api/admin/library/videos/${videoId}/search-description`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rawAdminDescription: s.rawDescription,
+            canonicalSearchText: s.canonicalText,
+            searchSummary: s.searchSummary,
+            searchKeywords: s.keywords,
+            searchDescriptionStatus: "approved",
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { ok: false, error: (data as { error?: string }).error || `Error ${res.status}` };
+        }
+        setStatus("approved");
+        lastPersistedRef.current = {
+          rawAdminDescription: s.rawDescription,
+          canonicalSearchText: s.canonicalText,
+          searchSummary: s.searchSummary,
+          searchKeywords: [...s.keywords],
+          searchDescriptionStatus: "approved",
+        };
+        return { ok: true };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Request failed";
+        return { ok: false, error: msg };
+      }
+    },
+  }));
 
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.none;
   const hasResult = !!(canonicalText || status === "ai_generated");
@@ -672,4 +800,6 @@ export function SearchDescriptionEditor({
       )}
     </div>
   );
-}
+});
+
+SearchDescriptionEditor.displayName = "SearchDescriptionEditor";

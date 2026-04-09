@@ -6,7 +6,7 @@ import { useModal } from "@/components/ui/modal";
 import { getClientUploadConfig, getThumbnailUrl, uploadVideoClient, uploadImageClient } from "@/lib/cloudinary-client";
 import { VideoEditor, VideoEditData } from "./VideoEditor";
 import { UploadProgress } from "./UploadProgress";
-import { SearchDescriptionEditor } from "./SearchDescriptionEditor";
+import { SearchDescriptionEditor, type SearchDescriptionEditorHandle } from "./SearchDescriptionEditor";
 
 interface VideoUploadFormProps {
   videoCategories: Array<{ id: string; name: string; slug: string }>;
@@ -326,6 +326,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
   const progressOverlayRef = useRef<HTMLDivElement>(null);
   const lastEditingVideoIdRef = useRef<string | null>(null);
   const tagsLoadedForVideoRef = useRef<string | null>(null);
+  const searchDescriptionEditorRef = useRef<SearchDescriptionEditorHandle>(null);
 
   // Form data
   const [uploadMode, setUploadMode] = useState<'decisions' | 'explanations'>(
@@ -1024,7 +1025,28 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       const result = await response.json();
       console.log('✅ Video created successfully:', result);
 
-      await modal.showSuccess(editingVideo ? 'Video updated successfully!' : 'Video uploaded successfully!');
+      let searchIndexOutcome: { ok: boolean; skipped?: boolean; error?: string } | null = null;
+      if (editingVideo?.id && searchDescriptionEditorRef.current) {
+        searchIndexOutcome =
+          await searchDescriptionEditorRef.current.commitApprovedWithCurrentEditorState();
+        if (!searchIndexOutcome.ok) {
+          await modal.showError(
+            `Video saved, but approving the AI search description failed: ${searchIndexOutcome.error ?? "Unknown error"}. Use Approve & Index under Video Description to finish.`
+          );
+          setLoading(false);
+          setUploadProgress(0);
+          return;
+        }
+      }
+
+      const successMessage =
+        editingVideo && searchIndexOutcome && !searchIndexOutcome.skipped
+          ? "Video updated and AI description approved for search."
+          : editingVideo
+            ? "Video updated successfully!"
+            : "Video uploaded successfully!";
+
+      await modal.showSuccess(successMessage);
       
       // Reset form
       setVideoFile(null);
@@ -1250,6 +1272,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
       {/* Video Description for AI filtering - shown when editing */}
       {editingVideo?.id && (
         <SearchDescriptionEditor
+          ref={searchDescriptionEditorRef}
           videoId={editingVideo.id}
           videoUrl={videoPreview || editingVideo?.fileUrl}
           explanationText={decisionExplanation || editingVideo?.decisionExplanation || undefined}
