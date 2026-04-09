@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isSuperAdmin } from "@/lib/roles";
 
 function unauthorized() {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -9,7 +10,7 @@ function unauthorized() {
 
 async function requireSuperAdmin() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  if (!isSuperAdmin(session?.user?.role)) {
     return { ok: false as const, session };
   }
   return { ok: true as const, session };
