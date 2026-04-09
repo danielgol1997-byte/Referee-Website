@@ -8,6 +8,7 @@ import {
   searchByEmbedding,
   hasVectorSupport,
 } from "@/lib/ai/embeddings";
+import { logSearchQuery } from "@/lib/ai/log-search-query";
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { query, tagFilters } = body;
+    const searchStart = Date.now();
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return NextResponse.json(
@@ -158,6 +160,22 @@ export async function POST(request: Request) {
       };
     });
 
+    const searchMethod = vectorSupport ? "semantic" : "keyword";
+
+    // Fire-and-forget — does not affect response latency
+    logSearchQuery({
+      userId: (session.user as any).id,
+      rawQuery: query,
+      expandedQuery: enhanced.expandedQuery,
+      detectedLanguage: enhanced.detectedLanguage,
+      inferredTags: enhanced.inferredTags as any,
+      selectedTagFilters: userTagSlugs,
+      resultVideoIds: enrichedResults.map((r) => r.id),
+      resultCount: enrichedResults.length,
+      searchMethod,
+      durationMs: Date.now() - searchStart,
+    });
+
     return NextResponse.json({
       results: enrichedResults,
       query: {
@@ -169,7 +187,7 @@ export async function POST(request: Request) {
       },
       meta: {
         totalResults: enrichedResults.length,
-        searchMethod: vectorSupport ? "semantic" : "keyword",
+        searchMethod,
       },
     });
   } catch (error: any) {

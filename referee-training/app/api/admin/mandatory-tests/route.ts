@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     const effectiveIncludeCustom = isUserGenerated ? false : includeCustom;
 
     // Only super admins can create mandatory tests
-    if (isMandatory && session.user.role !== "SUPER_ADMIN") {
+    if (isMandatory && !isSuperAdmin(session.user.role)) {
       return NextResponse.json({ error: "Only super admins can create mandatory tests" }, { status: 403 });
     }
 

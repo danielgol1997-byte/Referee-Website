@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
           : "user";
   const filters = body?.filters ?? {};
 
-  if ((scope === "admin" || scope === "admin-video-tests") && session.user.role !== "SUPER_ADMIN") {
+  if ((scope === "admin" || scope === "admin-video-tests") && !isSuperAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

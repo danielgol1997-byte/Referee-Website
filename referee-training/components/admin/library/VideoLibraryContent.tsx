@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
 import { TagManager } from "./TagManager";
 import { AdminVideoFilters } from "./AdminVideoFilterBar";
 import { AiPromptConfigEditor } from "./AiPromptConfigEditor";
 import { AiFeedbackLog } from "./AiFeedbackLog";
+import { SearchQueryLogViewer } from "./SearchQueryLogViewer";
 
 type SubTab = 'videos' | 'upload' | 'tags' | 'ai';
 const INITIAL_VIDEO_FILTERS: AdminVideoFilters = {
@@ -17,6 +19,8 @@ const INITIAL_VIDEO_FILTERS: AdminVideoFilters = {
 };
 
 export function VideoLibraryContent() {
+  const { data: session } = useSession();
+  const isDev = (session?.user as any)?.role === "DEVELOPER";
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('videos');
   const [videos, setVideos] = useState<any[]>([]);
   const [videoCategories, setVideoCategories] = useState<any[]>([]);
@@ -356,19 +360,21 @@ export function VideoLibraryContent() {
         >
           Tags ({tags.length})
         </button>
-        <button
-          onClick={() => {
-            setActiveSubTab('ai');
-            setEditingVideo(null);
-          }}
-          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
-            activeSubTab === 'ai'
-              ? 'bg-gradient-to-r from-purple-500 to-cyan-600 text-dark-900'
-              : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
-          }`}
-        >
-          AI Search
-        </button>
+        {isDev && (
+          <button
+            onClick={() => {
+              setActiveSubTab('ai');
+              setEditingVideo(null);
+            }}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
+              activeSubTab === 'ai'
+                ? 'bg-gradient-to-r from-purple-500 to-cyan-600 text-dark-900'
+                : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
+            }`}
+          >
+            AI Search
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -444,33 +450,32 @@ export function VideoLibraryContent() {
 }
 
 function AiSearchEnginePanel() {
-  const [activeAiTab, setActiveAiTab] = useState<'config' | 'feedback'>('config');
+  const [activeAiTab, setActiveAiTab] = useState<'config' | 'feedback' | 'search-logs'>('config');
+  const tabs = [
+    { value: 'config', label: 'Prompt Config' },
+    { value: 'feedback', label: 'Feedback Log' },
+    { value: 'search-logs', label: 'Search Logs' },
+  ] as const;
   return (
     <div className="space-y-4">
       <div className="flex gap-2 p-1 bg-dark-800/50 border border-dark-600 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveAiTab('config')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
-            activeAiTab === 'config'
-              ? 'bg-gradient-to-r from-purple-500 to-cyan-600 text-dark-900'
-              : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
-          }`}
-        >
-          Prompt Config
-        </button>
-        <button
-          onClick={() => setActiveAiTab('feedback')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
-            activeAiTab === 'feedback'
-              ? 'bg-gradient-to-r from-purple-500 to-cyan-600 text-dark-900'
-              : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
-          }`}
-        >
-          Feedback Log
-        </button>
+        {tabs.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setActiveAiTab(tab.value)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
+              activeAiTab === tab.value
+                ? 'bg-gradient-to-r from-purple-500 to-cyan-600 text-dark-900'
+                : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
       {activeAiTab === 'config' && <AiPromptConfigEditor />}
       {activeAiTab === 'feedback' && <AiFeedbackLog />}
+      {activeAiTab === 'search-logs' && <SearchQueryLogViewer />}
     </div>
   );
 }

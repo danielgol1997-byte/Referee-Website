@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,7 @@ import { getDefaultPrompt, getAllDefaultPromptKeys } from "@/lib/ai/prompt-loade
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    if (!session?.user || !isSuperAdmin(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -60,7 +61,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    if (!session?.user || !isSuperAdmin(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

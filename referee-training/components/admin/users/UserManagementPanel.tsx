@@ -31,6 +31,7 @@ const ROLE_OPTIONS = [
   { value: "REFEREE", label: "Referee" },
   { value: "ADMIN", label: "Admin" },
   { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "DEVELOPER", label: "Developer" },
 ];
 
 const formatDate = (value: string | null) => {

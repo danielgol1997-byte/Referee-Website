@@ -37,6 +37,7 @@ model User {
   videoTestCompletions  VideoTestCompletion[]
   aiPromptConfigs       AiPromptConfig[]
   aiGenerationFeedback  AiGenerationFeedback[]
+  searchQueryLogs       SearchQueryLog[]
 }
 
 model Account {
@@ -407,6 +408,7 @@ enum Role {
   REFEREE
   ADMIN
   SUPER_ADMIN
+  DEVELOPER
 }
 
 enum CategoryType {
@@ -594,4 +596,35 @@ model AiGenerationFeedback {
   @@index([videoId])
   @@index([createdById])
   @@index([createdAt])
+}
+
+// Logs every semantic search query made by users.
+// Used by developers to spot irrelevant results and improve the AI model.
+// Can be toggled off via DeveloperSettings.searchLoggingEnabled.
+model SearchQueryLog {
+  id                  String    @id @default(cuid())
+  userId              String
+  rawQuery            String
+  expandedQuery       String?
+  detectedLanguage    String?
+  inferredTags        Json?     // Array of {tagSlug, confidence}
+  selectedTagFilters  String[]  @default([])
+  resultVideoIds      String[]  @default([])
+  resultCount         Int       @default(0)
+  searchMethod        String    @default("keyword")  // "semantic" | "keyword"
+  durationMs          Int?
+  createdAt           DateTime  @default(now())
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Singleton developer configuration record (id = "default").
+// Stores feature flags controllable from the developer UI without a redeploy.
+model DeveloperSettings {
+  id                    String  @id @default("default")
+  searchLoggingEnabled  Boolean @default(true)
+  updatedAt             DateTime @updatedAt
 }

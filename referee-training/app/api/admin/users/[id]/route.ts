@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { isSuperAdmin, isDeveloper } from "@/lib/roles";
 
 /**
  * PATCH /api/admin/users/[id]
- * Update user status (activate/deactivate)
- * Requires SUPER_ADMIN role
+ * Update user status / role / profileComplete.
+ * Requires SUPER_ADMIN or DEVELOPER.
+ * Only SUPER_ADMIN or DEVELOPER may assign the DEVELOPER role.
  */
 export async function PATCH(
   request: Request,
@@ -15,8 +17,9 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    const callerRole = (session?.user as any)?.role;
 
-    if (!session || !session.user || session.user.role !== "SUPER_ADMIN") {
+    if (!session?.user || !isSuperAdmin(callerRole)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,11 +39,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     }
 
+    // Only SUPER_ADMIN or DEVELOPER can assign DEVELOPER role
+    if (role === "DEVELOPER" && !isSuperAdmin(callerRole)) {
+      return NextResponse.json({ error: "Only super admins and developers can assign the DEVELOPER role." }, { status: 403 });
+    }
+
     if (session.user.id === id && isActive === false) {
       return NextResponse.json({ error: "You cannot deactivate your own account." }, { status: 400 });
     }
 
-    if (session.user.id === id && role && role !== "SUPER_ADMIN") {
+    // Prevent self-downgrade (SUPER_ADMIN can't downgrade themselves, DEVELOPER can't either)
+    if (session.user.id === id && role && !isSuperAdmin(role) && !isDeveloper(role)) {
       return NextResponse.json({ error: "You cannot downgrade your own role." }, { status: 400 });
     }
 
