@@ -226,6 +226,8 @@ export function AiFeedbackLog() {
               const isExpanded = expanded === entry.id;
               const isEditing = editing === entry.id;
               const ratingColor = RATING_COLORS[entry.rating] ?? RATING_COLORS[3];
+              const clipTitle = entry.videoTitle?.trim() || "Untitled clip";
+              const clipEditHref = `/super-admin?tab=library&editVideo=${encodeURIComponent(entry.videoId)}`;
 
               return (
                 <div key={entry.id} className="rounded-xl border border-dark-600 bg-dark-800/40 overflow-hidden">
@@ -243,9 +245,12 @@ export function AiFeedbackLog() {
                             {ISSUE_LABELS[entry.issueType] ?? entry.issueType}
                           </span>
                         )}
-                        {entry.videoTitle && (
-                          <span className="text-xs text-text-muted truncate">{entry.videoTitle}</span>
-                        )}
+                        <span className="text-xs text-text-secondary">
+                          Clip: <span className="text-text-primary font-medium">{clipTitle}</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded border border-dark-600 bg-dark-900/70 text-cyan-300 font-mono">
+                          ID: {entry.videoId}
+                        </span>
                         <span className="text-xs text-dark-400 ml-auto shrink-0">
                           {new Date(entry.createdAt).toLocaleDateString()} · {entry.createdBy.name ?? entry.createdBy.email}
                         </span>
@@ -263,8 +268,22 @@ export function AiFeedbackLog() {
                   {isExpanded && (
                     <div className="px-4 pb-4 space-y-3 border-t border-dark-700">
                       {/* Developer action bar */}
+                      <div className="flex items-center gap-2 pt-3 flex-wrap">
+                        <a
+                          href={clipEditHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 px-3 py-1 rounded-lg border border-cyan-500/25 text-cyan-300 hover:text-cyan-200 hover:border-cyan-500/45 text-xs transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5h6M5 5v14h14v-6" />
+                          </svg>
+                          Open clip edit
+                        </a>
+
                       {isDev && (
-                        <div className="flex items-center gap-2 pt-3">
+                        <>
                           {isEditing ? (
                             <>
                               <StarRating rating={editRating} interactive onChange={setEditRating} />
@@ -335,8 +354,9 @@ export function AiFeedbackLog() {
                               </button>
                             </>
                           )}
-                        </div>
+                        </>
                       )}
+                      </div>
 
                       {/* Content fields */}
                       {entry.existingTags && (

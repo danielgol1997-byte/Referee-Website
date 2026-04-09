@@ -1274,6 +1274,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
         <SearchDescriptionEditor
           ref={searchDescriptionEditorRef}
           videoId={editingVideo.id}
+          videoTitle={title || editingVideo?.title || ""}
           videoUrl={videoPreview || editingVideo?.fileUrl}
           explanationText={decisionExplanation || editingVideo?.decisionExplanation || undefined}
           existingData={{
@@ -1308,9 +1309,36 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                   .filter((tag): tag is Tag => tag !== null)
               : [];
 
+            // Keep AI as the primary selector. If AI omits categories, fill only those
+            // missing categories from deterministic text inference as a safety net.
+            const aiSelectedCategorySlugs = new Set(
+              aiMatchedTags
+                .map((tag) => tag.category?.slug)
+                .filter((slug): slug is string => !!slug)
+            );
+            const inferredSupportingTags = inferSupportingTagsFromText(generationText, tags);
+            const inferredCategoryNames = getSelectedCategoryNames([
+              ...correctDecisionTags,
+              ...invisibleTags,
+              ...aiMatchedTags,
+              ...inferredSupportingTags,
+            ]);
+            const inferredAnswerTags = inferAnswerTagsFromText(
+              generationText,
+              tags,
+              inferredCategoryNames
+            );
+            const fallbackInferredTags = [...inferredSupportingTags, ...inferredAnswerTags].filter(
+              (tag) => {
+                const categorySlug = tag.category?.slug;
+                if (!categorySlug) return false;
+                return !aiSelectedCategorySlugs.has(categorySlug);
+              }
+            );
+
             // AI is the primary source for manual tag autofill. Local rules below only
             // enforce category/criteria consistency and singleton-category safety.
-            const candidateTags = dedupeTagsById(aiMatchedTags);
+            const candidateTags = dedupeTagsById([...aiMatchedTags, ...fallbackInferredTags]);
             if (candidateTags.length === 0) return;
 
             let nextCorrect = [...correctDecisionTags];

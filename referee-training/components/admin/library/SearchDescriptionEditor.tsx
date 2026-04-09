@@ -11,6 +11,7 @@ import {
 
 interface SearchDescriptionEditorProps {
   videoId: string;
+  videoTitle?: string;
   videoUrl?: string;
   explanationText?: string;
   existingData?: {
@@ -80,6 +81,7 @@ export const SearchDescriptionEditor = forwardRef<
 >(function SearchDescriptionEditor(
   {
     videoId,
+    videoTitle,
     videoUrl,
     explanationText,
     existingData,
@@ -316,6 +318,7 @@ export const SearchDescriptionEditor = forwardRef<
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           videoId,
+          videoTitle: videoTitle || null,
           rawInput: snap.rawInput,
           existingTags: snap.existingTags,
           aiOutput: snap.aiOutput,
