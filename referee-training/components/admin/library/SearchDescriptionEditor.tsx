@@ -182,9 +182,6 @@ export function SearchDescriptionEditor({
       setFeedbackSent(false);
       setShowFeedback(false);
       const sugTags = Array.isArray(result.suggestedTags) ? result.suggestedTags : [];
-      // #region agent log
-      fetch('http://127.0.0.1:7354/ingest/65500346-aa91-44e5-ac3d-c5a5c6197f2a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a7e566'},body:JSON.stringify({sessionId:'a7e566',location:'SearchDescriptionEditor.tsx:184',message:'AI generation result - suggestedTags and debug info',data:{sugTags,debug:result._debug ?? null},timestamp:Date.now(),hypothesisId:'A-B',runId:'post-fix'})}).catch(()=>{});
-      // #endregion
       // Snapshot for potential feedback submission
       lastGenerationRef.current = {
         rawInput: rawDescription,

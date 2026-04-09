@@ -1268,38 +1268,26 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             isCorrectDecision: correctDecisionTags.some((ct) => ct.id === tag.id),
           }))}
           onSuggestedTags={({ slugs, rawDescription, canonicalDescription, searchSummary }) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7354/ingest/65500346-aa91-44e5-ac3d-c5a5c6197f2a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a7e566'},body:JSON.stringify({sessionId:'a7e566',location:'VideoUploadForm.tsx:onSuggestedTags-entry',message:'onSuggestedTags called',data:{slugsReceived:slugs,tagsArrayLength:tags.length,tagsEmpty:tags.length===0},timestamp:Date.now(),hypothesisId:'C',runId:'post-fix'})}).catch(()=>{});
-            // #endregion
             if (tags.length === 0) return;
 
             const generationText = [rawDescription, canonicalDescription, searchSummary]
               .filter(Boolean)
               .join(" ");
-            const unmatchedSlugs: string[] = [];
             const aiMatchedTags: Tag[] = Array.isArray(slugs)
               ? slugs
                   .map((slug) => {
                     const match = tags.find((t) => (t.slug ?? "") === slug);
                     if (!match) {
                       console.warn(`[AI tag autofill] No system tag found for slug: "${slug}"`);
-                      unmatchedSlugs.push(slug);
                     }
                     return match ?? null;
                   })
                   .filter((tag): tag is Tag => tag !== null)
               : [];
 
-            // #region agent log
-            fetch('http://127.0.0.1:7354/ingest/65500346-aa91-44e5-ac3d-c5a5c6197f2a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a7e566'},body:JSON.stringify({sessionId:'a7e566',location:'VideoUploadForm.tsx:onSuggestedTags-matching',message:'slug-to-tag mapping result',data:{inputSlugs:slugs,aiMatchedCount:aiMatchedTags.length,unmatchedSlugs,aiMatchedTagSlugs:aiMatchedTags.map(t=>t.slug),sampleTagSlugsInSystem:tags.slice(0,10).map(t=>t.slug)},timestamp:Date.now(),hypothesisId:'C-D',runId:'post-fix'})}).catch(()=>{});
-            // #endregion
-
             // AI is the primary source for manual tag autofill. Local rules below only
             // enforce category/criteria consistency and singleton-category safety.
             const candidateTags = dedupeTagsById(aiMatchedTags);
-            // #region agent log
-            fetch('http://127.0.0.1:7354/ingest/65500346-aa91-44e5-ac3d-c5a5c6197f2a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a7e566'},body:JSON.stringify({sessionId:'a7e566',location:'VideoUploadForm.tsx:onSuggestedTags-candidates',message:'candidateTags after dedup',data:{candidateCount:candidateTags.length,earlyReturn:candidateTags.length===0,candidateSlugs:candidateTags.map(t=>t.slug)},timestamp:Date.now(),hypothesisId:'D',runId:'post-fix'})}).catch(()=>{});
-            // #endregion
             if (candidateTags.length === 0) return;
 
             let nextCorrect = [...correctDecisionTags];
@@ -1369,9 +1357,6 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                 .filter((tag) => !nextCorrect.some((ct) => ct.id === tag.id))
             );
 
-            // #region agent log
-            fetch('http://127.0.0.1:7354/ingest/65500346-aa91-44e5-ac3d-c5a5c6197f2a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a7e566'},body:JSON.stringify({sessionId:'a7e566',location:'VideoUploadForm.tsx:onSuggestedTags-setState',message:'setting tag state',data:{nextCorrectSlugs:nextCorrect.map(t=>t.slug),nextInvisibleSlugs:nextInvisible.map(t=>t.slug)},timestamp:Date.now(),hypothesisId:'D-E',runId:'post-fix'})}).catch(()=>{});
-            // #endregion
             setCorrectDecisionTags(nextCorrect);
             setInvisibleTags(nextInvisible);
 
