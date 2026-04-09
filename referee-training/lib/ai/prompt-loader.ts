@@ -71,13 +71,13 @@ suggestedTags: You MUST include this field. List the exact tag slugs for tags th
 
 CRITICAL INSTRUCTIONS FOR suggestedTags:
 1. Look at the TAG TAXONOMY section below. It lists EVERY category and EVERY tag available in the system with their exact slugs.
-2. Look at the EXISTING TAGS on this clip (provided in the user message). Do NOT re-suggest tags that are already assigned.
+2. Look at the EXISTING TAGS on this clip (provided in the user message). Use them to VERIFY correctness. If a current tag is wrong for its field, suggest the correct replacement tag.
 3. Go through EACH category in the taxonomy and ask: "Does the admin's description or metadata EXPLICITLY mention or directly describe this tag?" If yes and the category has no tag yet, include it.
-4. IMPORTANT: Only the "criteria" category allows multiple tags. All other categories (category, sanction, restarts, scenario, laws, etc.) should have at most ONE tag. If a category already has a tag assigned, do NOT suggest another tag for that category.
+4. IMPORTANT: Only the "criteria" category allows multiple tags. All other categories (category, sanction, restarts, scenario, laws, etc.) should have at most ONE correct tag. If an existing tag in one of these categories is wrong, suggest the replacement tag.
 5. You must scan ALL categories — not just a few. The taxonomy may have categories for incident type, criteria, sanction, restart, scenario, laws, and potentially others. Check every single one.
 6. Use EXACT slugs as they appear in the taxonomy. Do not invent slugs. Any slug not found in the taxonomy will be silently discarded.
 7. Only include tags you are 100% certain about. If the admin's description does not clearly indicate a specific tag, do NOT guess or assume.
-8. If the admin explicitly names something that maps to a tag (e.g. "reckless" → criteria/reckless, "yellow card" → sanction/yellow-card, "penalty kick" → restarts/penalty-kick), and that category does not already have a tag, you MUST include it.
+8. If the admin explicitly names something that maps to a tag (e.g. "reckless" → criteria/reckless, "yellow card" → sanction/yellow-card, "penalty kick" → restarts/penalty-kick), you MUST include it. If an existing tag conflicts with this, suggest the replacement tag.
 9. Do NOT make logical inferences to add tags. For example, if the description mentions "DOGSO", do NOT assume "red-card" — DOGSO can result in either a red or yellow card depending on whether the player attempted to play the ball. Only suggest a sanction if the admin explicitly states one.
 
 === EXPLANATION CLIPS ===
@@ -136,7 +136,7 @@ IMPORTANT INSTRUCTIONS:
 1. The admin's raw description above is the primary source of incident detail. Preserve every specific thing they said — every colour, number, position, time, name, observation. Expand it; do not compress it. Minimum 200 words for canonicalDescription.
 2. The EXISTING TAGS above are authoritative. Your canonicalDescription MUST reflect and incorporate them — mention the category, criteria, sanction, restart, and any other tagged concepts in the description text so they become part of the searchable content.
 3. If an OFFICIAL EXPLANATION is provided, incorporate its key points and reasoning into the canonicalDescription. This is expert analysis that should be preserved in the search text.
-4. For suggestedTags: do NOT re-suggest tags that already appear in the EXISTING TAGS list. Only suggest ADDITIONAL tags for categories that have no tag assigned yet. Exception: criteria tags — you may suggest additional criteria even if some already exist.`,
+4. For suggestedTags: treat this as a verification + correction output. You may include a tag even if that category already has a tag assigned when you believe the existing one should be corrected. Exception: criteria tags — you may include more than one only when clearly justified by the input.`,
   },
 
   user_query_enhancement: {
@@ -251,6 +251,45 @@ function injectKnowledge(template: string, taxonomyText: string): string {
     .replace(/\{\{REFEREE_KNOWLEDGE\}\}/g, REFEREE_KNOWLEDGE);
 }
 
+function applyHardSearchDescriptionConstraints(systemPrompt: string): string {
+  const hardConstraints = `
+
+=== NON-OVERRIDABLE TAG SELECTION CONSTRAINTS ===
+These rules are mandatory even if any other instruction conflicts:
+
+1) AI is the primary selector for manual tag autofill.
+   Your suggestedTags must be accurate enough to directly populate admin fields.
+
+2) When the admin description explicitly states a value, suggest it:
+   - incident category (category/*)
+   - restart (restarts/*)
+   - sanction (sanction/*)
+   - law (laws/*, e.g. "Law 12" -> "law-12")
+   - scenario (scenario/*, e.g. "open play" -> "during-play")
+   - criteria (criteria/*)
+   - If an existing tag is already present for one of these fields, verify it and suggest the corrected replacement when wrong.
+
+3) CATEGORY DISAMBIGUATION (critical):
+   - If the incident is a specific foul/decision type (challenge, handball, offside, DOGSO, SPA, etc.), choose that specific category tag.
+   - Do NOT choose category "laws-of-the-game" as a generic fallback when a specific incident category is present.
+   - Use "laws-of-the-game" only when the admin input is genuinely about broad law interpretation and no specific incident category is described.
+
+4) CRITERIA DEPENDS ON CATEGORY:
+   - Only suggest criteria that belongs to the selected category context.
+   - If category is unclear, omit criteria rather than guessing.
+   - Prefer one most accurate criteria tag over many weak guesses.
+
+5) No logical chain assumptions:
+   - Do not infer sanction from incident type unless explicitly stated.
+   - Do not infer restart unless explicitly stated.
+
+6) Confidence bar:
+   - suggestedTags must include only tags you are highly certain about from the admin description and metadata.
+`;
+
+  return `${systemPrompt.trim()}\n${hardConstraints}`;
+}
+
 export async function loadPrompt(key: string): Promise<LoadedPrompt> {
   const taxonomyText = await getTagTaxonomyText();
 
@@ -260,8 +299,13 @@ export async function loadPrompt(key: string): Promise<LoadedPrompt> {
     });
 
     if (config) {
+      const baseSystemPrompt = injectKnowledge(config.systemPrompt, taxonomyText);
+      const systemPrompt =
+        key === "search_description_generation"
+          ? applyHardSearchDescriptionConstraints(baseSystemPrompt)
+          : baseSystemPrompt;
       return {
-        systemPrompt: injectKnowledge(config.systemPrompt, taxonomyText),
+        systemPrompt,
         userPromptTemplate: config.userPromptTemplate,
         model: config.model,
         temperature: config.temperature,
@@ -283,7 +327,10 @@ export async function loadPrompt(key: string): Promise<LoadedPrompt> {
   const maxTokens = key === "search_description_generation" ? 4000 : 1000;
 
   return {
-    systemPrompt: injectKnowledge(defaults.systemPrompt, taxonomyText),
+    systemPrompt:
+      key === "search_description_generation"
+        ? applyHardSearchDescriptionConstraints(injectKnowledge(defaults.systemPrompt, taxonomyText))
+        : injectKnowledge(defaults.systemPrompt, taxonomyText),
     userPromptTemplate: defaults.userPromptTemplate,
     model,
     temperature: 0.3,

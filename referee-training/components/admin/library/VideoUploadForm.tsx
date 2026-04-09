@@ -1273,17 +1273,6 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             const generationText = [rawDescription, canonicalDescription, searchSummary]
               .filter(Boolean)
               .join(" ");
-            const textInferredSupportingTags = inferSupportingTagsFromText(generationText, tags);
-            const inferredCategoryNames = getSelectedCategoryNames([
-              ...correctDecisionTags,
-              ...invisibleTags,
-              ...textInferredSupportingTags,
-            ]);
-            const textInferredAnswerTags = inferAnswerTagsFromText(
-              generationText,
-              tags,
-              inferredCategoryNames
-            );
             const aiMatchedTags: Tag[] = Array.isArray(slugs)
               ? slugs
                   .map((slug) => {
@@ -1296,11 +1285,9 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                   .filter((tag): tag is Tag => tag !== null)
               : [];
 
-            const candidateTags = dedupeTagsById([
-              ...textInferredSupportingTags,
-              ...textInferredAnswerTags,
-              ...aiMatchedTags,
-            ]);
+            // AI is the primary source for manual tag autofill. Local rules below only
+            // enforce category/criteria consistency and singleton-category safety.
+            const candidateTags = dedupeTagsById(aiMatchedTags);
             if (candidateTags.length === 0) return;
 
             let nextCorrect = [...correctDecisionTags];
