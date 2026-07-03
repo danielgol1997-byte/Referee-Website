@@ -242,7 +242,9 @@ test.describe("A.R. practice – offside test", () => {
 
     await page.getByRole("button", { name: "Upload Clip" }).click();
     await expect(page.getByPlaceholder("Clip title")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('input[type="file"]')).toBeAttached();
+    await expect(page.getByRole("button", { name: "Choose videos" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose folder" })).toBeVisible();
+    await expect(page.locator('input[type="file"][multiple]')).toBeAttached();
     await expect(page.getByRole("button", { name: "Offside", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Onside", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload clip", exact: true })).toBeVisible();

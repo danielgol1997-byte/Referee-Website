@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useModal } from "@/components/ui/modal";
+import { UploadProgressCompact } from "@/components/admin/library/UploadProgress";
 import { cn } from "@/lib/utils";
 
 type ArDecision = "OFFSIDE" | "ONSIDE";
@@ -37,6 +38,90 @@ function formatSeconds(value: number) {
   return `${value.toFixed(1)}s`;
 }
 
+function titleFromFileName(name: string) {
+  return name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
+}
+
+function isVideoFile(file: File) {
+  return file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(file.name);
+}
+
+type SignedUpload = {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  tags: string;
+};
+
+/** Uploads a file straight to Cloudinary using a server-signed payload. */
+async function uploadToCloudinary(
+  file: File | Blob,
+  kind: "video" | "frame",
+  onProgress: (pct: number) => void
+): Promise<{ result: any; cloudName: string }> {
+  const signRes = await fetch("/api/admin/ar-clips/upload/sign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind }),
+  });
+  const sign: SignedUpload & { error?: string } = await signRes.json();
+  if (!signRes.ok) throw new Error(sign?.error ?? "Failed to prepare upload");
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("api_key", sign.apiKey);
+  formData.append("timestamp", String(sign.timestamp));
+  formData.append("signature", sign.signature);
+  formData.append("folder", sign.folder);
+  formData.append("tags", sign.tags);
+
+  const resourceType = kind === "video" ? "video" : "image";
+  const result = await xhrUpload(
+    `https://api.cloudinary.com/v1_1/${sign.cloudName}/${resourceType}/upload`,
+    formData,
+    onProgress
+  );
+  return { result, cloudName: sign.cloudName };
+}
+
+function videoThumbnailUrl(cloudName: string, publicId: string) {
+  return `https://res.cloudinary.com/${cloudName}/video/upload/w_1280,h_720,c_fill,q_auto,f_jpg,so_2/${publicId}.jpg`;
+}
+
+/** XHR upload with progress callback (fetch has no upload progress). */
+function xhrUpload(url: string, formData: FormData, onProgress: (pct: number) => void): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress((e.loaded / e.total) * 90);
+    });
+    xhr.addEventListener("load", () => {
+      onProgress(95);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Failed to parse upload response"));
+        }
+      } else {
+        let message = `Upload failed (${xhr.status})`;
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          message = parsed?.error?.message ?? (typeof parsed?.error === "string" ? parsed.error : message);
+        } catch {
+          /* non-JSON error body */
+        }
+        reject(new Error(message));
+      }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Upload failed — network error")));
+    xhr.open("POST", url);
+    xhr.send(formData);
+  });
+}
+
 export function ArClipsAdminPanel() {
   const modal = useModal();
   const [subTab, setSubTab] = useState<SubTab>("manage");
@@ -57,8 +142,14 @@ export function ArClipsAdminPanel() {
   const [previewTime, setPreviewTime] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveStep, setSaveStep] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // ─── Batch queue (multi-file / folder upload) ───
+  const [queue, setQueue] = useState<File[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [queueDone, setQueueDone] = useState(0);
 
   // ─── Manage state ───
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -68,6 +159,7 @@ export function ArClipsAdminPanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
 
   const loadClips = useCallback(async () => {
@@ -111,21 +203,84 @@ export function ArClipsAdminPanel() {
     setCapturedFrame(null);
     setFormError(null);
     setSaveStep(null);
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
   };
 
-  const handleFileSelect = (file: File | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("video/")) {
-      setFormError("Please choose a video file.");
-      return;
-    }
-    setFormError(null);
+  /** Puts one video file into the form, ready for review. */
+  const loadFileIntoForm = (file: File) => {
+    setEditingClipId(null);
+    setExistingClip(null);
     setVideoFile(file);
+    setTitle(titleFromFileName(file.name));
+    setDescription("");
+    setCorrectAnswer(null);
+    setIsActive(true);
     setCapturedFrame(null);
+    setFormError(null);
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
     setVideoPreviewUrl(url);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFilesSelect = (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []).filter(isVideoFile);
+    if (files.length === 0) {
+      setFormError("No video files found in the selection.");
+      return;
+    }
+    setSuccess(null);
+
+    // Edit mode: replace the video on the clip being edited.
+    if (editingClipId) {
+      const file = files[0];
+      setVideoFile(file);
+      setCapturedFrame(null);
+      setFormError(null);
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
+      setVideoPreviewUrl(url);
+      return;
+    }
+
+    // A clip is already loaded (or queued) — append to the batch.
+    if (videoFile || queue.length > 0) {
+      setQueue((prev) => [...prev, ...files]);
+      setQueueTotal((total) => (total > 0 ? total : 1) + files.length);
+      return;
+    }
+
+    const [first, ...rest] = files;
+    setQueue(rest);
+    setQueueTotal(rest.length > 0 ? files.length : 0);
+    setQueueDone(0);
+    loadFileIntoForm(first);
+  };
+
+  /** Loads the next queued clip, or wraps up the batch. */
+  const advanceQueue = () => {
+    setQueueDone((d) => d + 1);
+    if (queue.length > 0) {
+      const [next, ...rest] = queue;
+      setQueue(rest);
+      loadFileIntoForm(next);
+      return true;
+    }
+    setQueue([]);
+    setQueueTotal(0);
+    return false;
+  };
+
+  const skipQueuedClip = () => {
+    setVideoFile(null);
+    if (!advanceQueue()) {
+      resetForm();
+      setQueueDone(0);
+    }
   };
 
   const nudgeVideo = (deltaSeconds: number) => {
@@ -169,6 +324,9 @@ export function ArClipsAdminPanel() {
 
   const startEditing = (clip: ArClip) => {
     resetForm();
+    setQueue([]);
+    setQueueTotal(0);
+    setQueueDone(0);
     setEditingClipId(clip.id);
     setExistingClip(clip);
     setTitle(clip.title);
@@ -213,26 +371,31 @@ export function ArClipsAdminPanel() {
 
       if (videoFile) {
         setSaveStep("Uploading video…");
-        const formData = new FormData();
-        formData.append("video", videoFile);
-        const res = await fetch("/api/admin/ar-clips/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? "Video upload failed");
-        uploadedVideo = data.video;
+        setUploadProgress(0);
+        const { result, cloudName } = await uploadToCloudinary(videoFile, "video", setUploadProgress);
+        if (!result?.secure_url || !result?.public_id) {
+          throw new Error("Upload response missing Cloudinary URL");
+        }
+        uploadedVideo = {
+          url: result.secure_url,
+          thumbnailUrl: videoThumbnailUrl(cloudName, result.public_id),
+          duration: typeof result.duration === "number" ? result.duration : null,
+        };
+        setUploadProgress(100);
       }
 
       let frameUrl: string | null = null;
       if (capturedFrame) {
-        setSaveStep("Uploading pass-moment frame…");
-        const frameData = new FormData();
-        frameData.append("frame", new File([capturedFrame.blob], "pass-frame.jpg", { type: "image/jpeg" }));
-        const res = await fetch("/api/admin/ar-clips/upload/frame", { method: "POST", body: frameData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? "Frame upload failed");
-        frameUrl = data.frameUrl;
+        setSaveStep("Uploading pass frame…");
+        setUploadProgress(null);
+        const frameFile = new File([capturedFrame.blob], "pass-frame.jpg", { type: "image/jpeg" });
+        const { result } = await uploadToCloudinary(frameFile, "frame", () => {});
+        if (!result?.secure_url) throw new Error("Frame upload failed");
+        frameUrl = result.secure_url;
       }
 
       setSaveStep("Saving clip…");
+      setUploadProgress(null);
       const payload: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim() || null,
@@ -260,15 +423,31 @@ export function ArClipsAdminPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Failed to save clip");
 
-      setSuccess(editingClipId ? "Clip updated." : "Clip uploaded.");
-      resetForm();
-      await loadClips();
-      setSubTab("manage");
+      void loadClips();
+
+      if (!editingClipId && queueTotal > 0) {
+        // Batch mode: move to the next clip in the queue.
+        const wasLast = queue.length === 0;
+        setVideoFile(null);
+        if (advanceQueue()) {
+          setSuccess(`Clip ${queueDone + 1} of ${queueTotal} uploaded.`);
+        } else if (wasLast) {
+          setSuccess(`All ${queueTotal} clips uploaded.`);
+          resetForm();
+          setQueueDone(0);
+          setSubTab("manage");
+        }
+      } else {
+        setSuccess(editingClipId ? "Clip updated." : "Clip uploaded.");
+        resetForm();
+        setSubTab("manage");
+      }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to save clip");
     } finally {
       setSaving(false);
       setSaveStep(null);
+      setUploadProgress(null);
     }
   };
 
@@ -380,6 +559,81 @@ export function ArClipsAdminPanel() {
             </div>
           )}
 
+          {/* Batch progress */}
+          {!editingClipId && queueTotal > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5">
+              <p className="text-sm text-cyan-300">
+                Clip <span className="font-bold">{queueDone + 1}</span> of{" "}
+                <span className="font-bold">{queueTotal}</span>
+                {queue.length > 0 && (
+                  <span className="ml-2 text-text-secondary">· {queue.length} left after this</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={skipQueuedClip}
+                disabled={saving}
+                className="text-xs font-semibold text-text-secondary hover:text-white disabled:opacity-50"
+              >
+                Skip
+              </button>
+            </div>
+          )}
+
+          {/* Video file */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-white">
+              Video {editingClipId && <span className="font-normal text-text-muted">(optional — replaces current)</span>}
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={saving}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-dark-900 transition-colors hover:bg-accent/90 disabled:opacity-50"
+              >
+                Choose videos
+              </button>
+              {!editingClipId && (
+                <button
+                  type="button"
+                  onClick={() => folderInputRef.current?.click()}
+                  disabled={saving}
+                  className="rounded-lg border border-dark-500 bg-dark-900/60 px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
+                >
+                  Choose folder
+                </button>
+              )}
+              {videoFile && (
+                <span className="truncate text-xs text-text-muted" title={videoFile.name}>
+                  {videoFile.name}
+                </span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              multiple={!editingClipId}
+              onChange={(e) => {
+                handleFilesSelect(e.target.files);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              // @ts-expect-error - non-standard folder selection attribute
+              webkitdirectory=""
+              onChange={(e) => {
+                handleFilesSelect(e.target.files);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
+          </div>
+
           {/* Title */}
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-white">Title</label>
@@ -387,20 +641,6 @@ export function ArClipsAdminPanel() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Clip title"
-            />
-          </div>
-
-          {/* Video file */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-white">
-              Video {editingClipId && <span className="font-normal text-text-muted">(optional — replaces current)</span>}
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*"
-              onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-text-secondary file:mr-4 file:rounded-lg file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-dark-900 hover:file:bg-accent/90"
             />
           </div>
 
@@ -551,24 +791,31 @@ export function ArClipsAdminPanel() {
             </div>
           )}
 
-          <div className="flex items-center gap-3 border-t border-dark-600 pt-4">
-            <Button onClick={handleSave} disabled={saving} className="min-w-[160px]">
-              {saving ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-dark-900/30 border-t-dark-900" />
-                  {saveStep ?? "Saving…"}
-                </span>
-              ) : editingClipId ? (
-                "Save changes"
-              ) : (
-                "Upload clip"
-              )}
-            </Button>
-            {editingClipId && (
-              <Button variant="outline" onClick={resetForm} disabled={saving}>
-                Cancel
-              </Button>
+          <div className="space-y-3 border-t border-dark-600 pt-4">
+            {saving && uploadProgress !== null && (
+              <UploadProgressCompact progress={uploadProgress} />
             )}
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSave} disabled={saving} className="min-w-[160px]">
+                {saving ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-dark-900/30 border-t-dark-900" />
+                    {saveStep ?? "Saving…"}
+                  </span>
+                ) : editingClipId ? (
+                  "Save changes"
+                ) : queue.length > 0 ? (
+                  "Upload & next"
+                ) : (
+                  "Upload clip"
+                )}
+              </Button>
+              {editingClipId && (
+                <Button variant="outline" onClick={resetForm} disabled={saving}>
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
