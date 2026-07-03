@@ -1,8 +1,38 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
  * End-to-end tests for the updated locked-sequence video test workflow.
  */
+
+/**
+ * Fills the Restart, Sanction and Criteria panels that appear after an
+ * outcome (Play on / Offense) has been chosen in the answer overlay.
+ */
+async function completeAnswerPanels(page: Page) {
+  const overlay = page.locator("div.max-w-6xl");
+  const panels = overlay.locator("div.rounded-xl.border.p-3");
+  await expect(panels).toHaveCount(3, { timeout: 5000 });
+
+  // Restart + Sanction: pick the first option (option buttons carry a title attr).
+  await panels.nth(0).locator("button[title]").first().click();
+  await panels.nth(1).locator("button[title]").first().click();
+
+  // Criteria: pick the first decision category, then a criterion if any are required.
+  const criteriaPanel = panels.nth(2);
+  await criteriaPanel.locator("div.grid button").first().click();
+  const notRequired = criteriaPanel.getByText("No criteria for this category");
+  const criterionButton = criteriaPanel.locator("div.grid button").first();
+  await expect(notRequired.or(criterionButton)).toBeVisible({ timeout: 5000 });
+  if ((await notRequired.count()) === 0) {
+    await criterionButton.click();
+  }
+}
+
+/** Completes the whole answer overlay via the Play on / No offense path. */
+async function completeAnswerOverlay(page: Page) {
+  await page.getByRole("button", { name: /Play on \/ No offen[cs]e/i }).click();
+  await completeAnswerPanels(page);
+}
 
 test.describe("Video test runner – full workflow", () => {
   let createdTestId: string;
@@ -24,6 +54,13 @@ test.describe("Video test runner – full workflow", () => {
 
     createdTestName = `PW Runner ${Date.now()}`;
     await page.getByPlaceholder("Test name").fill(createdTestName);
+
+    // Tests are created hidden by default; make it visible so it shows in the pool.
+    const visibilityToggle = page.getByRole("button", { name: "Hidden", exact: true });
+    if (await visibilityToggle.count()) {
+      await visibilityToggle.click();
+      await expect(page.getByRole("button", { name: "Visible", exact: true })).toBeVisible();
+    }
 
     await page.getByRole("button", { name: "Continue to clip selection" }).click();
     await expect(page.getByText(/Matching clips:/)).toBeVisible({ timeout: 20000 });
@@ -129,8 +166,7 @@ test.describe("Video test runner – full workflow", () => {
       await page.getByRole("button", { name: "Answer question" }).click();
       await expect(page.getByRole("heading", { name: "Your answer" })).toBeVisible({ timeout: 5000 });
 
-      // Quick complete answer path: choose Play on / No offence, then Next/Submit.
-      await page.getByRole("button", { name: /Play on \/ No offence/i }).click();
+      await completeAnswerOverlay(page);
       const actionLabel = i === totalClips - 1 ? "Submit" : "Next";
       if (i === totalClips - 1) {
         submitResponsePromise = page.waitForResponse(
@@ -158,13 +194,11 @@ test.describe("Video test runner – full workflow", () => {
     await expect(page.getByText("Sanction").first()).toBeVisible({ timeout: 5000 });
     await expect(page.getByText("Criteria").first()).toBeVisible({ timeout: 5000 });
 
-    await expect(page.getByText("Play on / No offence").first()).toBeVisible();
-
-    const expectedLabels = page.getByText("Expected");
+    const expectedLabels = page.getByText("Correct Answer:");
     await expect(expectedLabels.first()).toBeVisible();
     expect(await expectedLabels.count()).toBeGreaterThanOrEqual(3);
 
-    const yourAnswerLabels = page.getByText("Your answer");
+    const yourAnswerLabels = page.getByText("Your Answer:");
     expect(await yourAnswerLabels.count()).toBeGreaterThanOrEqual(3);
 
     await page.getByRole("button", { name: /Close/i }).click();
@@ -195,9 +229,12 @@ test.describe("Video test runner – full workflow", () => {
     const nextBtn = page.getByRole("button", { name: "Next", exact: true }).first();
     await expect(nextBtn).toBeDisabled();
 
-    // Play-on path also counts as complete.
-    await page.getByRole("button", { name: /Play on \/ No offence/i }).click();
+    // Outcome alone is not enough — restart/sanction/criteria are required.
+    await page.getByRole("button", { name: /Play on \/ No offen[cs]e/i }).click();
+    await expect(nextBtn).toBeDisabled();
 
+    // Completing all selections enables Next.
+    await completeAnswerPanels(page);
     await expect(nextBtn).toBeEnabled();
   });
 
@@ -221,10 +258,10 @@ test.describe("Video test runner – full workflow", () => {
     await expect(page.getByText(/Video \d+ \/ \d+/)).toBeVisible({ timeout: 15000 });
 
     await expect(page.locator("video")).toBeVisible();
-    await expect(page.getByText(/Plays:/)).toBeVisible();
+    await expect(page.getByText(/Views this clip:/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Answer question" })).toBeVisible();
     await expect(page.getByLabel("Volume")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Quit test" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Exit test" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Resume" })).toHaveCount(0);
     await expect(page.getByText(/\d+ answered/).first()).toBeVisible();

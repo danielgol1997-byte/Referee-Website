@@ -3,6 +3,7 @@ import { LawsAdminPanel } from "@/components/admin/laws/LawsAdminPanel";
 import { VideoLibraryContent } from "@/components/admin/library/VideoLibraryContent";
 import { UserManagementPanel } from "@/components/admin/users/UserManagementPanel";
 import { VideoTestsAdminPanel } from "@/components/admin/video-tests/VideoTestsAdminPanel";
+import { ArClipsAdminPanel } from "@/components/admin/ar/ArClipsAdminPanel";
 
 const TABS = [
   { label: "Laws of the Game", value: "laws" },
@@ -42,12 +43,8 @@ export default async function SuperAdminPage({ searchParams }: { searchParams?: 
           </p>
         )}
         
-        {/* Coming Soon: AR Practice */}
-        {activeTab === "ar" && (
-          <p className="text-sm text-text-secondary">
-            AR practice management will cover offside scenarios, positioning notes, and decisions.
-          </p>
-        )}
+        {/* AR Practice - Manage offside decision clips for the A.R. test */}
+        {activeTab === "ar" && <ArClipsAdminPanel />}
         
         {/* Video Library Management */}
         {activeTab === "library" && <VideoLibraryContent />}

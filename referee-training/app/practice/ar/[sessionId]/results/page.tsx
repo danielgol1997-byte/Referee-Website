@@ -1,11 +1,14 @@
-import { TestSummary } from "@/components/test/test-summary";
+import { ArTestSummary } from "@/components/practice/ar/ArTestSummary";
 
-export default async function ArResultsPage({ params }: { params: Promise<{ sessionId: string }> }) {
-  const resolvedParams = await params;
+type PageProps = {
+  params: Promise<{ sessionId: string }>;
+};
+
+export default async function ArResultsPage({ params }: PageProps) {
+  const { sessionId } = await params;
   return (
-    <div className="mx-auto max-w-screen-md px-6 py-10">
-      <TestSummary sessionId={resolvedParams.sessionId} restartHref="/practice/ar" />
+    <div className="mx-auto max-w-screen-xl px-6 py-10">
+      <ArTestSummary sessionId={sessionId} restartHref="/practice/ar" />
     </div>
   );
 }
-

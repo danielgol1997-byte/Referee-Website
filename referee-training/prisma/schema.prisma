@@ -38,6 +38,8 @@ model User {
   aiPromptConfigs       AiPromptConfig[]
   aiGenerationFeedback  AiGenerationFeedback[]
   searchQueryLogs       SearchQueryLog[]
+  arClipsCreated        ArClip[]
+  arTestSessions        ArTestSession[]
 }
 
 model Account {
@@ -567,6 +569,67 @@ model VideoTestCompletion {
   @@unique([userId, videoTestId])
   @@index([userId])
   @@index([videoTestId])
+}
+
+// ─── Assistant Referee (offside) practice ───
+// Completely separate clip bank from the Video Library / video tests.
+
+enum ArDecision {
+  OFFSIDE
+  ONSIDE
+}
+
+model ArClip {
+  id             String     @id @default(cuid())
+  title          String
+  fileUrl        String
+  thumbnailUrl   String?
+  duration       Float?     // seconds
+  correctAnswer  ArDecision
+  passMomentTime Float?     // seconds into the clip where the pass is made
+  passFrameUrl   String?    // captured freeze-frame image at the moment of the pass
+  description    String?
+  isActive       Boolean    @default(true)
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdBy      User?      @relation(fields: [createdById], references: [id])
+  answers        ArTestAnswer[]
+
+  @@index([isActive, createdAt])
+}
+
+model ArTestSession {
+  id                String    @id @default(cuid())
+  userId            String
+  clipIds           String[]  // ordered AR clip IDs for this attempt
+  totalClips        Int       @default(0)
+  score             Int?
+  completedAt       DateTime?
+  submittedAt       DateTime?
+  totalAnswerTimeMs Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers           ArTestAnswer[]
+
+  @@index([userId, createdAt])
+}
+
+model ArTestAnswer {
+  id              String        @id @default(cuid())
+  arTestSessionId String
+  arClipId        String
+  userAnswer      ArDecision
+  isCorrect       Boolean
+  timeToAnswerMs  Int?
+  createdAt       DateTime      @default(now())
+  session         ArTestSession @relation(fields: [arTestSessionId], references: [id], onDelete: Cascade)
+  clip            ArClip        @relation(fields: [arClipId], references: [id], onDelete: Cascade)
+
+  @@unique([arTestSessionId, arClipId])
+  @@index([arTestSessionId])
+  @@index([arClipId])
 }
 
 // Stores admin feedback on AI-generated search descriptions.

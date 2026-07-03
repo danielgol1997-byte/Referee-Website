@@ -22,6 +22,14 @@ test.describe("Admin video tests CRUD", () => {
 
       const name = `${prefix} #${i}`;
       await page.getByPlaceholder("Test name").fill(name);
+
+      // Tests are created hidden by default; make visible to avoid the "created as hidden" modal.
+      const visibilityToggle = page.getByRole("button", { name: "Hidden", exact: true });
+      if (await visibilityToggle.count()) {
+        await visibilityToggle.click();
+        await expect(page.getByRole("button", { name: "Visible", exact: true })).toBeVisible();
+      }
+
       await page.getByRole("button", { name: "Continue to clip selection" }).click();
       await expect(page.getByText(/Matching clips:/)).toBeVisible({ timeout: 20000 });
 
