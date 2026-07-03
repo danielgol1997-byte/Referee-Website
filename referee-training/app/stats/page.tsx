@@ -1,169 +1,65 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { StatsOverview } from "@/components/stats/StatsOverview";
+import { MarksByReferee } from "@/components/stats/MarksByReferee";
+import { MarksByCategory } from "@/components/stats/MarksByCategory";
 
-export const dynamic = "force-dynamic";
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "referees", label: "By Referee" },
+  { id: "categories", label: "By Category" },
+] as const;
 
-export default async function MyTrainingPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    redirect("/auth/login?callbackUrl=/stats");
-  }
+type TabId = (typeof TABS)[number]["id"];
 
-  const userId = session.user.id;
-
-  const [categories, history] = await Promise.all([
-    prisma.category.findMany({
-      orderBy: { order: "asc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        type: true,
-        testSessions: {
-          where: { userId },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { score: true },
-        },
-        trainingAssignments: {
-          where: { userId },
-          select: { status: true },
-        },
-      },
-    }),
-    prisma.testSession.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        createdAt: true,
-        score: true,
-        type: true,
-        category: { select: { name: true } },
-      },
-    }),
-  ]);
-
-  const totalTests = history.length;
-  const average =
-    history.filter((h) => h.score !== null).reduce((sum, h) => sum + (h.score ?? 0), 0) /
-    (history.filter((h) => h.score !== null).length || 1);
+export default async function StatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
+  const activeTab: TabId = TABS.some((t) => t.id === params.tab)
+    ? (params.tab as TabId)
+    : "overview";
 
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
       {/* Header */}
-      <div>
-        <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
-        <h1 className="text-3xl font-bold text-premium">Stats</h1>
-        <p className="mt-2 text-text-secondary">Track your progress and performance</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="space-y-1">
-          <p className="text-sm text-text-secondary">Total tests completed</p>
-          <p className="text-3xl font-bold text-cyan-500">{totalTests}</p>
-        </Card>
-        <Card className="space-y-1">
-          <p className="text-sm text-text-secondary">Average score</p>
-          <p className="text-3xl font-bold text-cyan-500">
-            {Number.isFinite(average) ? average.toFixed(1) : "0.0"}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
+          <h1 className="text-3xl font-bold text-premium">Statistics</h1>
+          <p className="mt-2 text-text-secondary">
+            Performance across referees, categories, and tests
           </p>
-        </Card>
-        <Card className="space-y-1">
-          <p className="text-sm text-text-secondary">Assignments pending</p>
-          <p className="text-3xl font-bold text-cyan-500">
-            {categories.reduce(
-              (sum, c) =>
-                sum + c.trainingAssignments.filter((a) => a.status !== "COMPLETED").length,
-              0
-            )}
-          </p>
-        </Card>
-      </div>
-
-      {/* Category Performance */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-text-primary">
-          Category performance
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((category) => {
-            const lastSession = category.testSessions[0];
-            const pending = category.trainingAssignments.filter((a) => a.status !== "COMPLETED").length;
-            return (
-              <Card key={category.id} hoverable className="space-y-3">
-                <p className="text-xs uppercase tracking-widest text-cyan-500">
-                  {category.type}
-                </p>
-                <h3 className="text-lg font-semibold text-text-primary">
-                  {category.name}
-                </h3>
-                <div className="space-y-1">
-                  <p className="text-sm text-text-secondary">
-                    Last score: <span className="text-text-primary font-medium">{lastSession?.score ?? "—"}</span>
-                  </p>
-                  <p className="text-sm text-text-secondary">
-                    Pending: <span className="text-text-primary font-medium">{pending}</span>
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={category.type === "CHALLENGE" ? `/practice/${category.slug}` : category.type === "VAR" ? "/practice/var" : category.type === "AR" ? "/practice/ar" : "/laws/test"}>
-                    Practice now →
-                  </Link>
-                </Button>
-              </Card>
-            );
-          })}
         </div>
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          Mock preview — placeholder data
+        </span>
       </div>
 
-      {/* Recent History */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-text-primary">
-          Recent history
-        </h2>
-        <Card padded={false}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-dark-700 text-left text-text-secondary border-b border-dark-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id} className="border-t border-dark-600 hover:bg-dark-700/50 transition-colors">
-                    <td className="px-4 py-3 text-text-primary">{new Date(item.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-text-primary">{item.category?.name ?? "Category"}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-cyan-500">
-                        {item.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-cyan-500">{item.score ?? "—"}</td>
-                  </tr>
-                ))}
-                {history.length === 0 && (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-text-muted" colSpan={4}>
-                      No test history yet. Start training to see your progress!
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      {/* Tabs */}
+      <div className="flex gap-2 p-1 bg-dark-800/50 border border-dark-600 rounded-xl overflow-x-auto">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.id}
+            href={tab.id === "overview" ? "/stats" : `/stats?tab=${tab.id}`}
+            scroll={false}
+            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider text-center transition-all whitespace-nowrap ${
+              activeTab === tab.id
+                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900"
+                : "text-text-secondary hover:text-text-primary hover:bg-dark-700"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      <div key={activeTab} className="min-h-[500px] animate-in fade-in slide-in-from-top-4 duration-300">
+        {activeTab === "overview" && <StatsOverview />}
+        {activeTab === "referees" && <MarksByReferee />}
+        {activeTab === "categories" && <MarksByCategory />}
       </div>
     </div>
   );
