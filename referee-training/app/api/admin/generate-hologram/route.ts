@@ -7,7 +7,7 @@ import { v2 as cloudinary } from "cloudinary";
 import {
   HOLOGRAM_MODEL,
   HOLOGRAM_PROMPT,
-  HOLOGRAM_GENERATION_OPTIONS,
+  HOLOGRAM_IMAGE_OPTIONS,
 } from "@/lib/hologram-config";
 
 cloudinary.config({
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       input: {
         prompt: HOLOGRAM_PROMPT,
         input_image: imageUrl,
-        ...HOLOGRAM_GENERATION_OPTIONS,
+        ...HOLOGRAM_IMAGE_OPTIONS,
       },
     });
 
