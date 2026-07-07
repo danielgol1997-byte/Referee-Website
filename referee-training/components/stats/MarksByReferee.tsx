@@ -13,6 +13,7 @@ import {
   STAT_REFEREES,
   getRefereeOverall,
 } from "@/lib/stats-mock";
+import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
 type SortKey = "name" | "country" | "level" | "overall" | string; // category slug
@@ -67,9 +68,12 @@ export function MarksByReferee() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-text-primary">Marks by referee</h2>
+          <h2 className="flex items-center gap-1.5 text-xl font-semibold text-text-primary">
+            Marks by referee
+            <InfoTip text="Average test mark per category, out of 10. Click any column header to sort." />
+          </h2>
           <p className="mt-1 text-sm text-text-secondary">
-            Average mark per category. Click a referee for their full record, or a column to sort.
+            Click a referee to open their record
           </p>
         </div>
       </div>

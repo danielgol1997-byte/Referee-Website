@@ -169,7 +169,22 @@ test.describe("A.R. practice – offside test", () => {
     await expect(page.getByText("Watch Again")).toBeVisible();
     await expect(page.getByText("Moment of the Pass")).toBeVisible();
     await expect(page.getByAltText("Freeze-frame at the moment of the pass")).toBeVisible();
-    await page.getByRole("button", { name: "Close" }).click();
+
+    // Enlarge the pass-moment image into the lightbox, then close it.
+    await page.getByRole("button", { name: "Enlarge pass moment" }).click();
+    await expect(page.getByRole("button", { name: "Close enlarged view" })).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "Close enlarged view" }).click();
+    await expect(page.getByRole("button", { name: "Close enlarged view" })).toHaveCount(0);
+
+    // Enlarge the video replay as well.
+    await page.getByRole("button", { name: "Enlarge video" }).click();
+    await expect(page.getByRole("button", { name: "Close enlarged view" })).toBeVisible({ timeout: 5000 });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Close enlarged view" })).toHaveCount(0);
+    // Escape closed only the lightbox — the overlay is still open.
+    await expect(page.getByText("Watch Again")).toBeVisible();
+
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await expect(page.getByText("Watch Again")).toHaveCount(0);
 
     // ─── History shows the completed test ───

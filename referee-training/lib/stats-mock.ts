@@ -35,6 +35,68 @@ export const COUNTRY_FLAGS: Record<string, string> = {
   Romania: "🇷🇴",
   Slovakia: "🇸🇰",
   Greece: "🇬🇷",
+  Belgium: "🇧🇪",
+};
+
+/** Fitness assessment bands, best to worst. */
+export type FitnessLevel =
+  | "Excellent"
+  | "Very Good"
+  | "Good"
+  | "Average"
+  | "Below Average"
+  | "Poor";
+
+export const FITNESS_LEVELS: {
+  label: FitnessLevel;
+  text: string;
+  badge: string;
+}[] = [
+  { label: "Excellent", text: "text-[#4ade80]", badge: "bg-[#22c55e]/15 text-[#4ade80] border-[#22c55e]/30" },
+  { label: "Very Good", text: "text-cyan-500", badge: "bg-cyan-500/15 text-cyan-500 border-cyan-500/30" },
+  { label: "Good", text: "text-[#a3e635]", badge: "bg-[#a3e635]/15 text-[#a3e635] border-[#a3e635]/30" },
+  { label: "Average", text: "text-[#fbbf24]", badge: "bg-[#f59e0b]/15 text-[#fbbf24] border-[#f59e0b]/30" },
+  { label: "Below Average", text: "text-[#fb923c]", badge: "bg-[#f97316]/15 text-[#fb923c] border-[#f97316]/30" },
+  { label: "Poor", text: "text-[#f87171]", badge: "bg-[#ef4444]/15 text-[#f87171] border-[#ef4444]/30" },
+];
+
+export function fitnessLevelMeta(label: FitnessLevel) {
+  return FITNESS_LEVELS.find((f) => f.label === label) ?? FITNESS_LEVELS[2];
+}
+
+/** International tournaments a referee accumulates appearances in. */
+export const TOURNAMENTS = [
+  { key: "UCL", name: "Champions League" },
+  { key: "UEL", name: "Europa League" },
+  { key: "UECL", name: "Conference League" },
+  { key: "EURO", name: "European Championship" },
+  { key: "WC", name: "World Cup" },
+] as const;
+
+export type TournamentKey = (typeof TOURNAMENTS)[number]["key"];
+
+/** Seasons available in the mock, newest first. */
+export const SEASONS = ["2025/26", "2024/25", "2023/24"] as const;
+export type Season = (typeof SEASONS)[number];
+export const CURRENT_SEASON: Season = "2025/26";
+
+/** Reference "now" for the mock (keeps server/client render identical). */
+export const MOCK_CURRENT_YEAR = 2026;
+
+/**
+ * The mock referee that stands in for a logged-in REFEREE-role user ("me").
+ * Swap for a real user→referee mapping when wiring live data.
+ */
+export const CURRENT_USER_REFEREE_ID = "lars-andersen";
+
+export type RefereeProfile = {
+  age: number;
+  heightCm: number;
+  weightKg: number;
+  bodyFatPct: number;
+  fitnessLevel: FitnessLevel;
+  internationalSince: number;
+  tournaments: Record<TournamentKey, number>;
 };
 
 export type StatReferee = {
@@ -44,6 +106,13 @@ export type StatReferee = {
   level: string;
   /** Average score per category slug (0-10 scale) */
   scores: Record<string, number>;
+  profile: RefereeProfile;
+  /** Real photo (Cloudinary URL). Undefined until uploaded. */
+  photoUrl?: string;
+  /** AI-generated hologram still image (Cloudinary URL). Used as table thumbnail. */
+  hologramUrl?: string;
+  /** AI-generated animated video clip (Cloudinary URL, mp4). Shown on profile page. */
+  videoUrl?: string;
 };
 
 // Average marks per category, from the concept deck (slide 52).
@@ -59,7 +128,40 @@ const rawReferees: Array<[string, string, string, number[]]> = [
   ["Mihai Dumitrescu", "Romania", "Category 1", [7.8, 8.8, 9.0, 7.25, 9.0, 9.65, 7.4, 9.2, 7.9]],
   ["Tomáš Horváth", "Slovakia", "Category 2", [7.75, 8.75, 9.75, 7.75, 8.35, 8.7, 9.8, 8.45, 7.9]],
   ["Nikos Georgiou", "Greece", "Category 1", [7.5, 7.8, 8.6, 9.2, 7.3, 9.15, 9.5, 8.3, 7.8]],
+  ["Erik Lambercht", "Belgium", "Elite", [9.1, 8.6, 9.0, 8.8, 9.3, 8.9, 8.5, 9.1, 9.2]],
 ];
+
+// Bio / fitness / career, parallel to rawReferees.
+// [age, heightCm, weightKg, bodyFatPct, fitnessLevel, intlSince, UCL, UEL, UECL, EURO, WC]
+const rawProfiles: Array<[number, number, number, number, FitnessLevel, number, number, number, number, number, number]> = [
+  [39, 184, 78, 9.2, "Excellent", 2014, 52, 38, 20, 6, 4],
+  [35, 181, 76, 10.5, "Very Good", 2017, 24, 30, 26, 2, 0],
+  [42, 179, 77, 10.1, "Very Good", 2012, 61, 40, 15, 8, 6],
+  [37, 186, 82, 11.0, "Good", 2016, 30, 34, 28, 3, 1],
+  [34, 183, 79, 9.8, "Very Good", 2018, 22, 28, 24, 1, 0],
+  [40, 178, 75, 9.5, "Excellent", 2013, 55, 36, 12, 7, 5],
+  [33, 185, 83, 12.3, "Good", 2019, 8, 18, 30, 0, 0],
+  [36, 180, 78, 10.8, "Good", 2016, 26, 32, 27, 2, 1],
+  [32, 182, 80, 11.6, "Average", 2020, 6, 15, 29, 0, 0],
+  [38, 177, 76, 10.4, "Good", 2015, 28, 33, 25, 3, 1],
+  [36, 182, 78, 9.6, "Excellent", 2015, 48, 35, 18, 5, 3],
+];
+
+/**
+ * Referee images keyed by the generated referee `id`.
+ * Add entries here as photos/holograms are generated.
+ * Both fields are optional — components should fall back gracefully.
+ */
+export const REFEREE_IMAGES: Record<
+  string,
+  { photoUrl?: string; hologramUrl?: string; videoUrl?: string }
+> = {
+  "erik-lambercht": {
+    photoUrl: "https://res.cloudinary.com/dh9glizf2/image/upload/v1783390452/referee-photos/erik-lambercht/mhbxya8f80lmbi5aapwd.webp",
+    hologramUrl: "https://res.cloudinary.com/dh9glizf2/image/upload/v1783390466/referee-holograms/erik-lambercht/oeovjpssdrczg5ui2tbj.jpg",
+    videoUrl: "https://res.cloudinary.com/dh9glizf2/video/upload/v1783397353/referee-videos/erik-lambercht/xof3wtfusrtnljqmtdnd.mp4",
+  },
+};
 
 const deckColumnSlugs = [
   "challenges",
@@ -73,29 +175,51 @@ const deckColumnSlugs = [
   "laws-of-the-game",
 ];
 
-export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, level, marks]) => {
+export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, level, marks], idx) => {
   const scores: Record<string, number> = {};
   deckColumnSlugs.forEach((slug, i) => {
     scores[slug] = marks[i];
   });
+  const [age, heightCm, weightKg, bodyFatPct, fitnessLevel, internationalSince, ucl, uel, uecl, euro, wc] =
+    rawProfiles[idx];
+  const id = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-");
+  const images = REFEREE_IMAGES[id] ?? {};
   return {
-    id: name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-"),
+    id,
     name,
     country,
     level,
     scores,
+    profile: {
+      age,
+      heightCm,
+      weightKg,
+      bodyFatPct,
+      fitnessLevel,
+      internationalSince,
+      tournaments: { UCL: ucl, UEL: uel, UECL: uecl, EURO: euro, WC: wc },
+    },
+    ...images,
   };
 });
 
 export const REFEREE_LEVELS = ["Elite", "Category 1", "Category 2"];
 
+export function getRefereeById(id: string): StatReferee | undefined {
+  return STAT_REFEREES.find((r) => r.id === id);
+}
+
+export function getTotalTournamentGames(referee: StatReferee): number {
+  return Object.values(referee.profile.tournaments).reduce((sum, v) => sum + v, 0);
+}
+
 /* ---------- Deterministic pseudo-random helpers ---------- */
 
-function hashString(str: string): number {
+export function hashString(str: string): number {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
@@ -104,7 +228,7 @@ function hashString(str: string): number {
   return h >>> 0;
 }
 
-function mulberry32(seed: number) {
+export function mulberry32(seed: number) {
   let a = seed;
   return () => {
     a |= 0;
@@ -123,8 +247,8 @@ export type TestHistoryEntry = {
 };
 
 const HISTORY_LENGTH = 10;
-// Fixed anchor so the mock renders identically on server and client.
-const HISTORY_ANCHOR = new Date(2026, 5, 29); // Mon, Jun 29 2026
+// Fixed UTC anchor so the mock renders identically on server and client.
+const HISTORY_ANCHOR = new Date(Date.UTC(2026, 5, 29)); // Mon, Jun 29 2026
 
 /** Last 10 weekly test sessions for a referee in a category. Mean tracks the average score. */
 export function getTestHistory(refereeId: string, categorySlug: string): TestHistoryEntry[] {
@@ -136,7 +260,7 @@ export function getTestHistory(refereeId: string, categorySlug: string): TestHis
     const noise = (rand() - 0.5) * 3.2;
     const score = Math.max(5, Math.min(10, Math.round(avg + noise)));
     const date = new Date(HISTORY_ANCHOR);
-    date.setDate(date.getDate() - (HISTORY_LENGTH - 1 - i) * 7);
+    date.setUTCDate(date.getUTCDate() - (HISTORY_LENGTH - 1 - i) * 7);
     entries.push({ date, score });
   }
   return entries;
@@ -214,10 +338,32 @@ export function getSiteAverage(): number {
   );
 }
 
+/**
+ * Platform test average for a category in a given season.
+ * Current season uses the headline figure; older seasons trend slightly lower
+ * (referees improve over time), with a touch of deterministic variation.
+ */
+export function getSeasonTestScore(
+  refereeId: string,
+  categorySlug: string,
+  season: Season
+): number {
+  const referee = getRefereeById(refereeId);
+  const base = referee?.scores[categorySlug] ?? 8;
+  const seasonIndex = SEASONS.indexOf(season); // 0 = current
+  const rand = mulberry32(hashString(`season:${refereeId}:${categorySlug}:${season}`));
+  const drift = -seasonIndex * 0.25 + (rand() - 0.5) * 0.4;
+  return Math.max(5, Math.min(10, base + drift));
+}
+
 export function formatScore(value: number): string {
   return value.toFixed(2);
 }
 
+export function seasonYears(season: Season): string {
+  return season;
+}
+
 export function formatHistoryDate(date: Date): string {
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }

@@ -4,13 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import {
-  COUNTRY_FLAGS,
   STAT_CATEGORIES,
   STAT_REFEREES,
   formatHistoryDate,
   formatScore,
   getRefereeDistribution,
-  getRefereeOverall,
   getTestHistory,
   getTestsTaken,
 } from "@/lib/stats-mock";
@@ -18,21 +16,23 @@ import { AnimatedNumber } from "./AnimatedNumber";
 import { DistributionBar, DistributionLegend } from "./DistributionBar";
 import { Sparkline } from "./Sparkline";
 import { ScoreBadge } from "./ScoreBadge";
+import { ProfileCard } from "./ProfileCard";
+import { ReportsInsights } from "./ReportsInsights";
 import { scoreTextColor } from "./score-utils";
 
-export function RefereeStatsView({ refereeId }: { refereeId: string }) {
+export function RefereeStatsView({
+  refereeId,
+  isOwnView = false,
+}: {
+  refereeId: string;
+  isOwnView?: boolean;
+}) {
   const index = STAT_REFEREES.findIndex((r) => r.id === refereeId);
   const referee = STAT_REFEREES[index];
   const previous = STAT_REFEREES[(index - 1 + STAT_REFEREES.length) % STAT_REFEREES.length];
   const next = STAT_REFEREES[(index + 1) % STAT_REFEREES.length];
 
   const [openCategory, setOpenCategory] = useState<string | null>(null);
-
-  const overall = getRefereeOverall(referee);
-  const rank =
-    [...STAT_REFEREES]
-      .sort((a, b) => getRefereeOverall(b) - getRefereeOverall(a))
-      .findIndex((r) => r.id === refereeId) + 1;
 
   const sortedCategories = [...STAT_CATEGORIES].sort(
     (a, b) => (referee.scores[b.slug] ?? 0) - (referee.scores[a.slug] ?? 0)
@@ -49,84 +49,62 @@ export function RefereeStatsView({ refereeId }: { refereeId: string }) {
       {/* Breadcrumb + prev/next navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <nav className="flex items-center gap-2 text-text-muted">
-          <Link href="/stats" className="transition-colors hover:text-accent">
-            Statistics
-          </Link>
-          <span>/</span>
-          <Link href="/stats?tab=referees" className="transition-colors hover:text-accent">
-            Referees
-          </Link>
-          <span>/</span>
-          <span className="font-medium text-text-primary">{referee.name}</span>
+          {isOwnView ? (
+            <span className="font-medium text-text-primary">My Stats</span>
+          ) : (
+            <>
+              <Link href="/stats" className="transition-colors hover:text-accent">
+                Statistics
+              </Link>
+              <span>/</span>
+              <Link href="/stats?tab=referees" className="transition-colors hover:text-accent">
+                Referees
+              </Link>
+              <span>/</span>
+              <span className="font-medium text-text-primary">{referee.name}</span>
+            </>
+          )}
         </nav>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/stats/referee/${previous.id}`}
-            className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
-          >
-            ← {previous.name.split(" ")[0]}
-          </Link>
-          <Link
-            href={`/stats/referee/${next.id}`}
-            className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
-          >
-            {next.name.split(" ")[0]} →
-          </Link>
-        </div>
+        {!isOwnView && (
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/stats/referee/${previous.id}`}
+              className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
+            >
+              ← {previous.name.split(" ")[0]}
+            </Link>
+            <Link
+              href={`/stats/referee/${next.id}`}
+              className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
+            >
+              {next.name.split(" ")[0]} →
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
-          <h1 className="text-3xl font-bold text-premium">
-            {referee.name}{" "}
-            <span className="align-middle text-2xl">{COUNTRY_FLAGS[referee.country]}</span>
-          </h1>
-          <p className="mt-2 flex flex-wrap items-center gap-2 text-text-secondary">
-            {referee.country}
-            <span className="inline-flex rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-500">
-              {referee.level}
-            </span>
-            <span className="text-text-muted">·</span>
-            <span className="text-sm">
-              Rank <span className="font-bold text-accent">#{rank}</span> of{" "}
-              {STAT_REFEREES.length}
-            </span>
-          </p>
-        </div>
-        <div className="text-left sm:text-right">
-          <p className="text-sm text-text-secondary">Overall ave. mark</p>
-          <p className={`text-4xl font-bold tabular-nums ${scoreTextColor(overall)}`}>
-            <AnimatedNumber value={overall} decimals={2} />
-          </p>
-        </div>
-      </div>
+      {/* Profile */}
+      <ProfileCard referee={referee} isOwnView={isOwnView} />
+
+      {/* AI analysis + the observer reports it's based on (shared season) */}
+      <ReportsInsights refereeId={refereeId} />
 
       {/* Highlights */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Link href={`/stats/category/${strongest.slug}`} className="group">
-          <Card hoverable className="h-full space-y-1">
-            <p className="text-sm text-text-secondary">Strongest category</p>
-            <p className="text-xl font-bold text-[#4ade80] transition-colors group-hover:text-accent">
-              {strongest.name} →
-            </p>
-            <p className="text-xs text-text-muted">
-              ave. mark {formatScore(referee.scores[strongest.slug] ?? 0)}
-            </p>
-          </Card>
-        </Link>
-        <Link href={`/stats/category/${weakest.slug}`} className="group">
-          <Card hoverable className="h-full space-y-1">
-            <p className="text-sm text-text-secondary">Focus area</p>
-            <p className="text-xl font-bold text-[#f87171] transition-colors group-hover:text-accent">
-              {weakest.name} →
-            </p>
-            <p className="text-xs text-text-muted">
-              ave. mark {formatScore(referee.scores[weakest.slug] ?? 0)}
-            </p>
-          </Card>
-        </Link>
+        <HighlightCard
+          label="Strongest category"
+          name={strongest.name}
+          mark={referee.scores[strongest.slug] ?? 0}
+          tone="strong"
+          href={`/stats/referee/${refereeId}/category/${strongest.slug}`}
+        />
+        <HighlightCard
+          label="Focus area"
+          name={weakest.name}
+          mark={referee.scores[weakest.slug] ?? 0}
+          tone="focus"
+          href={`/stats/referee/${refereeId}/category/${weakest.slug}`}
+        />
         <Card className="space-y-1">
           <p className="text-sm text-text-secondary">Tests completed</p>
           <p className="text-xl font-bold text-cyan-500">
@@ -172,7 +150,7 @@ export function RefereeStatsView({ refereeId }: { refereeId: string }) {
                         {category.short}
                       </p>
                       <Link
-                        href={`/stats/category/${category.slug}`}
+                        href={`/stats/referee/${refereeId}/category/${category.slug}`}
                         onClick={(e) => e.stopPropagation()}
                         className="text-lg font-semibold text-text-primary transition-colors hover:text-accent"
                       >
@@ -247,5 +225,38 @@ export function RefereeStatsView({ refereeId }: { refereeId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function HighlightCard({
+  label,
+  name,
+  mark,
+  tone,
+  href,
+}: {
+  label: string;
+  name: string;
+  mark: number;
+  tone: "strong" | "focus";
+  href?: string;
+}) {
+  const toneColor = tone === "strong" ? "text-[#4ade80]" : "text-[#f87171]";
+  const inner = (
+    <Card hoverable={!!href} className="h-full space-y-1">
+      <p className="text-sm text-text-secondary">{label}</p>
+      <p className={`text-xl font-bold transition-colors ${toneColor} ${href ? "group-hover:text-accent" : ""}`}>
+        {name}
+        {href ? " →" : ""}
+      </p>
+      <p className="text-xs text-text-muted">ave. mark {formatScore(mark)}</p>
+    </Card>
+  );
+  return href ? (
+    <Link href={href} className="group">
+      {inner}
+    </Link>
+  ) : (
+    <div>{inner}</div>
   );
 }

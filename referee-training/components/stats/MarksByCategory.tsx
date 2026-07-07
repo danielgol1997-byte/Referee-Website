@@ -11,6 +11,8 @@ import {
   getCategoryAverage,
   getCategoryLeaderboard,
 } from "@/lib/stats-mock";
+import { DistributionBar, DistributionLegend } from "./DistributionBar";
+import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
 const COLLAPSED_COUNT = 5;
@@ -20,12 +22,15 @@ export function MarksByCategory() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold text-text-primary">Marks by category</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Top performers per category. Click a name for the referee&apos;s record, or the category
-          for the full ranking.
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-xl font-semibold text-text-primary">
+            Marks by category
+            <InfoTip text="The bar shows how all answers split between correct, partially correct, and incorrect for that category." />
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">Rankings and answer split per category</p>
+        </div>
+        <DistributionLegend />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -44,27 +49,24 @@ export function MarksByCategory() {
             >
               <Link
                 href={`/stats/category/${category.slug}`}
-                className="group flex items-center justify-between border-b border-dark-600 bg-dark-700/50 px-5 py-4 transition-colors hover:bg-dark-700"
+                className="group border-b border-dark-600 bg-dark-700/50 px-5 py-4 transition-colors hover:bg-dark-700"
               >
-                <div>
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-text-primary transition-colors group-hover:text-accent">
                     {category.name}
                   </h3>
-                  <p className="text-xs text-text-muted">
-                    ave. mark{" "}
-                    <span className={scoreTextColor(average)}>{formatScore(average)}</span>
-                  </p>
+                  <span className={`text-sm font-bold tabular-nums ${scoreTextColor(average)}`}>
+                    {formatScore(average)}
+                  </span>
                 </div>
-                <span className="text-text-muted transition-all group-hover:translate-x-0.5 group-hover:text-accent">
-                  →
-                </span>
+                <DistributionBar distribution={category.distribution} size="sm" className="mt-3" />
               </Link>
 
               <ol className="flex-1 divide-y divide-dark-600/60">
                 {shown.map((referee, rank) => (
                   <li key={referee.id}>
                     <Link
-                      href={`/stats/referee/${referee.id}`}
+                      href={`/stats/referee/${referee.id}/category/${category.slug}`}
                       className="group flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-dark-700/60"
                     >
                       <span

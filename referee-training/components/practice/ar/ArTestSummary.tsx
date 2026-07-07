@@ -158,9 +158,10 @@ export function ArTestSummary({
                     </div>
                     <span className="text-sm font-semibold text-white">Clip {index + 1}</span>
                   </div>
+                  {/* Red/green means correct/incorrect only — the call itself stays neutral */}
                   <div className="flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-wider">
                     <span className="text-text-muted">Your call:</span>
-                    <span className={answer?.userAnswer === "OFFSIDE" ? "text-[#ef4444]" : "text-[#22c55e]"}>
+                    <span className="text-white">
                       {answer ? (answer.userAnswer === "OFFSIDE" ? "Offside" : "Onside") : "—"}
                     </span>
                     <span className={cn("rounded-full px-2 py-0.5 text-[10px]", isCorrect ? "bg-[#22c55e]/15 text-[#22c55e]" : "bg-[#ef4444]/15 text-[#ef4444]")}>

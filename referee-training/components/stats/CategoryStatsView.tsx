@@ -19,6 +19,7 @@ import { AnimatedNumber } from "./AnimatedNumber";
 import { DistributionBar, DistributionLegend } from "./DistributionBar";
 import { TrendChart } from "./TrendChart";
 import { ScoreBadge } from "./ScoreBadge";
+import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
 const WEEK_LABELS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"];
@@ -93,7 +94,7 @@ export function CategoryStatsView({ slug }: { slug: string }) {
         <Card className="space-y-1">
           <p className="text-sm text-text-secondary">Top referee</p>
           <Link
-            href={`/stats/referee/${leaderboard[0].id}`}
+            href={`/stats/referee/${leaderboard[0].id}/category/${slug}`}
             className="block text-xl font-bold text-accent transition-colors hover:text-accent-dark"
           >
             {leaderboard[0].name} →
@@ -109,7 +110,10 @@ export function CategoryStatsView({ slug }: { slug: string }) {
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="space-y-4 lg:col-span-2">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Answer distribution</h2>
+            <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-primary">
+              Answer distribution
+              <InfoTip text="How all answers in this category split between correct, partially correct, and incorrect." />
+            </h2>
             <p className="mt-1 text-sm text-text-secondary">All referees, all tests</p>
           </div>
           <DistributionBar distribution={category.distribution} size="lg" showLabels />
@@ -154,7 +158,7 @@ export function CategoryStatsView({ slug }: { slug: string }) {
                 {leaderboard.map((referee, rank) => (
                   <tr
                     key={referee.id}
-                    onClick={() => router.push(`/stats/referee/${referee.id}`)}
+                    onClick={() => router.push(`/stats/referee/${referee.id}/category/${slug}`)}
                     className="group cursor-pointer border-t border-dark-600 transition-colors hover:bg-dark-700/60"
                   >
                     <td className="px-4 py-3">

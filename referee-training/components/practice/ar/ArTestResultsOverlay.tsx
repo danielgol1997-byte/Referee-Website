@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 type ArDecision = "OFFSIDE" | "ONSIDE";
@@ -33,18 +34,48 @@ function decisionLabel(decision: ArDecision) {
   return decision === "OFFSIDE" ? "Offside" : "Onside";
 }
 
-function decisionColor(decision: ArDecision) {
-  return decision === "OFFSIDE" ? "#ef4444" : "#22c55e";
+function EnlargeButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "absolute right-2 top-2 z-10 rounded-lg border border-white/25 bg-black/60 p-2",
+        "text-white/80 backdrop-blur-sm transition-all duration-150",
+        "hover:border-cyan-400/70 hover:text-cyan-300 hover:bg-black/80"
+      )}
+    >
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+      </svg>
+    </button>
+  );
 }
 
 export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTestResultsOverlayProps) {
+  const [enlarged, setEnlarged] = useState<"video" | "frame" | null>(null);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === "Escape" || e.key === "i" || e.key === "I") && isOpen) onClose();
+      if (!isOpen) return;
+      if (e.key === "Escape" || e.key === "i" || e.key === "I") {
+        // Close the lightbox first, then the overlay.
+        setEnlarged((current) => {
+          if (current !== null) return null;
+          onClose();
+          return null;
+        });
+      }
     };
     if (isOpen) document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) setEnlarged(null);
+  }, [isOpen]);
 
   if (!isOpen || !item.clip || !item.answer) return null;
 
@@ -97,23 +128,20 @@ export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTe
           </div>
 
           <div className="space-y-4 px-6 py-4">
-            {/* Answer comparison */}
+            {/* Answer comparison — red/green is reserved for correctness only */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div
                 className={cn(
                   "rounded-lg border-2 p-4 text-center",
                   isCorrect
-                    ? "border-[#22c55e] bg-[#22c55e]/10"
-                    : "border-[#ef4444] bg-[#ef4444]/10"
+                    ? "border-[#22c55e]/60 bg-[#22c55e]/10"
+                    : "border-[#ef4444]/60 bg-[#ef4444]/10"
                 )}
               >
                 <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-text-secondary">
                   Your Call
                 </p>
-                <p
-                  className="text-2xl font-black uppercase tracking-wider"
-                  style={{ color: isCorrect ? "#22c55e" : "#ef4444" }}
-                >
+                <p className="text-2xl font-black uppercase tracking-wider text-white">
                   {decisionLabel(answer.userAnswer)}
                 </p>
               </div>
@@ -121,10 +149,7 @@ export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTe
                 <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-text-secondary">
                   Correct Call
                 </p>
-                <p
-                  className="text-2xl font-black uppercase tracking-wider"
-                  style={{ color: decisionColor(clip.correctAnswer) }}
-                >
+                <p className="text-2xl font-black uppercase tracking-wider text-white">
                   {decisionLabel(clip.correctAnswer)}
                 </p>
               </div>
@@ -139,7 +164,8 @@ export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTe
                 <p className="text-[11px] font-bold uppercase tracking-widest text-text-secondary">
                   Watch Again
                 </p>
-                <div className="h-[min(34dvh,320px)] overflow-hidden rounded-lg border border-dark-600 bg-black/60">
+                <div className="relative h-[min(34dvh,320px)] overflow-hidden rounded-lg border border-dark-600 bg-black/60">
+                  <EnlargeButton onClick={() => setEnlarged("video")} label="Enlarge video" />
                   <video
                     src={clip.fileUrl}
                     poster={clip.thumbnailUrl ?? undefined}
@@ -162,13 +188,21 @@ export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTe
                       </span>
                     )}
                   </p>
-                  <div className="h-[min(34dvh,320px)] overflow-hidden rounded-lg border border-cyan-500/40 bg-black/60">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={clip.passFrameUrl}
-                      alt="Freeze-frame at the moment of the pass"
-                      className="h-full w-full object-contain"
-                    />
+                  <div className="relative h-[min(34dvh,320px)] overflow-hidden rounded-lg border border-cyan-500/40 bg-black/60">
+                    <EnlargeButton onClick={() => setEnlarged("frame")} label="Enlarge pass moment" />
+                    <button
+                      type="button"
+                      onClick={() => setEnlarged("frame")}
+                      className="block h-full w-full cursor-zoom-in"
+                      title="Enlarge pass moment"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={clip.passFrameUrl}
+                        alt="Freeze-frame at the moment of the pass"
+                        className="h-full w-full object-contain"
+                      />
+                    </button>
                   </div>
                 </div>
               )}
@@ -190,6 +224,50 @@ export function ArTestResultsOverlay({ isOpen, onClose, item, clipNumber }: ArTe
           </div>
         </div>
       </div>
+
+      {/* ─── Fullscreen lightbox (portal escapes ancestor stacking contexts) ─── */}
+      {enlarged !== null && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[100200] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-150"
+          onClick={() => setEnlarged(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setEnlarged(null)}
+            aria-label="Close enlarged view"
+            className={cn(
+              "absolute right-4 top-4 z-10 rounded-lg border border-white/25 bg-black/60 p-2.5",
+              "text-white/80 transition-all duration-150 hover:border-cyan-400/70 hover:text-cyan-300"
+            )}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          {enlarged === "video" ? (
+            <video
+              src={clip.fileUrl}
+              poster={clip.thumbnailUrl ?? undefined}
+              controls
+              autoPlay
+              muted
+              playsInline
+              preload="auto"
+              className="max-h-full max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : clip.passFrameUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={clip.passFrameUrl}
+              alt="Freeze-frame at the moment of the pass"
+              className="max-h-full max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : null}
+        </div>,
+        document.body
+      )}
     </>
   );
 }
