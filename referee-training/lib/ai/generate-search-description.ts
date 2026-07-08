@@ -1,4 +1,5 @@
 import { getOpenAI } from "@/lib/openai";
+import { geminiGenerateJson } from "@/lib/gemini";
 import { loadPrompt } from "./prompt-loader";
 import { getTagTaxonomyCategories } from "./tag-taxonomy-cache";
 
@@ -100,6 +101,45 @@ function buildUserMessage(
   return parts.join("\n");
 }
 
+/**
+ * One JSON completion — Gemini primary, OpenAI fallback with the same
+ * system prompt and message history.
+ */
+async function completeDescriptionJson(
+  prompt: { systemPrompt: string; model: string; temperature: number; maxTokens: number },
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+): Promise<{ parsed: any; rawText: string }> {
+  try {
+    return await geminiGenerateJson({
+      systemInstruction: prompt.systemPrompt,
+      messages: messages.map((m) => ({
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+        text: m.content,
+      })),
+      temperature: prompt.temperature,
+      maxOutputTokens: Math.max(prompt.maxTokens, 8192),
+    });
+  } catch (geminiError) {
+    console.warn(
+      "Gemini description generation failed, falling back to OpenAI:",
+      geminiError instanceof Error ? geminiError.message : geminiError
+    );
+    const response = await getOpenAI().chat.completions.create({
+      model: prompt.model,
+      temperature: prompt.temperature,
+      max_tokens: prompt.maxTokens,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: prompt.systemPrompt },
+        ...messages,
+      ],
+    });
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from AI model");
+    return { parsed: JSON.parse(content), rawText: content };
+  }
+}
+
 export async function generateSearchDescription(
   metadata: VideoMetadata,
   rawDescription: string
@@ -107,25 +147,11 @@ export async function generateSearchDescription(
   const prompt = await loadPrompt("search_description_generation");
   const userMessage = buildUserMessage(prompt.userPromptTemplate, metadata, rawDescription);
 
-  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: prompt.systemPrompt },
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [
     { role: "user", content: userMessage },
   ];
 
-  let response = await getOpenAI().chat.completions.create({
-    model: prompt.model,
-    temperature: prompt.temperature,
-    max_tokens: prompt.maxTokens,
-    response_format: { type: "json_object" },
-    messages,
-  });
-
-  let content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("No response from AI model");
-  }
-
-  let parsed = JSON.parse(content);
+  let { parsed, rawText } = await completeDescriptionJson(prompt, messages);
   const wordCount = (parsed.canonicalDescription || "").split(/\s+/).length;
 
   // Preserve suggestedTags from first response in case retry doesn't include them
@@ -133,27 +159,20 @@ export async function generateSearchDescription(
 
   // If the description is under 150 words and the admin gave a non-trivial input, ask the model to expand
   if (wordCount < 150 && rawDescription.split(/\s+/).length > 20) {
-    messages.push({ role: "assistant", content });
+    messages.push({ role: "assistant", content: rawText });
     messages.push({
       role: "user",
       content: `Your canonicalDescription is only ${wordCount} words. This is too short. The admin provided a detailed description and you compressed it into a brief summary. Please rewrite the ENTIRE JSON response with a canonicalDescription of at least 250 words. Include every detail from the admin's description. Also expand the embeddingText to match. Do not shorten any other field. IMPORTANT: You MUST include the suggestedTags field with exact tag slugs from the taxonomy.`,
     });
 
-    response = await getOpenAI().chat.completions.create({
-      model: prompt.model,
-      temperature: prompt.temperature,
-      max_tokens: prompt.maxTokens,
-      response_format: { type: "json_object" },
-      messages,
-    });
-
-    const expandedContent = response.choices[0]?.message?.content;
-    if (expandedContent) {
-      const expandedParsed = JSON.parse(expandedContent);
-      const expandedWordCount = (expandedParsed.canonicalDescription || "").split(/\s+/).length;
+    try {
+      const expanded = await completeDescriptionJson(prompt, messages);
+      const expandedWordCount = (expanded.parsed.canonicalDescription || "").split(/\s+/).length;
       if (expandedWordCount > wordCount) {
-        parsed = expandedParsed;
+        parsed = expanded.parsed;
       }
+    } catch (expandError) {
+      console.warn("Expansion pass failed, keeping first-pass description:", expandError);
     }
   }
 

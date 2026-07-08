@@ -9,6 +9,25 @@ import {
   hasVectorSupport,
 } from "@/lib/ai/embeddings";
 import { logSearchQuery } from "@/lib/ai/log-search-query";
+import { rerankSearchResults } from "@/lib/ai/rerank";
+
+// Common words that must never drive a text-contains match — matching "the"
+// or "on" would return essentially the whole library in arbitrary order.
+const STOPWORDS = new Set([
+  "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "is",
+  "are", "was", "were", "be", "by", "with", "from", "into", "out", "outside",
+  "inside", "near", "his", "her", "their", "its", "this", "that", "it",
+  "as", "but", "not", "no", "does", "do", "did", "has", "have", "had",
+  "player", "video", "clip", "clips", "referee", "match", "game", "football",
+  "soccer", "situation", "incident", "decision",
+]);
+
+/** Keep only terms that are meaningful enough to text-match on. */
+function meaningfulTerms(keywords: string[]): string[] {
+  return keywords
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 3 && !STOPWORDS.has(k.toLowerCase()));
+}
 
 export async function POST(request: Request) {
   try {
@@ -64,16 +83,33 @@ export async function POST(request: Request) {
     const vectorSupport = await hasVectorSupport();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let results: any[] | null = null;
+    let semanticSucceeded = false;
 
     if (vectorSupport) {
       try {
-        const queryEmbedding = await generateEmbedding(enhanced.expandedQuery);
+        const queryEmbedding = await generateEmbedding(
+          enhanced.expandedQuery,
+          "query"
+        );
         results = await searchByEmbedding(queryEmbedding, {
           limit: 30,
           tagSlugs: hardFilterSlugs,
           boostTagSlugs: boostSlugs,
           keywordBoostTerms: enhanced.keywords,
         });
+        // The hard filter requires a video to carry EVERY inferred tag. When
+        // no video has that exact combination (e.g. "handball red card" where
+        // such clips are tagged dogso), relax to pure semantic search and let
+        // the reranker put the true matches first instead of returning nothing.
+        if (results.length === 0 && hardFilterSlugs.length > 0) {
+          results = await searchByEmbedding(queryEmbedding, {
+            limit: 30,
+            tagSlugs: [],
+            boostTagSlugs: boostSlugs,
+            keywordBoostTerms: enhanced.keywords,
+          });
+        }
+        semanticSucceeded = true;
       } catch (error) {
         console.error("Semantic search failed, falling back:", error);
         results = null;
@@ -109,6 +145,27 @@ export async function POST(request: Request) {
         hardFilterSlugs,
         30
       );
+    }
+
+    // Step 4: Rerank the top candidates against the actual query. Low-scoring
+    // candidates are dropped (only when enough relevant ones remain) so the
+    // user isn't shown videos that contradict what they asked for.
+    let rerankApplied = false;
+    if (results.length >= 2) {
+      const rerankQuery = enhanced.cleanedQuery || query.trim();
+      const { results: rerankedResults, reranked, scores } =
+        await rerankSearchResults(rerankQuery, results, { maxCandidates: 30 });
+      if (reranked) {
+        rerankApplied = true;
+        results = rerankedResults;
+        if (scores) {
+          const relevant = results.filter((r) => (scores.get(r.id) ?? 100) >= 30);
+          // Only drop weak candidates when a solid core remains.
+          if (relevant.length >= 3) {
+            results = relevant;
+          }
+        }
+      }
     }
 
     // Enrich results with tag data for the UI
@@ -160,7 +217,15 @@ export async function POST(request: Request) {
       };
     });
 
-    const searchMethod = vectorSupport ? "semantic" : "keyword";
+    // Honest method reporting: "semantic" only when the vector search actually
+    // ran (previously this reported "semantic" even when embeddings failed).
+    const searchMethod = semanticSucceeded
+      ? rerankApplied
+        ? "semantic+rerank"
+        : "semantic"
+      : hardFilterSlugs.length > 0
+        ? "tags"
+        : "keyword";
 
     // Fire-and-forget — does not affect response latency
     logSearchQuery({
@@ -220,7 +285,8 @@ async function keywordFallbackSearch(
   // (via the orderBy below) so we don't accidentally hide tagged videos that
   // don't happen to mention the search term in their title/description.
   if (tagSlugs.length === 0) {
-    const textConditions = [cleanedQuery, ...keywords].filter(Boolean);
+    // Stopwords are filtered so a term like "the" can't match the whole library.
+    const textConditions = [cleanedQuery, ...meaningfulTerms(keywords)].filter(Boolean);
     if (textConditions.length > 0) {
       andFilters.push({
         OR: [

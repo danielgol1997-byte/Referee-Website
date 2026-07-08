@@ -1,16 +1,35 @@
-import { getOpenAI } from "@/lib/openai";
+import { getGemini, GEMINI_EMBEDDING_MODEL } from "@/lib/gemini";
 import { prisma } from "@/lib/prisma";
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
+// Must match the pgvector column: vector(1536).
 const EMBEDDING_DIMENSIONS = 1536;
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await getOpenAI().embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
-    dimensions: EMBEDDING_DIMENSIONS,
+/**
+ * Generate an embedding with Gemini. `kind` selects the retrieval task type:
+ * "document" for stored video descriptions, "query" for user searches.
+ *
+ * IMPORTANT: no cross-provider fallback here — all vectors (stored and query)
+ * must come from the same model or similarity scores are meaningless.
+ */
+export async function generateEmbedding(
+  text: string,
+  kind: "document" | "query" = "document"
+): Promise<number[]> {
+  const response = await getGemini().models.embedContent({
+    model: GEMINI_EMBEDDING_MODEL,
+    contents: text,
+    config: {
+      taskType: kind === "query" ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT",
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+    },
   });
-  return response.data[0].embedding;
+  const values = response.embeddings?.[0]?.values;
+  if (!values || values.length !== EMBEDDING_DIMENSIONS) {
+    throw new Error(
+      `Gemini embedding failed: got ${values?.length ?? 0} dimensions, expected ${EMBEDDING_DIMENSIONS}`
+    );
+  }
+  return values;
 }
 
 export async function storeVideoEmbedding(
@@ -66,6 +85,7 @@ export async function searchByEmbedding(
   try {
     let tagFilterJoin = "";
     let tagFilterWhere = "";
+    let tagFilterHaving = "";
     const params: any[] = [vectorStr, limit];
     let paramIndex = 3;
 
@@ -75,6 +95,10 @@ export async function searchByEmbedding(
         INNER JOIN "Tag" t_filter ON t_filter."id" = vt_filter."tagId"
       `;
       tagFilterWhere = `AND t_filter."slug" = ANY($${paramIndex})`;
+      // Hard filters are AND semantics: the video must carry EVERY requested
+      // slug, not just one of them (e.g. "handball red card" must exclude
+      // handball clips without a red card).
+      tagFilterHaving = `HAVING COUNT(DISTINCT t_filter."slug") = ${tagSlugs.length}`;
       params.push(tagSlugs);
       paramIndex++;
     }
@@ -97,6 +121,7 @@ export async function searchByEmbedding(
         AND v."embedding" IS NOT NULL
         ${tagFilterWhere}
       GROUP BY v."id"
+      ${tagFilterHaving}
       ORDER BY similarity DESC
       LIMIT $2
     `;

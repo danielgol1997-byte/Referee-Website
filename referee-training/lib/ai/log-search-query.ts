@@ -18,7 +18,7 @@ export interface SearchLogPayload {
   selectedTagFilters?: string[];
   resultVideoIds?: string[];
   resultCount?: number;
-  searchMethod?: "semantic" | "keyword";
+  searchMethod?: "semantic" | "semantic+rerank" | "tags" | "keyword";
   durationMs?: number;
 }
 

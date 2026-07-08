@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getOpenAI } from "@/lib/openai";
+import { geminiGenerateJson } from "@/lib/gemini";
 
 export const maxDuration = 120;
 
@@ -111,22 +112,37 @@ ${searchKeywords.join(", ") || "(none)"}
 ADMIN'S FIX INSTRUCTION:
 ${instruction}`;
 
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.2,
-      max_tokens: 4000,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response from AI model");
+    // Gemini primary, OpenAI fallback.
+    let parsed: any;
+    try {
+      const result = await geminiGenerateJson({
+        systemInstruction: SYSTEM_PROMPT,
+        messages: [{ role: "user", text: userMessage }],
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+      });
+      parsed = result.parsed;
+    } catch (geminiError) {
+      console.warn(
+        "Gemini refine failed, falling back to OpenAI:",
+        geminiError instanceof Error ? geminiError.message : geminiError
+      );
+      const response = await getOpenAI().chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.2,
+        max_tokens: 4000,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+      });
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from AI model");
+      }
+      parsed = JSON.parse(content);
     }
-    const parsed = JSON.parse(content);
 
     return NextResponse.json({
       canonicalDescription: parsed.canonicalDescription || canonicalText,

@@ -186,6 +186,16 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
                   next.criteria = [...next.criteria, slug];
                 else if (cat === "scenario" && !next.scenarios.includes(slug))
                   next.scenarios = [...next.scenarios, slug];
+                else {
+                  // Any other tag category (laws, custom admin-created ones)
+                  // lives in customTagFilters keyed by its category slug.
+                  const custom = { ...(next.customTagFilters || {}) };
+                  const existing = custom[cat] || [];
+                  if (!existing.includes(slug)) {
+                    custom[cat] = [...existing, slug];
+                    next.customTagFilters = custom;
+                  }
+                }
               }
               return next;
             });
@@ -574,7 +584,7 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
                 {searchMeta.totalResults} result{searchMeta.totalResults !== 1 ? "s" : ""} found
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                {searchMeta.searchMethod === "semantic" ? "AI Search" : "Keyword Search"}
+                {searchMeta.searchMethod.startsWith("semantic") ? "AI Search" : "Keyword Search"}
               </span>
             </div>
           )}

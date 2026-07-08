@@ -1,4 +1,5 @@
 import { getOpenAI } from "@/lib/openai";
+import { geminiGenerateJson } from "@/lib/gemini";
 import { loadPrompt } from "./prompt-loader";
 import { getTagTaxonomyCategories } from "./tag-taxonomy-cache";
 
@@ -49,23 +50,37 @@ export async function enhanceSearchQuery(
 ): Promise<EnhancedQuery> {
   const prompt = await loadPrompt("user_query_enhancement");
 
-  const response = await getOpenAI().chat.completions.create({
-    model: prompt.model,
-    temperature: prompt.temperature,
-    max_tokens: prompt.maxTokens,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: prompt.systemPrompt },
-      { role: "user", content: rawQuery },
-    ],
-  });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("No response from AI model for query enhancement");
+  // Gemini is the primary provider; OpenAI is a same-shape fallback.
+  let parsed: any;
+  try {
+    const result = await geminiGenerateJson({
+      systemInstruction: prompt.systemPrompt,
+      messages: [{ role: "user", text: rawQuery }],
+      temperature: prompt.temperature,
+      maxOutputTokens: Math.max(prompt.maxTokens, 2048),
+    });
+    parsed = result.parsed;
+  } catch (geminiError) {
+    console.warn(
+      "Gemini query enhancement failed, falling back to OpenAI:",
+      geminiError instanceof Error ? geminiError.message : geminiError
+    );
+    const response = await getOpenAI().chat.completions.create({
+      model: prompt.model,
+      temperature: prompt.temperature,
+      max_tokens: prompt.maxTokens,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: prompt.systemPrompt },
+        { role: "user", content: rawQuery },
+      ],
+    });
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response from AI model for query enhancement");
+    }
+    parsed = JSON.parse(content);
   }
-
-  const parsed = JSON.parse(content);
 
   const rawTags: InferredTag[] = Array.isArray(parsed.inferredTags)
     ? parsed.inferredTags

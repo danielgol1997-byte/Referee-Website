@@ -189,7 +189,7 @@ export function SearchQueryLogViewer() {
                         onClick={() => setExpanded(isExpanded ? null : entry.id)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-dark-700/30 transition-colors"
                       >
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border shrink-0 ${entry.searchMethod === "semantic" ? "text-purple-400 border-purple-500/30 bg-purple-500/10" : "text-cyan-400 border-cyan-500/30 bg-cyan-500/10"}`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border shrink-0 ${entry.searchMethod.startsWith("semantic") ? "text-purple-400 border-purple-500/30 bg-purple-500/10" : "text-cyan-400 border-cyan-500/30 bg-cyan-500/10"}`}>
                           {entry.searchMethod}
                         </span>
                         <span className="text-sm text-text-primary font-medium truncate flex-1">
