@@ -5,6 +5,47 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { storeVideoEmbedding } from "@/lib/ai/embeddings";
 
+/**
+ * GET /api/admin/library/videos/[id]/search-description
+ * Lightweight fetch of the current search-description fields — used by the
+ * editor to poll while a background analysis is running.
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !isSuperAdmin(session.user.role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const video = await prisma.videoClip.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        rawAdminDescription: true,
+        canonicalSearchText: true,
+        searchSummary: true,
+        searchKeywords: true,
+        searchDescriptionStatus: true,
+      },
+    });
+
+    if (!video) {
+      return NextResponse.json({ error: "Video not found" }, { status: 404 });
+    }
+    return NextResponse.json({ video });
+  } catch (error) {
+    console.error("Error fetching search description:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch search description" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

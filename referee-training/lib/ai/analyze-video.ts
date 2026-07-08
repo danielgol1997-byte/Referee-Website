@@ -60,6 +60,8 @@ export interface AnalyzeVideoInput {
   duration?: number | null;
   trimStart?: number | null;
   trimEnd?: number | null;
+  /** True for explanation/educational clips (expert analysis, not decision quizzes). */
+  isEducational?: boolean;
   /** Existing tags on the clip — authoritative context, never contradicted. */
   existingTags: Array<{ name: string; slug: string; categorySlug: string }>;
 }
@@ -258,10 +260,14 @@ function buildUserPrompt(input: AnalyzeVideoInput): string {
           .join("\n")
       : "(none assigned yet)";
 
+  const clipTypeNote = input.isEducational
+    ? `\nCLIP TYPE: EXPLANATION / EDUCATIONAL CLIP. This clip is expert teaching material, not a raw decision test. It may contain freeze-frames, slow-motion replays, drawn arrows/circles/lines, split screens, voiceover graphics, or multiple incidents shown for comparison. Describe these teaching elements in the visualNarrative too (what is highlighted and what point is being illustrated) — they are highly searchable. Be extra conservative with structured suggestions: only suggest tags when the illustrated concept is unmistakable.\n`
+    : "";
+
   return `Analyze this referee training clip.
 
 CLIP TITLE: ${input.title}
-
+${clipTypeNote}
 EXISTING TAGS ON THIS CLIP (authoritative — these encode the OFFICIALLY CORRECT decision per expert/UEFA assessment, which may DIFFER from what the referee in the clip actually did; never contradict them, and calibrate your location claims against the tagged restart):
 ${tagLines}
 

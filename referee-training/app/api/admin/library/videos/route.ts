@@ -1,8 +1,14 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { runVideoAnalysisPipeline } from '@/lib/ai/analyze-pipeline';
+
+// Video creation itself is fast, but the background AI analysis kicked off
+// via after() needs the function to stay alive for a few minutes.
+export const maxDuration = 300;
 
 /**
  * GET /api/admin/library/videos
@@ -399,6 +405,23 @@ export async function POST(request: Request) {
           },
         },
       },
+    });
+
+    // Kick off the AI analysis pipeline in the background (after the response
+    // is sent). Marks the video as "analyzing" immediately so the admin UI can
+    // show live status; the pipeline sets the final status when done.
+    const userId = userExists ? session.user.id : null;
+    await prisma.videoClip.update({
+      where: { id: video.id },
+      data: { searchDescriptionStatus: 'analyzing' },
+    });
+    after(async () => {
+      try {
+        await runVideoAnalysisPipeline(video.id, { processedById: userId });
+        console.log(`✅ Auto-analysis complete for video ${video.id}`);
+      } catch (err) {
+        console.error(`❌ Auto-analysis failed for video ${video.id}:`, err);
+      }
     });
 
     return NextResponse.json({ video }, { status: 201 });

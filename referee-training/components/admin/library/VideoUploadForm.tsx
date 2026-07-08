@@ -256,148 +256,6 @@ const inferDecisionStateFromText = (text: string): "offence" | "play_on" | "no_o
   return hasOffence ? "offence" : null;
 };
 
-const findTagByCategoryAndSlugHints = (
-  availableTags: Tag[],
-  categorySlug: string,
-  slugHints: string[],
-  nameHints: string[]
-): Tag | null => {
-  const normalizedSlugHints = slugHints.map((hint) => hint.toLowerCase());
-  const normalizedNameHints = nameHints.map((hint) => normalizeTextForMatching(hint));
-
-  const bySlug = availableTags.find((tag) => {
-    if (tag.category?.slug !== categorySlug) return false;
-    const slug = (tag.slug ?? "").toLowerCase();
-    return normalizedSlugHints.some((hint) => slug.includes(hint));
-  });
-  if (bySlug) return bySlug;
-
-  const byName = availableTags.find((tag) => {
-    if (tag.category?.slug !== categorySlug) return false;
-    const name = normalizeTextForMatching(tag.name);
-    return normalizedNameHints.some((hint) => name.includes(hint));
-  });
-  return byName ?? null;
-};
-
-const inferNoOffenceCriteriaTag = (
-  text: string,
-  availableTags: Tag[],
-  allowedCategoryNames: Set<string>
-): Tag | null => {
-  if (allowedCategoryNames.size === 0) return null;
-
-  const categoryAlignedPlayOnCriteria = availableTags.filter((tag) => {
-    if (tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG) return false;
-    const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
-    if (!parentCategory || !allowedCategoryNames.has(parentCategory)) return false;
-    return tag.isPlayOnCriteria === true;
-  });
-
-  if (categoryAlignedPlayOnCriteria.length > 0) {
-    const normalizedText = normalizeTextForMatching(text).replace(/-/g, " ");
-    let best: { tag: Tag; score: number } | null = null;
-    for (const tag of categoryAlignedPlayOnCriteria) {
-      const score = getTagMatchScore(normalizedText, tag);
-      if (!best || score > best.score) best = { tag, score };
-    }
-    if (best?.score && best.score > 0) return best.tag;
-    return categoryAlignedPlayOnCriteria[0];
-  }
-
-  return inferBestCriteriaTagFromText(text, availableTags, allowedCategoryNames);
-};
-
-const enforceTagSelectionRules = (
-  nextCorrect: Tag[],
-  nextInvisible: Tag[],
-  availableTags: Tag[],
-  generationText: string,
-  inferredDecision: "offence" | "play_on" | "no_offence" | null
-) => {
-  let corrected = dedupeTagsById(nextCorrect);
-  let invisible = dedupeTagsById(nextInvisible.filter((tag) => !corrected.some((ct) => ct.id === tag.id)));
-
-  // Enforce exactly one selected category by keeping the latest selected one.
-  const allCategoryTags = [...corrected, ...invisible].filter(
-    (tag) => tag.category?.slug === CATEGORY_TAG_CATEGORY_SLUG
-  );
-  if (allCategoryTags.length > 1) {
-    const keep = allCategoryTags[allCategoryTags.length - 1];
-    corrected = corrected.filter(
-      (tag) => tag.category?.slug !== CATEGORY_TAG_CATEGORY_SLUG || tag.id === keep.id
-    );
-    invisible = invisible.filter(
-      (tag) => tag.category?.slug !== CATEGORY_TAG_CATEGORY_SLUG || tag.id === keep.id
-    );
-  }
-
-  const selectedCategoryNames = getSelectedCategoryNames([...corrected, ...invisible]);
-  const hasSelectedCategory = selectedCategoryNames.size > 0;
-
-  const criteriaIsValidForSelectedCategory = (tag: Tag) => {
-    if (tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG) return true;
-    if (!hasSelectedCategory) return false;
-    const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
-    return !!parentCategory && selectedCategoryNames.has(parentCategory);
-  };
-
-  corrected = corrected.filter(criteriaIsValidForSelectedCategory);
-  invisible = invisible.filter(criteriaIsValidForSelectedCategory);
-
-  const noOffenceLikeDecision =
-    inferredDecision === "no_offence" || inferredDecision === "play_on";
-
-  if (noOffenceLikeDecision) {
-    const noDisciplinarySanctionTag = findTagByCategoryAndSlugHints(
-      availableTags,
-      SANCTION_TAG_CATEGORY_SLUG,
-      ["no-disciplinary-sanction-needed", "no-sanction", "no-card"],
-      ["no disciplinary sanction", "no sanction", "no card"]
-    );
-    const playOnRestartTag = findTagByCategoryAndSlugHints(
-      availableTags,
-      RESTARTS_TAG_CATEGORY_SLUG,
-      ["play-on"],
-      ["play on"]
-    );
-    const noOffenceCriteriaTag = inferNoOffenceCriteriaTag(
-      generationText,
-      availableTags,
-      selectedCategoryNames
-    );
-
-    if (noDisciplinarySanctionTag) {
-      corrected = corrected.filter((tag) => tag.category?.slug !== SANCTION_TAG_CATEGORY_SLUG);
-      invisible = invisible.filter((tag) => tag.category?.slug !== SANCTION_TAG_CATEGORY_SLUG);
-      corrected.push(noDisciplinarySanctionTag);
-    }
-    if (playOnRestartTag) {
-      corrected = corrected.filter((tag) => tag.category?.slug !== RESTARTS_TAG_CATEGORY_SLUG);
-      invisible = invisible.filter((tag) => tag.category?.slug !== RESTARTS_TAG_CATEGORY_SLUG);
-      corrected.push(playOnRestartTag);
-    }
-    if (noOffenceCriteriaTag) {
-      corrected = corrected.filter((tag) => tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG);
-      invisible = invisible.filter((tag) => tag.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG);
-      corrected.push(noOffenceCriteriaTag);
-    }
-  } else {
-    // For offence decisions, don't keep play-on criteria.
-    corrected = corrected.filter(
-      (tag) => !(tag.category?.slug === CRITERIA_TAG_CATEGORY_SLUG && tag.isPlayOnCriteria)
-    );
-    invisible = invisible.filter(
-      (tag) => !(tag.category?.slug === CRITERIA_TAG_CATEGORY_SLUG && tag.isPlayOnCriteria)
-    );
-  }
-
-  corrected = dedupeTagsById(corrected);
-  invisible = dedupeTagsById(invisible.filter((tag) => !corrected.some((ct) => ct.id === tag.id)));
-
-  return { corrected, invisible };
-};
-
 const inferAnswerTagsFromText = (
   text: string,
   availableTags: Tag[],
@@ -1187,7 +1045,7 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
           ? "Video updated and AI description approved for search."
           : editingVideo
             ? "Video updated successfully!"
-            : "Video uploaded successfully!";
+            : "Video uploaded! AI analysis started in the background — the search description will be ready in a few minutes.";
 
       await modal.showSuccess(successMessage);
       
@@ -1440,6 +1298,15 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
             const generationText = [rawDescription, canonicalDescription, searchSummary]
               .filter(Boolean)
               .join(" ");
+
+            // HARD RULE: AI may only FILL EMPTY tag categories. Any category the
+            // admin has already filled is locked — never changed, never replaced.
+            const occupiedCategorySlugs = new Set(
+              [...correctDecisionTags, ...invisibleTags]
+                .map((tag) => tag.category?.slug)
+                .filter((slug): slug is string => !!slug)
+            );
+
             const aiMatchedTags: Tag[] = Array.isArray(slugs)
               ? slugs
                   .map((slug) => {
@@ -1452,8 +1319,8 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
                   .filter((tag): tag is Tag => tag !== null)
               : [];
 
-            // Keep AI as the primary selector. If AI omits categories, fill only those
-            // missing categories from deterministic text inference as a safety net.
+            // If AI omits categories, fill only those missing categories from
+            // deterministic text inference as a safety net.
             const aiSelectedCategorySlugs = new Set(
               aiMatchedTags
                 .map((tag) => tag.category?.slug)
@@ -1479,91 +1346,56 @@ export function VideoUploadForm({ videoCategories, tags, tagCategories, onSucces
               }
             );
 
-            // AI is the primary source for manual tag autofill. Local rules below only
-            // enforce category/criteria consistency and singleton-category safety.
             const candidateTags = dedupeTagsById([...aiMatchedTags, ...fallbackInferredTags]);
-            if (candidateTags.length === 0) return;
 
-            let nextCorrect = [...correctDecisionTags];
-            let nextInvisible = [...invisibleTags];
+            const nextCorrect = [...correctDecisionTags];
+            const nextInvisible = [...invisibleTags];
+            // One tag per category, and only for categories that were empty.
+            const usedCategorySlugs = new Set(occupiedCategorySlugs);
+            let addedAny = false;
 
             for (const tag of candidateTags) {
               const categorySlug = tag.category?.slug;
-              const isAnswerTag = !!categorySlug && ANSWER_TAG_CATEGORY_SLUGS.has(categorySlug);
-              const alreadyInCorrect = nextCorrect.some((t) => t.id === tag.id);
-              const alreadyInInvisible = nextInvisible.some((t) => t.id === tag.id);
+              if (!categorySlug || usedCategorySlugs.has(categorySlug)) continue;
 
-              if (isAnswerTag) {
-                if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
-                  // Keep one criteria only, and only from the selected category context.
-                  nextCorrect = nextCorrect.filter((t) => t.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG);
-                  nextInvisible = nextInvisible.filter(
-                    (t) => t.id !== tag.id && t.category?.slug !== CRITERIA_TAG_CATEGORY_SLUG
-                  );
-                  nextCorrect.push(tag);
-                  continue;
-                }
+              // Criteria must belong to the selected category.
+              if (categorySlug === CRITERIA_TAG_CATEGORY_SLUG) {
+                const selectedCategoryNames = getSelectedCategoryNames([
+                  ...nextCorrect,
+                  ...nextInvisible,
+                ]);
+                const parentCategory = normalizeTextForMatching(tag.parentCategory ?? "");
+                if (!parentCategory || !selectedCategoryNames.has(parentCategory)) continue;
+              }
 
-                // restart/sanction are singleton answer categories. Prefer the latest
-                // explicit match from AI/admin description to keep one clear answer.
-                nextCorrect = nextCorrect.filter((t) => t.category?.slug !== categorySlug);
-                nextInvisible = nextInvisible.filter(
-                  (t) => t.id !== tag.id && t.category?.slug !== categorySlug
-                );
+              usedCategorySlugs.add(categorySlug);
+              addedAny = true;
+              if (ANSWER_TAG_CATEGORY_SLUGS.has(categorySlug)) {
                 nextCorrect.push(tag);
-                continue;
-              }
-
-              if (categorySlug && SINGLE_SELECT_FILTER_CATEGORY_SLUGS.has(categorySlug)) {
-                // Category/scenario/law are treated as single-select for AI autofill.
-                nextCorrect = nextCorrect.filter((t) => t.category?.slug !== categorySlug);
-                nextInvisible = nextInvisible.filter(
-                  (t) => t.id !== tag.id && t.category?.slug !== categorySlug
-                );
+              } else {
                 nextInvisible.push(tag);
-                continue;
               }
-
-              if (alreadyInCorrect || alreadyInInvisible) continue;
-              if (categorySlug && categorySlug !== CRITERIA_TAG_CATEGORY_SLUG) {
-                const categoryAlreadyHasTag = [...nextCorrect, ...nextInvisible].some(
-                  (t) => t.category?.slug === categorySlug
-                );
-                if (categoryAlreadyHasTag) continue;
-              }
-              nextInvisible.push(tag);
             }
 
-            const inferredDecision = inferDecisionStateFromText(generationText);
-            const normalized = enforceTagSelectionRules(
-              nextCorrect,
-              nextInvisible,
-              tags,
-              generationText,
-              inferredDecision
-            );
+            if (addedAny) {
+              setCorrectDecisionTags(dedupeTagsById(nextCorrect));
+              setInvisibleTags(dedupeTagsById(nextInvisible));
+            }
 
-            setCorrectDecisionTags(normalized.corrected);
-            setInvisibleTags(normalized.invisible);
-
-            if (inferredDecision === "no_offence") {
-              setPlayOn(false);
-              setNoOffence(true);
-            } else if (inferredDecision === "play_on") {
-              setPlayOn(true);
-              setNoOffence(false);
-            } else if (
-              inferredDecision === "offence" ||
-              nextCorrect.some((tag) => {
-                const categorySlug = tag.category?.slug;
-                return (
-                  categorySlug === RESTARTS_TAG_CATEGORY_SLUG ||
-                  categorySlug === SANCTION_TAG_CATEGORY_SLUG
-                );
-              })
+            // Decision flags: only fill when the admin hasn't set them and the
+            // decision categories were empty — never contradict existing answers.
+            if (
+              !playOn &&
+              !noOffence &&
+              !occupiedCategorySlugs.has(SANCTION_TAG_CATEGORY_SLUG) &&
+              !occupiedCategorySlugs.has(RESTARTS_TAG_CATEGORY_SLUG)
             ) {
-              setPlayOn(false);
-              setNoOffence(false);
+              const inferredDecision = inferDecisionStateFromText(generationText);
+              if (inferredDecision === "no_offence") {
+                setNoOffence(true);
+              } else if (inferredDecision === "play_on") {
+                setPlayOn(true);
+              }
             }
           }}
         />

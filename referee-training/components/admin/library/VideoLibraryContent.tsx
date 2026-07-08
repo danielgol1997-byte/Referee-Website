@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { VideoUploadForm } from "./VideoUploadForm";
 import { VideoListManager } from "./VideoListManager";
+import { BulkAnalyzePanel } from "./BulkAnalyzePanel";
 import { TagManager } from "./TagManager";
 import { AdminVideoFilters } from "./AdminVideoFilterBar";
 import { AiPromptConfigEditor } from "./AiPromptConfigEditor";
@@ -400,6 +401,9 @@ export function VideoLibraryContent() {
       {/* Content */}
       {activeSubTab === 'videos' && (
         <>
+          <BulkAnalyzePanel
+            onProgress={() => fetchVideos(pagination.page, filters, { background: true })}
+          />
           {isInitialLoadingVideos ? (
             <div className="min-h-[60vh] flex items-center justify-center">
               <div className="flex flex-col items-center gap-4 text-text-secondary">

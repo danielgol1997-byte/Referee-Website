@@ -174,7 +174,8 @@ export async function generateSearchDescription(
   // Validate suggested tags against the real taxonomy to prevent hallucinated slugs
   const validatedTags = await validateSuggestedTags(
     filteredTags,
-    metadata.tags.map((t) => t.slug)
+    metadata.tags.map((t) => t.slug),
+    metadata.tags.map((t) => t.categorySlug)
   );
 
   return {
@@ -188,19 +189,26 @@ export async function generateSearchDescription(
 
 async function validateSuggestedTags(
   slugs: string[],
-  existingTagSlugs: string[]
+  existingTagSlugs: string[],
+  existingCategorySlugs: string[]
 ): Promise<string[]> {
   if (slugs.length === 0) return slugs;
 
   const categories = await getTagTaxonomyCategories();
   const allValidSlugs = new Set<string>();
+  const tagSlugToCategorySlug = new Map<string, string>();
   for (const cat of categories) {
     for (const tag of cat.tags) {
       allValidSlugs.add(tag.slug);
+      tagSlugToCategorySlug.set(tag.slug, cat.slug);
     }
   }
 
   const existingSet = new Set(existingTagSlugs);
+  // HARD RULE: existing tags are locked. Never suggest a tag for a category
+  // that already has one — AI may only fill empty categories.
+  const occupiedCategories = new Set(existingCategorySlugs.filter(Boolean));
+  const suggestedCategories = new Set<string>();
 
   return slugs.filter((slug) => {
     if (!allValidSlugs.has(slug)) {
@@ -211,6 +219,20 @@ async function validateSuggestedTags(
     }
     if (existingSet.has(slug)) {
       return false;
+    }
+    const categorySlug = tagSlugToCategorySlug.get(slug);
+    if (categorySlug) {
+      if (occupiedCategories.has(categorySlug)) {
+        console.warn(
+          `[AI suggested tags] "${slug}" targets already-filled category "${categorySlug}" — filtering out (existing tags are never changed)`
+        );
+        return false;
+      }
+      if (suggestedCategories.has(categorySlug)) {
+        // One suggestion per category, keep the first.
+        return false;
+      }
+      suggestedCategories.add(categorySlug);
     }
     return true;
   });

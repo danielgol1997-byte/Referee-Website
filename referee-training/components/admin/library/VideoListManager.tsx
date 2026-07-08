@@ -340,6 +340,21 @@ export function VideoListManager({
                           </svg>
                         </span>
                       )}
+                      {video.searchDescriptionStatus === "analyzing" && (
+                        <span title="AI is analyzing this video…" className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/15 border border-cyan-500/40 text-cyan-400">
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                        </span>
+                      )}
+                      {video.searchDescriptionStatus === "failed" && (
+                        <span title="AI analysis failed — open the video to retry" className="w-6 h-6 rounded-full flex items-center justify-center bg-red-500/15 border border-red-500/40 text-red-400">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          </svg>
+                        </span>
+                      )}
                       {video.isFeatured && (
                         <span className="px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-yellow-500/10 border border-yellow-500/30 text-yellow-500">
                           Featured

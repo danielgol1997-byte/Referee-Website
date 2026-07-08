@@ -68,12 +68,145 @@ function baselineFromExisting(d: SearchDescriptionEditorProps["existingData"]): 
   };
 }
 
-const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  none:         { label: "Not started",     dot: "bg-dark-500" },
-  draft:        { label: "Draft",           dot: "bg-yellow-400" },
+const STATUS_CONFIG: Record<string, { label: string; dot: string; pulse?: boolean }> = {
+  none:         { label: "Not analyzed",   dot: "bg-dark-500" },
+  analyzing:    { label: "Analyzing…",     dot: "bg-cyan-400", pulse: true },
+  draft:        { label: "Draft",          dot: "bg-yellow-400" },
   ai_generated: { label: "Needs review",   dot: "bg-cyan-400" },
-  approved:     { label: "Indexed",         dot: "bg-green-400" },
+  approved:     { label: "Indexed",        dot: "bg-green-400" },
+  failed:       { label: "Analysis failed", dot: "bg-red-400" },
 };
+
+/**
+ * Compact mic + language-picker cluster backed by the Web Speech API.
+ * Used for dictating the raw description and for speaking fix instructions.
+ */
+function MicCluster({
+  contextText,
+  onResult,
+  onError,
+}: {
+  contextText: string;
+  onResult: (text: string) => void;
+  onError?: (err: string) => void;
+}) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { preference, setPreference } = useSpeechLanguagePreference();
+  const resolvedLang = preference === "auto" ? detectInputLanguage(contextText) : preference;
+  const activeOption =
+    SPEECH_LANGUAGE_OPTIONS.find((opt) => opt.value === preference) ||
+    SPEECH_LANGUAGE_OPTIONS[0];
+
+  const speech = useSpeechInput({
+    lang: resolvedLang,
+    append: true,
+    onResult,
+    onError,
+  });
+
+  useEffect(() => {
+    function handleOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  if (!speech.isSupported) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex h-8 rounded-lg border bg-dark-900/90 shadow-sm shadow-black/25",
+        speech.status === "listening" ? "border-red-500/50" : "border-dark-600"
+      )}
+      ref={menuRef}
+    >
+      <button
+        type="button"
+        onClick={() => setShowMenu((v) => !v)}
+        disabled={speech.status === "listening"}
+        className={cn(
+          "flex items-center gap-1 px-2 text-text-muted transition-colors rounded-l-lg",
+          speech.status === "listening"
+            ? "opacity-45 cursor-not-allowed"
+            : "hover:bg-dark-800 hover:text-text-primary"
+        )}
+        aria-label="Voice input language"
+        title={`Voice: ${activeOption.labelNative}`}
+      >
+        {preference === "auto" ? (
+          <GlobeIcon className="w-3.5 h-3.5 shrink-0 opacity-90" />
+        ) : (
+          <span className="text-sm leading-none">{activeOption.flag}</span>
+        )}
+        <span className="text-[10px] font-semibold tabular-nums">{activeOption.abbr}</span>
+        <svg className="w-2.5 h-2.5 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div className="w-px self-stretch bg-dark-600" aria-hidden />
+      <button
+        type="button"
+        onClick={speech.toggle}
+        title={speech.status === "listening" ? "Stop" : "Dictate"}
+        className={cn(
+          "flex items-center justify-center px-2.5 transition-colors rounded-r-lg",
+          speech.status === "listening"
+            ? "bg-red-500/20 text-red-400"
+            : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
+        )}
+      >
+        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
+        </svg>
+      </button>
+      {showMenu && (
+        <div className="absolute bottom-full right-0 mb-1.5 w-[min(17.5rem,calc(100vw-2rem))] rounded-xl border border-dark-600 bg-dark-900/96 backdrop-blur-md shadow-2xl z-50 p-1">
+          {SPEECH_LANGUAGE_OPTIONS.map((opt) => {
+            const selected = opt.value === preference;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setPreference(opt.value);
+                  setShowMenu(false);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                  selected
+                    ? "bg-purple-500/15 text-purple-200"
+                    : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {opt.value === "auto" ? (
+                    <GlobeIcon className="w-4 h-4 shrink-0 opacity-85" />
+                  ) : (
+                    <span className="text-base leading-none shrink-0">{opt.flag}</span>
+                  )}
+                  <span className="text-xs truncate">{opt.labelNative}</span>
+                </span>
+                <span className="text-[10px] font-semibold opacity-80 tabular-nums shrink-0">{opt.abbr}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const Spinner = ({ className }: { className?: string }) => (
+  <svg className={cn("animate-spin", className)} fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+  </svg>
+);
 
 export const SearchDescriptionEditor = forwardRef<
   SearchDescriptionEditorHandle,
@@ -97,7 +230,7 @@ export const SearchDescriptionEditor = forwardRef<
   );
 
   const [isOpen, setIsOpen] = useState(hasData);
-  const [showTags, setShowTags] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rawDescription, setRawDescription] = useState(existingData?.rawAdminDescription || "");
   const [canonicalText, setCanonicalText] = useState(existingData?.canonicalSearchText || "");
@@ -110,6 +243,9 @@ export const SearchDescriptionEditor = forwardRef<
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // "Fix with AI" bar
+  const [fixInstruction, setFixInstruction] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
   // Feedback state — snapshot of the last generation for attaching to a report
   const lastGenerationRef = useRef<{ rawInput: string; existingTags: string; aiOutput: string; aiSuggestedTags: string[] } | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -119,15 +255,6 @@ export const SearchDescriptionEditor = forwardRef<
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
-  const [showSpeechLangMenu, setShowSpeechLangMenu] = useState(false);
-  const speechLangRef = useRef<HTMLDivElement>(null);
-  const { preference: speechLangPref, setPreference: setSpeechLangPref } =
-    useSpeechLanguagePreference();
-  const resolvedSpeechLang =
-    speechLangPref === "auto" ? detectInputLanguage(rawDescription) : speechLangPref;
-  const activeSpeechOption =
-    SPEECH_LANGUAGE_OPTIONS.find((opt) => opt.value === speechLangPref) ||
-    SPEECH_LANGUAGE_OPTIONS[0];
 
   const videoRef = useRef<HTMLVideoElement>(null);
   // Keep a ref to existingData so the videoId-change effect always reads
@@ -153,20 +280,7 @@ export const SearchDescriptionEditor = forwardRef<
     status,
   };
 
-  const speech = useSpeechInput({
-    lang: resolvedSpeechLang,
-    append: true,
-    onResult: (text) => {
-      setRawDescription((prev) => (prev.trim() ? prev + " " + text : text));
-      if (status === "none") setStatus("draft");
-    },
-    onError: (err) => setSpeechError(err),
-  });
-
   // Only re-initialise state when the video being edited changes.
-  // Do NOT depend on `existingData` directly — the parent creates a new object
-  // literal on every render, which would fire this effect on every tag add/remove
-  // and silently wipe freshly generated AI content.
   useEffect(() => {
     if (videoId !== prevVideoIdRef.current) {
       prevVideoIdRef.current = videoId;
@@ -186,18 +300,39 @@ export const SearchDescriptionEditor = forwardRef<
     }
   }, [videoId]);
 
+  // While a background analysis is running (auto-run on upload, or a bulk
+  // re-index), poll the server until it finishes and load the result.
   useEffect(() => {
-    function handleOutsideSpeechLang(event: MouseEvent) {
-      if (
-        speechLangRef.current &&
-        !speechLangRef.current.contains(event.target as Node)
-      ) {
-        setShowSpeechLangMenu(false);
+    if (status !== "analyzing") return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/library/videos/${videoId}/search-description`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const v = data?.video;
+        if (!v || v.searchDescriptionStatus === "analyzing") return;
+        setRawDescription(v.rawAdminDescription || "");
+        setCanonicalText(v.canonicalSearchText || "");
+        setSearchSummary(v.searchSummary || "");
+        setKeywords(v.searchKeywords || []);
+        setStatus(v.searchDescriptionStatus || "none");
+        lastPersistedRef.current = {
+          rawAdminDescription: v.rawAdminDescription || "",
+          canonicalSearchText: v.canonicalSearchText || "",
+          searchSummary: v.searchSummary || "",
+          searchKeywords: normalizeKeywordsList(v.searchKeywords || []),
+          searchDescriptionStatus: v.searchDescriptionStatus || "none",
+        };
+      } catch {
+        // keep polling
       }
-    }
-    document.addEventListener("mousedown", handleOutsideSpeechLang);
-    return () => document.removeEventListener("mousedown", handleOutsideSpeechLang);
-  }, []);
+    }, 6000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [status, videoId]);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -330,6 +465,45 @@ export const SearchDescriptionEditor = forwardRef<
     }
   };
 
+  const handleRefine = async () => {
+    const instruction = fixInstruction.trim();
+    if (!instruction || !canonicalText.trim()) return;
+    setIsRefining(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch(
+        `/api/admin/library/videos/${videoId}/search-description/refine`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instruction,
+            canonicalText,
+            searchSummary,
+            searchKeywords: keywords,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      setCanonicalText(data.canonicalDescription || canonicalText);
+      setSearchSummary(data.searchSummary ?? searchSummary);
+      if (Array.isArray(data.searchKeywords)) setKeywords(data.searchKeywords);
+      setFixInstruction("");
+      // The fix is applied locally only — needs approval to be re-indexed.
+      if (status === "approved") setStatus("ai_generated");
+      setSuccessMsg("Fix applied — review the updated text, then approve to re-index.");
+    } catch (err: any) {
+      setError(err.message || "Failed to apply the fix");
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   const handleSave = async (newStatus: string) => {
     setIsSaving(true);
     setError(null);
@@ -418,6 +592,11 @@ export const SearchDescriptionEditor = forwardRef<
       }
       const baseline = lastPersistedRef.current;
 
+      // Never interfere with a running background analysis.
+      if (s.status === "analyzing") {
+        return { ok: true, skipped: true };
+      }
+
       const hasAnyContent = !!(
         s.rawDescription.trim() ||
         s.canonicalText.trim() ||
@@ -476,7 +655,8 @@ export const SearchDescriptionEditor = forwardRef<
   }));
 
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.none;
-  const hasResult = !!(canonicalText || status === "ai_generated");
+  const hasResult = !!canonicalText;
+  const busy = isAnalyzing || isGenerating || isRefining;
 
   return (
     <div className="rounded-2xl border border-dark-600 bg-dark-800/40">
@@ -489,16 +669,16 @@ export const SearchDescriptionEditor = forwardRef<
       >
         <div className="flex items-center gap-3">
           <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
           </svg>
           <div className="text-left">
-            <p className="text-sm font-semibold text-text-primary">Video Description</p>
-            <p className="text-xs text-text-muted">for AI-powered filtering</p>
+            <p className="text-sm font-semibold text-text-primary">AI Search Description</p>
+            <p className="text-xs text-text-muted">auto-generated from the video — powers AI search</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-xs text-text-muted">
-            <span className={cn("w-1.5 h-1.5 rounded-full", statusCfg.dot)} />
+            <span className={cn("w-1.5 h-1.5 rounded-full", statusCfg.dot, statusCfg.pulse && "animate-pulse")} />
             {statusCfg.label}
           </span>
           <svg
@@ -527,7 +707,6 @@ export const SearchDescriptionEditor = forwardRef<
                 onPause={() => setIsPlaying(false)}
                 onPlay={() => setIsPlaying(true)}
               />
-              {/* Play / Pause overlay button */}
               <button
                 type="button"
                 onClick={togglePlay}
@@ -553,201 +732,86 @@ export const SearchDescriptionEditor = forwardRef<
             </div>
           )}
 
-          {/* Tags — collapsed disclosure */}
-          {tags.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowTags((v) => !v)}
-                className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
-              >
-                <svg className={cn("w-3 h-3 transition-transform", showTags && "rotate-90")} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                Current tags ({tags.length})
-              </button>
-              {showTags && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded text-xs",
-                        tag.isCorrectDecision
-                          ? "bg-green-500/15 text-green-300 border border-green-500/25"
-                          : "bg-dark-700 text-text-muted border border-dark-600"
-                      )}
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-              )}
+          {/* ── Background analysis in progress ── */}
+          {(status === "analyzing" || isAnalyzing) && (
+            <div className="flex items-center gap-3 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3">
+              <Spinner className="w-4 h-4 text-cyan-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-cyan-300">AI is analyzing this video…</p>
+                <p className="text-xs text-text-muted">
+                  Watching the clip, extracting facts, writing the search description. Usually 1–3 minutes — the result appears here automatically.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Description textarea + mic */}
-          <div className="relative">
-            <textarea
-              value={rawDescription}
-              onChange={(e) => {
-                setRawDescription(e.target.value);
-                if (status === "none") setStatus("draft");
-              }}
-              placeholder="Describe the incident — what happens, who's involved, colours, positions, decision..."
-              rows={4}
-              className={cn(
-                "w-full rounded-lg bg-dark-900 border text-sm text-text-primary placeholder-text-muted px-4 py-3 pr-[7.25rem] resize-y focus:outline-none focus:ring-2 transition-colors",
-                speech.status === "listening"
-                  ? "border-red-500/50 ring-2 ring-red-500/20 focus:ring-red-500/30"
-                  : "border-dark-600 focus:ring-purple-500/30 focus:border-purple-500/40"
-              )}
-            />
-            {speech.isSupported && (
-              <div
-                className="absolute bottom-3 right-3 flex h-8 rounded-lg border border-dark-600 bg-dark-900/90 shadow-sm shadow-black/25"
-                ref={speechLangRef}
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowSpeechLangMenu((v) => !v)}
-                  disabled={speech.status === "listening"}
-                  className={cn(
-                    "flex items-center gap-1 px-2 text-text-muted transition-colors rounded-l-lg",
-                    speech.status === "listening"
-                      ? "opacity-45 cursor-not-allowed"
-                      : "hover:bg-dark-800 hover:text-text-primary"
-                  )}
-                  aria-label="Voice input language"
-                  title={`Voice: ${activeSpeechOption.labelNative}`}
-                >
-                  {speechLangPref === "auto" ? (
-                    <GlobeIcon className="w-3.5 h-3.5 shrink-0 opacity-90" />
-                  ) : (
-                    <span className="text-sm leading-none">{activeSpeechOption.flag}</span>
-                  )}
-                  <span className="text-[10px] font-semibold tabular-nums">{activeSpeechOption.abbr}</span>
-                  <svg className="w-2.5 h-2.5 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <div className="w-px self-stretch bg-dark-600" aria-hidden />
-                <button
-                  type="button"
-                  onClick={speech.toggle}
-                  title={speech.status === "listening" ? "Stop" : "Dictate"}
-                  className={cn(
-                    "flex items-center justify-center px-2.5 transition-colors rounded-r-lg",
-                    speech.status === "listening"
-                      ? "bg-red-500/20 text-red-400"
-                      : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
-                  )}
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4zm0 2a2 2 0 00-2 2v6a2 2 0 004 0V5a2 2 0 00-2-2zm-7 9a7 7 0 0014 0h2a9 9 0 01-8 8.94V23h-2v-2.06A9 9 0 013 12H5z"/>
-                  </svg>
-                </button>
-                {showSpeechLangMenu && (
-                  <div className="absolute bottom-full right-0 mb-1.5 w-[min(17.5rem,calc(100vw-2rem))] rounded-xl border border-dark-600 bg-dark-900/96 backdrop-blur-md shadow-2xl z-50 p-1">
-                    {SPEECH_LANGUAGE_OPTIONS.map((opt) => {
-                      const selected = opt.value === speechLangPref;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setSpeechLangPref(opt.value);
-                            setShowSpeechLangMenu(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
-                            selected
-                              ? "bg-purple-500/15 text-purple-200"
-                              : "text-text-muted hover:bg-dark-800 hover:text-text-primary"
-                          )}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            {opt.value === "auto" ? (
-                              <GlobeIcon className="w-4 h-4 shrink-0 opacity-85" />
-                            ) : (
-                              <span className="text-base leading-none shrink-0">{opt.flag}</span>
-                            )}
-                            <span className="text-xs truncate">{opt.labelNative}</span>
-                          </span>
-                          <span className="text-[10px] font-semibold opacity-80 tabular-nums shrink-0">{opt.abbr}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+          {/* ── Failed banner ── */}
+          {status === "failed" && !isAnalyzing && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-red-300">The last analysis failed.</p>
+                <p className="text-xs text-text-muted">You can retry — nothing was lost.</p>
               </div>
-            )}
-          </div>
-          {speechError && <p className="text-xs text-orange-400 -mt-2">{speechError}</p>}
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={busy}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-semibold hover:bg-red-500/30 transition-colors disabled:opacity-50"
+              >
+                Retry analysis
+              </button>
+            </div>
+          )}
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || isGenerating}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 text-white text-sm font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Gemini watches the clip, extracts colours/positions/action, fills empty tags, generates the description and indexes it for search — all in one step."
-            >
-              {isAnalyzing ? (
-                <>
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Analyzing video... (may take 1-3 min)
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                  </svg>
-                  Analyze Video & Auto-Index
-                </>
-              )}
-            </button>
+          {/* ── Empty state: not analyzed yet ── */}
+          {!hasResult && status !== "analyzing" && status !== "failed" && !isAnalyzing && (
+            <div className="rounded-xl border border-dashed border-dark-500 bg-dark-900/40 px-4 py-6 text-center space-y-3">
+              <p className="text-sm text-text-muted">
+                No AI description yet. The AI watches the clip, fills empty tags, writes the search description and indexes it — all automatically.
+              </p>
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={busy}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 text-white text-sm font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all disabled:opacity-40"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                Analyze Video
+              </button>
+            </div>
+          )}
 
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={isGenerating || isAnalyzing || !rawDescription.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-cyan-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? (
-                <>
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                  </svg>
-                  Enhance with AI
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* ── AI result ── */}
+          {/* ── THE OUTPUT — the main thing the admin reviews and edits ── */}
           {hasResult && (
             <div className="border border-dark-600 rounded-xl p-4 space-y-3 bg-dark-900/40">
-              <p className="text-xs font-medium text-cyan-400 uppercase tracking-wider">
-                Generated — edit if needed, then approve
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-cyan-400 uppercase tracking-wider">
+                  Search description — edit directly or tell the AI what to fix
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={busy || status === "analyzing"}
+                  title="Run the full video analysis again from scratch (re-watches the clip)."
+                  className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dark-600 bg-dark-800 text-xs text-text-muted hover:text-text-primary hover:border-dark-500 transition-colors disabled:opacity-40"
+                >
+                  {isAnalyzing ? (
+                    <Spinner className="w-3 h-3" />
+                  ) : (
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                  )}
+                  Re-analyze video
+                </button>
+              </div>
 
               <textarea
                 value={canonicalText}
                 onChange={(e) => setCanonicalText(e.target.value)}
-                rows={5}
+                rows={8}
                 placeholder="Generated description..."
                 className="w-full rounded-lg bg-dark-900 border border-dark-600 text-sm text-text-primary px-4 py-3 resize-y focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/40"
               />
@@ -785,6 +849,53 @@ export const SearchDescriptionEditor = forwardRef<
                 <button type="button" onClick={() => { const kw = keywordInput.trim(); if (kw && !keywords.includes(kw)) { setKeywords([...keywords, kw]); setKeywordInput(""); } }} className="px-3 py-1.5 rounded-lg bg-dark-700 border border-dark-600 text-text-muted hover:text-text-primary text-sm transition-colors">
                   Add
                 </button>
+              </div>
+
+              {/* ── Fix with AI: speak or type an instruction ── */}
+              <div className="pt-2 border-t border-dark-700 space-y-1.5">
+                <p className="text-[11px] text-text-muted">
+                  Something wrong? Press the mic (or type) and say what to fix — e.g. &ldquo;the foul is outside the box, not inside&rdquo; or &ldquo;add that the goalkeeper got injured&rdquo;.
+                </p>
+                <div className="relative flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={fixInstruction}
+                      onChange={(e) => setFixInstruction(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); handleRefine(); }
+                      }}
+                      placeholder="Tell the AI what to fix…"
+                      disabled={isRefining}
+                      className="w-full rounded-lg bg-dark-900 border border-dark-600 text-sm text-text-primary placeholder-text-muted px-3 py-2 pr-[6.5rem] focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/40 disabled:opacity-60"
+                    />
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                      <MicCluster
+                        contextText={fixInstruction}
+                        onResult={(text) =>
+                          setFixInstruction((prev) => (prev.trim() ? prev + " " + text : text))
+                        }
+                        onError={(err) => setSpeechError(err)}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRefine}
+                    disabled={isRefining || !fixInstruction.trim()}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-cyan-500 transition-all disabled:opacity-40"
+                  >
+                    {isRefining ? (
+                      <>
+                        <Spinner className="w-3.5 h-3.5" />
+                        Fixing…
+                      </>
+                    ) : (
+                      "Apply fix"
+                    )}
+                  </button>
+                </div>
+                {speechError && <p className="text-xs text-orange-400">{speechError}</p>}
               </div>
 
               {/* ── Feedback row ── */}
@@ -872,28 +983,112 @@ export const SearchDescriptionEditor = forwardRef<
           )}
 
           {/* Save row */}
-          {(canonicalText || rawDescription) && (
+          {hasResult && (
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleSave("draft")}
-                disabled={isSaving}
+                disabled={isSaving || busy}
                 className="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-text-muted hover:text-text-primary hover:bg-dark-600 text-sm transition-colors disabled:opacity-50"
               >
                 {isSaving ? "Saving..." : "Save Draft"}
               </button>
-              {canonicalText && (
-                <button
-                  type="button"
-                  onClick={() => handleSave("approved")}
-                  disabled={isSaving}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold hover:from-green-500 hover:to-emerald-500 transition-all disabled:opacity-50"
-                >
-                  {isSaving ? "Saving..." : "Approve & Index"}
-                </button>
+              <button
+                type="button"
+                onClick={() => handleSave("approved")}
+                disabled={isSaving || busy}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold hover:from-green-500 hover:to-emerald-500 transition-all disabled:opacity-50"
+              >
+                {isSaving ? "Saving..." : status === "approved" ? "Re-index" : "Approve & Index"}
+              </button>
+              {status === "approved" && (
+                <span className="text-xs text-green-400/80">Live in AI search</span>
               )}
             </div>
           )}
+
+          {/* ── Advanced: source notes + text-only generation ── */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
+            >
+              <svg className={cn("w-3 h-3 transition-transform", showAdvanced && "rotate-90")} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              Advanced: source notes &amp; tags ({tags.length})
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-3 space-y-3">
+                {/* Current tags */}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.map((tag, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded text-xs",
+                          tag.isCorrectDecision
+                            ? "bg-green-500/15 text-green-300 border border-green-500/25"
+                            : "bg-dark-700 text-text-muted border border-dark-600"
+                        )}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Source notes textarea + mic */}
+                <div className="relative">
+                  <textarea
+                    value={rawDescription}
+                    onChange={(e) => {
+                      setRawDescription(e.target.value);
+                      if (status === "none") setStatus("draft");
+                    }}
+                    placeholder="Optional source notes — extra details the AI should include (what happens, who's involved, colours, positions, decision)..."
+                    rows={4}
+                    className="w-full rounded-lg bg-dark-900 border border-dark-600 text-sm text-text-primary placeholder-text-muted px-4 py-3 pr-[7.25rem] resize-y focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/40 transition-colors"
+                  />
+                  <div className="absolute bottom-3 right-3">
+                    <MicCluster
+                      contextText={rawDescription}
+                      onResult={(text) => {
+                        setRawDescription((prev) => (prev.trim() ? prev + " " + text : text));
+                        if (status === "none") setStatus("draft");
+                      }}
+                      onError={(err) => setSpeechError(err)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={isGenerating || busy || !rawDescription.trim()}
+                  title="Regenerate the description from the notes above WITHOUT re-watching the video (faster than a full re-analysis)."
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-sm text-text-muted hover:text-text-primary hover:bg-dark-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Spinner className="w-3.5 h-3.5" />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                      </svg>
+                      Regenerate from notes only
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

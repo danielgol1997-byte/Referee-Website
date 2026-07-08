@@ -71,13 +71,13 @@ suggestedTags: You MUST include this field. List the exact tag slugs for tags th
 
 CRITICAL INSTRUCTIONS FOR suggestedTags:
 1. Look at the TAG TAXONOMY section below. It lists EVERY category and EVERY tag available in the system with their exact slugs.
-2. Look at the EXISTING TAGS on this clip (provided in the user message). Use them to VERIFY correctness. If a current tag is wrong for its field, suggest the correct replacement tag.
+2. Look at the EXISTING TAGS on this clip (provided in the user message). Any category that already has a tag is LOCKED — never suggest a tag for it, even if you believe the existing tag is wrong. Existing tags are the admin's authoritative choices.
 3. Go through EACH category in the taxonomy and ask: "Does the admin's description or metadata EXPLICITLY mention or directly describe this tag?" If yes and the category has no tag yet, include it.
-4. IMPORTANT: Only the "criteria" category allows multiple tags. All other categories (category, sanction, restarts, scenario, laws, etc.) should have at most ONE correct tag. If an existing tag in one of these categories is wrong, suggest the replacement tag.
+4. IMPORTANT: Every category should have at most ONE suggested tag, and only when that category is currently EMPTY. Never suggest a tag for a category that already has one.
 5. You must scan ALL categories — not just a few. The taxonomy may have categories for incident type, criteria, sanction, restart, scenario, laws, and potentially others. Check every single one.
 6. Use EXACT slugs as they appear in the taxonomy. Do not invent slugs. Any slug not found in the taxonomy will be silently discarded.
 7. Only include tags you are 100% certain about. If the admin's description does not clearly indicate a specific tag, do NOT guess or assume.
-8. If the admin explicitly names something that maps to a tag (e.g. "reckless" → criteria/reckless, "yellow card" → sanction/yellow-card, "penalty kick" → restarts/penalty-kick), you MUST include it. If an existing tag conflicts with this, suggest the replacement tag.
+8. If the admin explicitly names something that maps to a tag (e.g. "reckless" → criteria/reckless, "yellow card" → sanction/yellow-card, "penalty kick" → restarts/penalty-kick) AND that category is currently empty, you MUST include it. If the category already has a tag, suggest nothing for it — even if it conflicts with the admin's words.
 9. Do NOT make logical inferences to add tags. For example, if the description mentions "DOGSO", do NOT assume "red-card" — DOGSO can result in either a red or yellow card depending on whether the player attempted to play the ball. Only suggest a sanction if the admin explicitly states one.
 
 === EXPLANATION CLIPS ===
@@ -136,7 +136,7 @@ IMPORTANT INSTRUCTIONS:
 1. The admin's raw description above is the primary source of incident detail. Preserve every specific thing they said — every colour, number, position, time, name, observation. Expand it; do not compress it. Minimum 200 words for canonicalDescription.
 2. The EXISTING TAGS above are authoritative. Your canonicalDescription MUST reflect and incorporate them — mention the category, criteria, sanction, restart, and any other tagged concepts in the description text so they become part of the searchable content.
 3. If an OFFICIAL EXPLANATION is provided, incorporate its key points and reasoning into the canonicalDescription. This is expert analysis that should be preserved in the search text.
-4. For suggestedTags: treat this as a verification + correction output. You may include a tag even if that category already has a tag assigned when you believe the existing one should be corrected. Exception: criteria tags — you may include more than one only when clearly justified by the input.`,
+4. For suggestedTags: FILL EMPTY FIELDS ONLY. Never include a tag for any category that already has a tag assigned (including criteria) — existing tags are locked and never changed or "corrected". Only suggest tags for categories that are completely empty.`,
   },
 
   user_query_enhancement: {
@@ -257,17 +257,18 @@ function applyHardSearchDescriptionConstraints(systemPrompt: string): string {
 === NON-OVERRIDABLE TAG SELECTION CONSTRAINTS ===
 These rules are mandatory even if any other instruction conflicts:
 
-1) AI is the primary selector for manual tag autofill.
-   Your suggestedTags must be accurate enough to directly populate admin fields.
+1) EXISTING TAGS ARE LOCKED — FILL EMPTY FIELDS ONLY (highest priority):
+   - Any tag category that ALREADY has a tag on this clip is LOCKED. You must NEVER suggest a tag for a locked category — not to "correct" it, not to "improve" it, not for any reason. The admin's existing tags are always authoritative.
+   - suggestedTags may ONLY contain tags for categories that currently have NO tag at all.
+   - This applies to every category including criteria: if criteria already has any tag, suggest no criteria.
 
-2) When the admin description explicitly states a value, suggest it:
+2) When the admin description explicitly states a value AND that field is currently empty, suggest it:
    - incident category (category/*)
    - restart (restarts/*)
    - sanction (sanction/*)
    - law (laws/*, e.g. "Law 12" -> "law-12")
    - scenario (scenario/*, e.g. "open play" -> "during-play")
    - criteria (criteria/*)
-   - If an existing tag is already present for one of these fields, verify it and suggest the corrected replacement when wrong.
 
 3) CATEGORY DISAMBIGUATION (critical):
    - If the incident is a specific foul/decision type (challenge, handball, offside, DOGSO, SPA, etc.), choose that specific category tag.
