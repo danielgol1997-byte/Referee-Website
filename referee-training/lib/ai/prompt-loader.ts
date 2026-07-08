@@ -285,6 +285,11 @@ These rules are mandatory even if any other instruction conflicts:
 
 6) Confidence bar:
    - suggestedTags must include only tags you are highly certain about from the admin description and metadata.
+
+7) ON-FIELD DECISION vs CORRECT DECISION (critical):
+   - Training clips often show a referee making a WRONG decision on the pitch. Any card/restart described as "shown in the clip" or "on-field decision" is what HAPPENED, not what is CORRECT.
+   - The EXISTING TAGS always encode the officially correct decision. If the input notes that the on-field decision differs from the tags, the description MUST present the tagged decision as correct and the on-field action as the referee's error.
+   - NEVER suggest a sanction or restart tag based on what the referee in the clip did. Only suggest one when the admin's own words explicitly state the correct decision.
 `;
 
   return `${systemPrompt.trim()}\n${hardConstraints}`;

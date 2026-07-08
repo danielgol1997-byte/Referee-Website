@@ -106,6 +106,7 @@ export const SearchDescriptionEditor = forwardRef<
   const [keywordInput, setKeywordInput] = useState("");
   const [status, setStatus] = useState(existingData?.searchDescriptionStatus || "none");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -259,6 +260,73 @@ export const SearchDescriptionEditor = forwardRef<
       setError(err.message || "Generation failed");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch(`/api/admin/library/videos/${videoId}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+
+      setRawDescription(data.rawAdminDescription || "");
+      setCanonicalText(data.canonicalSearchText || "");
+      setSearchSummary(data.searchSummary || "");
+      setKeywords(data.searchKeywords || []);
+      setStatus(data.status || "ai_generated");
+      // The route persisted everything server-side — sync the baseline so
+      // Update Video doesn't redundantly re-save identical content.
+      lastPersistedRef.current = {
+        rawAdminDescription: data.rawAdminDescription || "",
+        canonicalSearchText: data.canonicalSearchText || "",
+        searchSummary: data.searchSummary || "",
+        searchKeywords: normalizeKeywordsList(data.searchKeywords || []),
+        searchDescriptionStatus: data.status || "ai_generated",
+      };
+
+      lastGenerationRef.current = {
+        rawInput: data.rawAdminDescription || "",
+        existingTags: tags.map((t) => `[${t.category?.slug ?? ""}] ${t.name}`).join(", "),
+        aiOutput: data.canonicalSearchText || "",
+        aiSuggestedTags: data.appliedTagSlugs || [],
+      };
+      setFeedbackSent(false);
+      setShowFeedback(false);
+
+      // Sync auto-applied tags into the parent form state so a later
+      // "Update Video" save doesn't wipe them.
+      const applied: string[] = Array.isArray(data.appliedTagSlugs) ? data.appliedTagSlugs : [];
+      if (applied.length > 0 && onSuggestedTags) {
+        onSuggestedTags({
+          slugs: applied,
+          rawDescription: data.rawAdminDescription || "",
+          canonicalDescription: data.canonicalSearchText || "",
+          searchSummary: data.searchSummary || "",
+        });
+      }
+
+      if (data.warning) {
+        setError(data.warning);
+      } else {
+        setSuccessMsg(
+          data.indexed
+            ? `Video analyzed and indexed for search.${applied.length > 0 ? ` ${applied.length} tag${applied.length === 1 ? "" : "s"} auto-added.` : ""}`
+            : "Video analyzed — review the result below, then approve."
+        );
+      }
+    } catch (err: any) {
+      setError(err.message || "Video analysis failed");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -617,30 +685,57 @@ export const SearchDescriptionEditor = forwardRef<
           </div>
           {speechError && <p className="text-xs text-orange-400 -mt-2">{speechError}</p>}
 
-          {/* Enhance button */}
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating || !rawDescription.trim()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-cyan-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {isGenerating ? (
-              <>
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Generating...
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
-                Enhance with AI
-              </>
-            )}
-          </button>
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || isGenerating}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 text-white text-sm font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Gemini watches the clip, extracts colours/positions/action, fills empty tags, generates the description and indexes it for search — all in one step."
+            >
+              {isAnalyzing ? (
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Analyzing video... (may take 1-3 min)
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                  Analyze Video & Auto-Index
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating || isAnalyzing || !rawDescription.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-cyan-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isGenerating ? (
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Enhance with AI
+                </>
+              )}
+            </button>
+          </div>
 
           {/* ── AI result ── */}
           {hasResult && (
