@@ -100,17 +100,32 @@ export function VideoTestResultsOverlay({ isOpen, onClose, item }: VideoTestResu
 
   const { clip, answer } = item;
 
-  const correctRestartName = clip.correctRestart?.name ?? "—";
+  // "Play On" and "No Offence" are one combined answer in the test UI, so
+  // the restart column always presents them together.
+  const PLAY_ON_NO_OFFENCE = "Play On / No Offence";
+  const correctIsPlayOn =
+    !!clip.playOn ||
+    !!clip.noOffence ||
+    /^(play on|no offence|no offense)$/i.test(clip.correctRestart?.name ?? "");
+
+  const correctRestartName = correctIsPlayOn
+    ? PLAY_ON_NO_OFFENCE
+    : clip.correctRestart?.name ?? "—";
   const correctSanctionName = clip.correctSanction?.name ?? "—";
   const correctCriteriaNames = clip.correctCriteria?.map((t) => t.name).join(", ") || "—";
 
-  const userRestart = answer.userRestartTag?.name ?? "—";
+  const userRestart = answer.playOnNoOffence
+    ? PLAY_ON_NO_OFFENCE
+    : answer.userRestartTag?.name ?? "—";
   const userSanction = answer.userSanctionTag?.name ?? "—";
   const userCriteria = answer.userCriteriaTags?.map((t) => t.name).join(", ") || "—";
 
-  const restartOk = !clip.correctRestart
-    ? !answer.restartTagId
-    : answer.restartTagId === clip.correctRestart.id;
+  const restartOk =
+    correctIsPlayOn && answer.playOnNoOffence
+      ? true
+      : !clip.correctRestart
+        ? !answer.restartTagId
+        : answer.restartTagId === clip.correctRestart.id;
   const sanctionOk = !clip.correctSanction
     ? !answer.sanctionTagId
     : answer.sanctionTagId === clip.correctSanction.id;

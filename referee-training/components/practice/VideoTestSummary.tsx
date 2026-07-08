@@ -185,10 +185,17 @@ export function VideoTestSummary({
         {data.items.map((item, index) => {
           const answer = item.answer;
           const clip = item.clip;
+          const clipIsPlayOn = clip
+            ? !!clip.playOn ||
+              !!clip.noOffence ||
+              /^(play on|no offence|no offense)$/i.test(clip.correctRestart?.name ?? "")
+            : false;
           const restartOk = answer && clip
-            ? (answer.restartTagId && clip.correctRestart
-                ? answer.restartTagId === clip.correctRestart.id
-                : !clip.correctRestart && !answer.restartTagId)
+            ? (clipIsPlayOn && answer.playOnNoOffence
+                ? true
+                : answer.restartTagId && clip.correctRestart
+                  ? answer.restartTagId === clip.correctRestart.id
+                  : !clip.correctRestart && !answer.restartTagId)
             : false;
           const sanctionOk = answer && clip
             ? (answer.sanctionTagId && clip.correctSanction

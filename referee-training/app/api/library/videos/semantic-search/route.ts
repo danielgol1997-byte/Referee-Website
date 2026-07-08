@@ -153,15 +153,22 @@ export async function POST(request: Request) {
     let rerankApplied = false;
     if (results.length >= 2) {
       const rerankQuery = enhanced.cleanedQuery || query.trim();
+      // Score the full vector result set (30) — an unscored tail would bypass
+      // the low-relevance filter below. Only tag-merge extras beyond 30 stay
+      // unscored, and those already match every hard tag filter.
       const { results: rerankedResults, reranked, scores } =
         await rerankSearchResults(rerankQuery, results, { maxCandidates: 30 });
       if (reranked) {
         rerankApplied = true;
         results = rerankedResults;
         if (scores) {
-          const relevant = results.filter((r) => (scores.get(r.id) ?? 100) >= 30);
-          // Only drop weak candidates when a solid core remains.
-          if (relevant.length >= 3) {
+          // Unscored items (beyond the rerank window) count as NOT relevant —
+          // otherwise low-ranked or tag-merged extras that contradict the
+          // query (wrong location, wrong context) sneak back in unchecked.
+          const relevant = results.filter((r) => (scores.get(r.id) ?? 0) >= 30);
+          // Only drop weak candidates when at least a couple of genuinely
+          // relevant ones remain — better 2 right answers than 30 wrong ones.
+          if (relevant.length >= 2) {
             results = relevant;
           }
         }

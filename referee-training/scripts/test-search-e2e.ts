@@ -54,7 +54,7 @@ async function runQuery(query: string) {
 
   let final = reranked;
   if (ok && scores) {
-    const relevant = final.filter((r) => (scores.get(r.id) ?? 100) >= 30);
+    const relevant = final.filter((r) => (scores.get(r.id) ?? 0) >= 30);
     if (relevant.length >= 3) final = relevant;
   }
 

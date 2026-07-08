@@ -1,10 +1,12 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   COUNTRY_FLAGS,
+  REFEREE_LEVELS,
   STAT_CATEGORIES,
   STAT_REFEREES,
   formatScore,
@@ -35,6 +37,13 @@ export function CategoryStatsView({ slug }: { slug: string }) {
   const tests = getCategoryTestsTaken(slug);
   const trend = getCategoryTrend(slug);
   const leaderboard = getCategoryLeaderboard(slug);
+
+  // Rankings are split by referee level — a referee is only ranked against
+  // peers in the same level (Elite, Category 1, Category 2, ...).
+  const levelGroups = REFEREE_LEVELS.map((level) => ({
+    level,
+    referees: leaderboard.filter((r) => r.level === level),
+  })).filter((g) => g.referees.length > 0);
 
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
@@ -136,8 +145,8 @@ export function CategoryStatsView({ slug }: { slug: string }) {
         <div>
           <h2 className="text-xl font-semibold text-text-primary">Ranking</h2>
           <p className="mt-1 text-sm text-text-secondary">
-            All {STAT_REFEREES.length} referees, ranked by average mark in {category.name}. Click a
-            row for the referee&apos;s full record.
+            All {STAT_REFEREES.length} referees, ranked by average mark in {category.name} within
+            their level. Click a row for the referee&apos;s full record.
           </p>
         </div>
         <Card padded={false}>
@@ -148,51 +157,59 @@ export function CategoryStatsView({ slug }: { slug: string }) {
                   <th className="px-4 py-3 font-medium">#</th>
                   <th className="px-4 py-3 font-medium">Referee</th>
                   <th className="px-4 py-3 font-medium">Country</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3 text-center font-medium">Tests made</th>
                   <th className="px-4 py-3 font-medium">Answers</th>
                   <th className="px-4 py-3 text-center font-medium">Ave. mark</th>
                 </tr>
               </thead>
               <tbody>
-                {leaderboard.map((referee, rank) => (
-                  <tr
-                    key={referee.id}
-                    onClick={() => router.push(`/stats/referee/${referee.id}/category/${slug}`)}
-                    className="group cursor-pointer border-t border-dark-600 transition-colors hover:bg-dark-700/60"
-                  >
-                    <td className="px-4 py-3">
-                      <span
-                        className={`font-bold tabular-nums ${rank === 0 ? "text-accent" : "text-text-muted"}`}
+                {levelGroups.map((group) => (
+                  <Fragment key={group.level}>
+                    <tr className="border-t border-dark-600 bg-dark-800/80">
+                      <td colSpan={6} className="px-4 py-2">
+                        <span className="inline-flex rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-cyan-500">
+                          {group.level}
+                        </span>
+                        <span className="ml-2 text-xs text-text-muted">
+                          {group.referees.length} referee{group.referees.length !== 1 ? "s" : ""}
+                        </span>
+                      </td>
+                    </tr>
+                    {group.referees.map((referee, rank) => (
+                      <tr
+                        key={referee.id}
+                        onClick={() => router.push(`/stats/referee/${referee.id}/category/${slug}`)}
+                        className="group cursor-pointer border-t border-dark-600 transition-colors hover:bg-dark-700/60"
                       >
-                        {rank + 1}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-text-primary transition-colors group-hover:text-accent">
-                      {referee.name}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
-                      <span className="mr-1.5">{COUNTRY_FLAGS[referee.country]}</span>
-                      {referee.country}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-500">
-                        {referee.level}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums text-text-secondary">
-                      {getTestsTaken(referee.id, slug)}
-                    </td>
-                    <td className="min-w-[140px] px-4 py-3">
-                      <DistributionBar
-                        distribution={getRefereeDistribution(referee.id, slug)}
-                        size="sm"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <ScoreBadge score={referee.scores[slug] ?? 0} className="group-hover:scale-105" />
-                    </td>
-                  </tr>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`font-bold tabular-nums ${rank === 0 ? "text-accent" : "text-text-muted"}`}
+                          >
+                            {rank + 1}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-text-primary transition-colors group-hover:text-accent">
+                          {referee.name}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
+                          <span className="mr-1.5">{COUNTRY_FLAGS[referee.country]}</span>
+                          {referee.country}
+                        </td>
+                        <td className="px-4 py-3 text-center tabular-nums text-text-secondary">
+                          {getTestsTaken(referee.id, slug)}
+                        </td>
+                        <td className="min-w-[140px] px-4 py-3">
+                          <DistributionBar
+                            distribution={getRefereeDistribution(referee.id, slug)}
+                            size="sm"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <ScoreBadge score={referee.scores[slug] ?? 0} className="group-hover:scale-105" />
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

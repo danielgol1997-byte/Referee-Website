@@ -92,10 +92,10 @@ async function geminiGenerateJsonOnce(
       maxOutputTokens: options.maxOutputTokens,
       responseMimeType: "application/json",
       // Extraction/rewriting tasks, not hard reasoning — keep latency low.
-      // thinkingLevel only exists on Gemini 3+ models.
+      // Gemini 3+ uses thinkingLevel; 2.5 uses thinkingBudget (0 = off).
       ...(model.startsWith("gemini-3")
-        ? { thinkingConfig: { thinkingLevel: "LOW" as any } }
-        : {}),
+        ? { thinkingConfig: { thinkingLevel: "MINIMAL" as any } }
+        : { thinkingConfig: { thinkingBudget: 0 } }),
     },
   });
 
@@ -132,7 +132,7 @@ export async function geminiGenerateJson(options: {
       lastError = errors[0];
       // Non-transient failures (bad request, auth) won't fix themselves.
       if (!errors.some(isTransientGeminiError)) throw lastError;
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 800));
     }
   }
   throw lastError;

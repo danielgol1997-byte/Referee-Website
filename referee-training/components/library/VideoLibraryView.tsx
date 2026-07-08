@@ -47,6 +47,52 @@ interface VideoLibraryViewProps {
   videos: Video[];
 }
 
+const SEARCH_STAGES = [
+  { atMs: 0, label: "Understanding your search…" },
+  { atMs: 3500, label: "Searching the video library…" },
+  { atMs: 7500, label: "Ranking the best matches…" },
+];
+
+/** Staged progress shown while the AI search pipeline runs (takes a few seconds). */
+function SearchProgress() {
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    const timers = SEARCH_STAGES.slice(1).map((stage, i) =>
+      setTimeout(() => setStageIndex(i + 1), stage.atMs)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div className="mb-5 px-1">
+      <div className="flex items-center gap-3 rounded-xl border border-cyan-500/25 bg-cyan-500/5 px-4 py-3">
+        <svg className="w-4 h-4 animate-spin text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-cyan-300">{SEARCH_STAGES[stageIndex].label}</p>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            {SEARCH_STAGES.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1 flex-1 rounded-full transition-colors duration-500 ${
+                  i < stageIndex
+                    ? "bg-cyan-400"
+                    : i === stageIndex
+                      ? "bg-cyan-400/60 animate-pulse"
+                      : "bg-dark-600"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * VideoLibraryView - Main UEFA Video Library Page
  * 
@@ -577,14 +623,15 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
           className="pb-8 px-4 max-w-screen-2xl mx-auto"
           style={{ paddingTop: `${Math.max(filterBarHeight + 16, 96)}px` }}
         >
-          {/* Search mode indicator */}
+          {/* Staged search progress — the search takes several seconds, so
+              show the user what is happening instead of a bare spinner. */}
+          {isSearching && <SearchProgress />}
+
+          {/* Search results count */}
           {isInSearchMode && searchMeta && !isSearching && (
             <div className="flex items-center gap-2 mb-4 px-1">
               <span className="text-sm text-text-muted">
                 {searchMeta.totalResults} result{searchMeta.totalResults !== 1 ? "s" : ""} found
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                {searchMeta.searchMethod.startsWith("semantic") ? "AI Search" : "Keyword Search"}
               </span>
             </div>
           )}
@@ -604,7 +651,11 @@ export function VideoLibraryView({ videos }: VideoLibraryViewProps) {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div
+              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-opacity duration-300 ${
+                isSearching ? "opacity-40 pointer-events-none" : ""
+              }`}
+            >
               {displayVideos.map((video, index) => {
                 const isClosing = closingVideoId === video.id;
                 const isFocused = focusedVideoIndex === index;

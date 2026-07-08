@@ -92,9 +92,21 @@ function scoreAnswer(
   const correctSanction = clip.tags.find((t) => t.isCorrectDecision && t.tag.category.slug === "sanction");
   const correctCriteria = clip.tags.filter((t) => t.isCorrectDecision && t.tag.category.slug === "criteria");
 
-  const restartOk = !correctRestart
-    ? !answer.restartTagId
-    : answer.restartTagId === correctRestart.tagId;
+  // "Play On / No Offence" is a single combined answer in the test UI. It is
+  // the correct restart when the clip is flagged playOn/noOffence OR when the
+  // correct restart tag itself is "Play On".
+  const clipIsPlayOn =
+    clip.playOn ||
+    clip.noOffence ||
+    correctRestart?.tag.slug === "play-on" ||
+    /^(play on|no offence|no offense)$/i.test(correctRestart?.tag.name ?? "");
+
+  const restartOk =
+    clipIsPlayOn && answer.playOnNoOffence
+      ? true
+      : !correctRestart
+        ? !answer.restartTagId
+        : answer.restartTagId === correctRestart.tagId;
 
   const sanctionOk = !correctSanction
     ? !answer.sanctionTagId

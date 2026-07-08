@@ -175,6 +175,13 @@ Examples of WRONG inference (DO NOT DO THIS):
 • User says "serious foul play" → sanction: red-card ✗ — while SFP typically results in a red card, the user is searching for the TYPE of foul, not a specific sanction. Only infer sanction if the user mentions a card.
 • User says "challenges" → criteria: reckless ✗ — "challenges" is a broad category; the user did not specify which criteria.
 • User says "offside" → scenario: open-play ✗ — offside can happen in many scenarios; don't assume.
+• User says "yellow card in a counter attack" → category: spa ✗ — a counter attack is a phase of play, NOT the same as stopping a promising attack. A foul during a counter attack could be reckless, SFP, DOGSO, holding, or anything else. Only infer spa when the user explicitly says "SPA", "stopping a promising attack", or "promising attack stopped". Put "counter attack" in expandedQuery and keywords instead.
+• User says "red card in the penalty area" → category: penalty-area-decisions ✗ as high — "in the penalty area" is a LOCATION detail. Red-card incidents inside the box are usually tagged dogso, handball, challenges etc., so a high-confidence penalty-area-decisions filter would wrongly exclude them.
+
+LOCATION LANGUAGE RULE:
+Phrases like "in the penalty area", "in the box", "outside the box", "near the halfway line", "midfield" describe WHERE the incident happens. NEVER convert location language into a high-confidence tag — there is no reliable location tag on most clips. Instead:
+• Keep the location wording prominent in cleanedQuery, expandedQuery (state it twice in different words, e.g. "inside the penalty area, in the 18-yard box"), and keywords.
+• "in the penalty area" MAY additionally add restarts: penalty-kick (medium) or category: penalty-area-decisions (medium) as ranking boosts — never high.
 
 Confidence levels:
 • "high" – the query explicitly names this tag or uses a well-known abbreviation/synonym for it. This becomes a hard filter that REMOVES non-matching results, so be very careful.
@@ -204,7 +211,7 @@ SPECIFIC INFERENCE MAPPINGS — apply these when the user's words (in ANY langua
 • "reckless" / "reckless tackle" and equivalents (רשלנות, imprudente, temerario, rücksichtslos) → criteria: reckless (high)
 • "careless" / "careless foul" and equivalents → criteria: careless (high)
 • "holding" / "shirt pull" / "arm grab" and equivalents (אחזה, agarrón, tenir) → category: holding (high)
-• "SPA" / "stopping a promising attack" and equivalents → category: spa (high)
+• "SPA" / "stopping a promising attack" / "promising attack stopped" and equivalents → category: spa (high). NOT for "counter attack", "fast break", or "quick attack" alone — those are phases of play, expanded-query material only.
 • "advantage" / "play on" and equivalents (יתרון, ventaja, avantage, Vorteil, 优势) → category: advantage (high)
 • "dissent" / "arguing with referee" and equivalents → category: dissent (high)
 • "referee abuse" / "abusive language" / "threatening" and equivalents → category: referee-abuse (high)

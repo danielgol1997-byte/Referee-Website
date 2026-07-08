@@ -49,8 +49,10 @@ export function ProfileCard({
 }) {
   const { profile } = referee;
   const overall = getRefereeOverall(referee);
+  // Rank only against referees in the same level (Elite, Category 1, ...).
+  const levelPeers = STAT_REFEREES.filter((r) => r.level === referee.level);
   const rank =
-    [...STAT_REFEREES]
+    [...levelPeers]
       .sort((a, b) => getRefereeOverall(b) - getRefereeOverall(a))
       .findIndex((r) => r.id === referee.id) + 1;
   const yearsInternational = MOCK_CURRENT_YEAR - profile.internationalSince;
@@ -110,7 +112,7 @@ export function ProfileCard({
               </span>
               <span className="text-text-muted">·</span>
               <span>
-                Rank <span className="font-bold text-accent">#{rank}</span> of {STAT_REFEREES.length}
+                Rank <span className="font-bold text-accent">#{rank}</span> of {levelPeers.length} in {referee.level}
               </span>
             </p>
           </div>

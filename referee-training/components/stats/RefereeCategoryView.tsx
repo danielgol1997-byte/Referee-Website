@@ -35,8 +35,10 @@ export function RefereeCategoryView({
   const latest = history[history.length - 1];
   const distribution = getRefereeDistribution(refereeId, slug);
   const tests = getTestsTaken(refereeId, slug);
+  // Rank only against referees in the same level (Elite, Category 1, ...).
+  const levelPeers = STAT_REFEREES.filter((r) => r.level === referee.level);
   const categoryRank =
-    [...STAT_REFEREES]
+    [...levelPeers]
       .sort((a, b) => (b.scores[slug] ?? 0) - (a.scores[slug] ?? 0))
       .findIndex((r) => r.id === refereeId) + 1;
 
@@ -123,12 +125,12 @@ export function RefereeCategoryView({
         <Card className="space-y-1">
           <p className="flex items-center gap-1 text-sm text-text-secondary">
             Category rank
-            <InfoTip text="Where this referee sits among all referees for this category." />
+            <InfoTip text={`Where this referee sits among ${referee.level} referees for this category.`} />
           </p>
           <p className="text-3xl font-bold text-accent tabular-nums">
             #{categoryRank}
             <span className="ml-1 text-base font-medium text-text-muted">
-              of {STAT_REFEREES.length}
+              of {levelPeers.length} in {referee.level}
             </span>
           </p>
         </Card>

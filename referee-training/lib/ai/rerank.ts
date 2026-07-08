@@ -3,7 +3,7 @@ import { geminiGenerateJson } from "@/lib/gemini";
 
 const RERANK_SYSTEM_PROMPT = `You are a relevance reranker for a football referee training video library.
 
-You are given a user's search query and a numbered list of candidate videos (title + summary). Score how relevant each candidate is to the query on a 0-100 scale:
+You are given a user's search query and a numbered list of candidate videos (title + summary + decision metadata). Score how relevant each candidate is to the query on a 0-100 scale:
 - 90-100: directly answers the query (incident type, location, sanction, restart all match what was asked)
 - 60-89: strongly related (same incident type but some queried detail differs or is unknown)
 - 30-59: partially related (shares the general theme but misses the key thing the user asked for)
@@ -11,7 +11,11 @@ You are given a user's search query and a numbered list of candidate videos (tit
 
 Rules:
 - Judge ONLY against what the user actually asked. Do not reward videos for being interesting.
-- If the query names a location (e.g. "outside the penalty area"), sanction, or restart, candidates that contradict it must score below 30.
+- LOCATION is a hard requirement when the query names one (e.g. "in the penalty area", "outside the box"):
+  • A candidate that states or implies the OPPOSITE location must score 15 or below.
+  • A candidate that never indicates the queried location must score 55 or below.
+  • Use the restart as a location signal: restart "penalty kick" means the offence was INSIDE the penalty area; restart "direct free kick" means it was OUTSIDE the penalty area.
+- The same hard treatment applies to an explicitly queried sanction (card) or restart: contradiction → below 20; unknown → cap at 55.
 - If a candidate's summary doesn't mention a queried detail either way, treat it as unknown, not contradicting.
 - Score every candidate. Output strict JSON: {"scores": [{"index": 1, "score": 87}, ...]} with one entry per candidate.`;
 
@@ -37,16 +41,38 @@ export async function rerankSearchResults<T extends { id: string; title: string;
   const tail = candidates.slice(maxCandidates);
 
   try {
-    // Pull the search summaries for the head candidates (fast indexed lookup).
+    // Pull summaries + decision tags for the head candidates. The restart and
+    // sanction tags double as location signals (penalty kick = inside the
+    // box, direct free kick = outside), which summaries don't always state.
     const summaries = await prisma.videoClip.findMany({
       where: { id: { in: head.map((c) => c.id) } },
-      select: { id: true, searchSummary: true, title: true },
+      select: {
+        id: true,
+        searchSummary: true,
+        tags: {
+          select: {
+            tag: {
+              select: { name: true, category: { select: { slug: true } } },
+            },
+          },
+        },
+      },
     });
-    const summaryMap = new Map(summaries.map((s) => [s.id, s.searchSummary || ""]));
+    const detailMap = new Map(
+      summaries.map((s) => {
+        const restart = s.tags.find((t) => t.tag.category?.slug === "restarts")?.tag.name;
+        const sanction = s.tags.find((t) => t.tag.category?.slug === "sanction")?.tag.name;
+        return [s.id, { summary: s.searchSummary || "", restart, sanction }];
+      })
+    );
 
     const lines = head.map((c, i) => {
-      const summary = summaryMap.get(c.id);
-      return `${i + 1}. ${c.title}${summary ? ` — ${summary}` : ""}`;
+      const d = detailMap.get(c.id);
+      const meta: string[] = [];
+      if (d?.restart) meta.push(`restart: ${d.restart}`);
+      if (d?.sanction) meta.push(`sanction: ${d.sanction}`);
+      const metaStr = meta.length > 0 ? ` [${meta.join(", ")}]` : "";
+      return `${i + 1}. ${c.title}${d?.summary ? ` — ${d.summary}` : ""}${metaStr}`;
     });
 
     const userMessage = `SEARCH QUERY: ${query}\n\nCANDIDATES:\n${lines.join("\n")}`;
