@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { TestHistoryList } from "@/components/ui/test-history-list";
 
 type HistoryEntry = {
   id: string;
@@ -124,53 +124,15 @@ export function ArPracticeLanding() {
             No completed tests yet. Your results will appear here.
           </p>
         ) : (
-          <div className="mx-auto w-full max-w-3xl space-y-3">
-            {history.map((entry) => {
-              const pct = entry.totalClips > 0 ? Math.round(((entry.score ?? 0) / entry.totalClips) * 100) : 0;
-              return (
-                <Link
-                  key={entry.id}
-                  href={`/practice/ar/${entry.id}/results`}
-                  className={cn(
-                    "group flex items-center justify-between gap-4 rounded-xl border border-dark-600 bg-dark-800/70 px-5 py-4",
-                    "transition-all duration-200 hover:border-cyan-400/50 hover:bg-dark-700/70 hover:shadow-lg"
-                  )}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={cn(
-                        "flex h-11 w-11 items-center justify-center rounded-xl text-sm font-black tabular-nums",
-                        pct >= 70
-                          ? "bg-[#22c55e]/15 text-[#22c55e] border-2 border-[#22c55e]/50"
-                          : "bg-[#ef4444]/15 text-[#ef4444] border-2 border-[#ef4444]/50"
-                      )}
-                    >
-                      {pct}%
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {entry.score ?? 0} / {entry.totalClips} correct
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        {entry.completedAt
-                          ? new Date(entry.completedAt).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-muted transition-colors group-hover:text-cyan-300">
-                    View results →
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          <TestHistoryList
+            entries={history.map((entry) => ({
+              id: entry.id,
+              href: `/practice/ar/${entry.id}/results`,
+              score: entry.score,
+              total: entry.totalClips,
+              completedAt: entry.completedAt,
+            }))}
+          />
         )}
       </div>
     </div>

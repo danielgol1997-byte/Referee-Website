@@ -6,6 +6,15 @@ import { type VideoTestCardData } from "./VideoTestCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useModal } from "@/components/ui/modal";
+import { TestHistoryList, type TestHistoryEntry } from "@/components/ui/test-history-list";
+
+type VideoTestHistoryEntry = {
+  id: string;
+  score: number | null;
+  totalClips: number;
+  completedAt: string | null;
+  testName: string | null;
+};
 
 export function PoolVideoTestsSection({
   refreshKey = 0,
@@ -16,9 +25,11 @@ export function PoolVideoTestsSection({
 }) {
   const modal = useModal();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"public" | "my">("public");
+  const [activeTab, setActiveTab] = useState<"public" | "my" | "history">("public");
   const [publicTests, setPublicTests] = useState<VideoTestCardData[]>([]);
   const [myTests, setMyTests] = useState<VideoTestCardData[]>([]);
+  const [history, setHistory] = useState<VideoTestHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startingTestId, setStartingTestId] = useState<string | null>(null);
@@ -55,6 +66,21 @@ export function PoolVideoTestsSection({
   }, [refreshKey]);
 
   useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    fetch("/api/tests/videos/history")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && !data.error) setHistory(data.history ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  useEffect(() => {
     if (!focusMyTestId) return;
     setActiveTab("my");
   }, [focusMyTestId]);
@@ -71,8 +97,17 @@ export function PoolVideoTestsSection({
     if (idx >= 0) setCurrentIndex(idx);
   }, [focusMyTestId, activeTab, myTests]);
 
-  const currentTests = activeTab === "public" ? publicTests : myTests;
+  const currentTests = activeTab === "public" ? publicTests : activeTab === "my" ? myTests : [];
   const hasMultiple = currentTests.length > 1;
+
+  const historyEntries: TestHistoryEntry[] = history.map((entry) => ({
+    id: entry.id,
+    href: `/practice/video-tests/${entry.id}/results`,
+    title: entry.testName,
+    score: entry.score,
+    total: entry.totalClips,
+    completedAt: entry.completedAt,
+  }));
 
   const goToPrevious = () => {
     if (isAnimating || currentTests.length <= 1) return;
@@ -188,7 +223,7 @@ export function PoolVideoTestsSection({
   const hasPublic = publicTests.length > 0;
   const hasMy = myTests.length > 0;
 
-  if (!hasPublic && !hasMy) {
+  if (!hasPublic && !hasMy && !historyLoading && history.length === 0) {
     return (
       <p className="text-text-secondary text-center py-8">No public or saved tests. Create one from the library or wait for admins to add public tests.</p>
     );
@@ -237,6 +272,26 @@ export function PoolVideoTestsSection({
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`flex items-center gap-2 px-4 py-3 font-medium text-sm transition-all relative ${
+            activeTab === "history" ? "text-accent" : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Test History
+          {history.length > 0 && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-accent/20 text-accent border border-accent/30">
+              {history.length}
+            </span>
+          )}
+          {activeTab === "history" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
+          )}
+        </button>
       </div>
 
       {error && (
@@ -245,8 +300,21 @@ export function PoolVideoTestsSection({
         </div>
       )}
 
-      {/* Carousel Content */}
-      {currentTests.length === 0 ? (
+      {/* History Content */}
+      {activeTab === "history" ? (
+        historyLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-8 h-8 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </div>
+        ) : history.length === 0 ? (
+          <p className="py-8 text-center text-sm text-text-secondary">
+            No completed tests yet. Your results will appear here.
+          </p>
+        ) : (
+          <TestHistoryList entries={historyEntries} />
+        )
+      ) : /* Carousel Content */
+      currentTests.length === 0 ? (
         <div className="text-center py-12">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-600/50 mb-4">
             <svg className="w-8 h-8 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">

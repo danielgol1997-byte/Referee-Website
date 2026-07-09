@@ -181,12 +181,11 @@ export async function getArTestSessionSummary(userId: string, sessionId: string)
   };
 }
 
-/** Recent completed AR test sessions for the landing page. */
-export async function getArTestHistory(userId: string, limit = 10) {
+/** All completed AR test sessions for the landing page, newest first. */
+export async function getArTestHistory(userId: string) {
   const sessions = await prisma.arTestSession.findMany({
     where: { userId, completedAt: { not: null } },
     orderBy: { completedAt: "desc" },
-    take: limit,
     select: {
       id: true,
       score: true,
