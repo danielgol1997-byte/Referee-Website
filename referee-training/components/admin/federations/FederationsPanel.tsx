@@ -24,19 +24,47 @@ type Rank = {
 
 const INTERNATIONAL = "__international__";
 
+/** Lets other mounted panels (e.g. Users) refresh their FA/rank dropdowns. */
+function notifyHierarchyChanged() {
+  window.dispatchEvent(new Event("fa-hierarchy-changed"));
+}
+
+function ListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="divide-y divide-dark-700/70">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+          <div
+            className="h-4 w-5 animate-pulse rounded bg-dark-700/70"
+            style={{ animationDelay: `${i * 100}ms` }}
+          />
+          <div
+            className="h-4 flex-1 animate-pulse rounded bg-dark-700/60"
+            style={{ animationDelay: `${i * 100 + 50}ms` }}
+          />
+          <div
+            className="h-4 w-16 animate-pulse rounded bg-dark-700/40"
+            style={{ animationDelay: `${i * 100 + 100}ms` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function FederationsPanel() {
   const [associations, setAssociations] = useState<Association[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [ranksLoading, setRanksLoading] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newRank, setNewRank] = useState("");
 
   const loadAssociations = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/admin/associations");
       const data = await res.json();
@@ -49,11 +77,16 @@ export function FederationsPanel() {
     }
   }, []);
 
-  const loadRanks = useCallback(async (key: string) => {
-    const qs = key === INTERNATIONAL ? "international=true" : `associationId=${key}`;
-    const res = await fetch(`/api/admin/ranks?${qs}`);
-    const data = await res.json();
-    if (res.ok) setRanks(data.ranks ?? []);
+  const loadRanks = useCallback(async (key: string, { silent = false } = {}) => {
+    if (!silent) setRanksLoading(true);
+    try {
+      const qs = key === INTERNATIONAL ? "international=true" : `associationId=${key}`;
+      const res = await fetch(`/api/admin/ranks?${qs}`);
+      const data = await res.json();
+      if (res.ok) setRanks(data.ranks ?? []);
+    } finally {
+      if (!silent) setRanksLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -65,14 +98,16 @@ export function FederationsPanel() {
     else setRanks([]);
   }, [selected, loadRanks]);
 
-  const run = async (fn: () => Promise<Response>, onOk: () => void) => {
+  const run = async (fn: () => Promise<Response>, onOk: () => void, onFail?: () => void) => {
     setError(null);
     try {
       const res = await fn();
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Something went wrong");
       onOk();
+      notifyHierarchyChanged();
     } catch (err) {
+      onFail?.();
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
   };
@@ -95,6 +130,9 @@ export function FederationsPanel() {
   };
 
   const renameAssociation = async (id: string, name: string) => {
+    // Optimistic: rename locally, reconcile in the background.
+    const prev = associations;
+    setAssociations((list) => list.map((a) => (a.id === id ? { ...a, name } : a)));
     await run(
       () =>
         fetch(`/api/admin/associations/${id}`, {
@@ -102,17 +140,19 @@ export function FederationsPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         }),
-      loadAssociations
+      () => {},
+      () => setAssociations(prev)
     );
   };
 
   const deleteAssociation = async (id: string) => {
+    const prev = associations;
+    setAssociations((list) => list.filter((a) => a.id !== id));
+    if (selected === id) setSelected(null);
     await run(
       () => fetch(`/api/admin/associations/${id}`, { method: "DELETE" }),
-      () => {
-        if (selected === id) setSelected(null);
-        loadAssociations();
-      }
+      () => {},
+      () => setAssociations(prev)
     );
   };
 
@@ -128,13 +168,15 @@ export function FederationsPanel() {
         }),
       () => {
         setNewRank("");
-        loadRanks(selected);
+        loadRanks(selected, { silent: true });
         loadAssociations();
       }
     );
   };
 
   const renameRank = async (id: string, name: string) => {
+    const prev = ranks;
+    setRanks((list) => list.map((r) => (r.id === id ? { ...r, name } : r)));
     await run(
       () =>
         fetch(`/api/admin/ranks/${id}`, {
@@ -142,11 +184,20 @@ export function FederationsPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         }),
-      () => selected && loadRanks(selected)
+      () => {},
+      () => setRanks(prev)
     );
   };
 
   const moveRank = async (id: string, direction: "up" | "down") => {
+    // Optimistic swap so reordering feels instant.
+    const prev = ranks;
+    const index = ranks.findIndex((r) => r.id === id);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= ranks.length) return;
+    const next = [...ranks];
+    [next[index], next[target]] = [next[target], next[index]];
+    setRanks(next);
     await run(
       () =>
         fetch(`/api/admin/ranks/${id}`, {
@@ -154,17 +205,20 @@ export function FederationsPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ direction }),
         }),
-      () => selected && loadRanks(selected)
+      () => {
+        if (selected) loadRanks(selected, { silent: true });
+      },
+      () => setRanks(prev)
     );
   };
 
   const deleteRank = async (id: string) => {
+    const prev = ranks;
+    setRanks((list) => list.filter((r) => r.id !== id));
     await run(
       () => fetch(`/api/admin/ranks/${id}`, { method: "DELETE" }),
-      () => {
-        if (selected) loadRanks(selected);
-        loadAssociations();
-      }
+      () => loadAssociations(),
+      () => setRanks(prev)
     );
   };
 
@@ -195,32 +249,36 @@ export function FederationsPanel() {
           <div className="border-b border-dark-700 px-4 py-3 text-sm font-medium text-text-primary">
             Associations {loading ? "" : `(${associations.length})`}
           </div>
-          <div className="divide-y divide-dark-700/70">
-            {associations.map((a) => (
-              <FederationRow
-                key={a.id}
-                association={a}
-                active={selected === a.id}
-                onSelect={() => setSelected(a.id)}
-                onRename={(name) => renameAssociation(a.id, name)}
-                onDelete={() => deleteAssociation(a.id)}
-              />
-            ))}
+          {loading ? (
+            <ListSkeleton />
+          ) : (
+            <div className="divide-y divide-dark-700/70">
+              {associations.map((a) => (
+                <FederationRow
+                  key={a.id}
+                  association={a}
+                  active={selected === a.id}
+                  onSelect={() => setSelected(a.id)}
+                  onRename={(name) => renameAssociation(a.id, name)}
+                  onDelete={() => deleteAssociation(a.id)}
+                />
+              ))}
 
-            {/* International panels pseudo-entry */}
-            <button
-              type="button"
-              onClick={() => setSelected(INTERNATIONAL)}
-              className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors ${
-                selected === INTERNATIONAL ? "bg-accent/10" : "hover:bg-dark-800/60"
-              }`}
-            >
-              <span className="flex items-center gap-2 font-medium text-text-primary">
-                <span className="text-base">🌍</span> International panels
-              </span>
-              <span className="text-xs text-text-muted">UEFA, FIFA, ...</span>
-            </button>
-          </div>
+              {/* International panels pseudo-entry */}
+              <button
+                type="button"
+                onClick={() => setSelected(INTERNATIONAL)}
+                className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors ${
+                  selected === INTERNATIONAL ? "bg-accent/10" : "hover:bg-dark-800/60"
+                }`}
+              >
+                <span className="flex items-center gap-2 font-medium text-text-primary">
+                  <span className="text-base">🌍</span> International panels
+                </span>
+                <span className="text-xs text-text-muted">UEFA, FIFA, ...</span>
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 border-t border-dark-700 p-3">
             <div className="w-32">
@@ -250,6 +308,8 @@ export function FederationsPanel() {
             <div className="px-4 py-10 text-center text-sm text-text-muted">
               Select an association to manage its ranks.
             </div>
+          ) : ranksLoading ? (
+            <ListSkeleton />
           ) : (
             <>
               <div className="divide-y divide-dark-700/70">
