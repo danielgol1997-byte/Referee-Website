@@ -1,5 +1,6 @@
 import { getGemini, GEMINI_EMBEDDING_MODEL } from "@/lib/gemini";
 import { prisma } from "@/lib/prisma";
+import { contentWhere } from "@/lib/scope";
 
 // Must match the pgvector column: vector(1536).
 const EMBEDDING_DIMENSIONS = 1536;
@@ -77,9 +78,11 @@ export async function searchByEmbedding(
     tagSlugs?: string[];
     boostTagSlugs?: string[];
     keywordBoostTerms?: string[];
+    /** Federation scope: null/undefined = global content only. */
+    associationId?: string | null;
   } = {}
 ): Promise<SemanticSearchResult[]> {
-  const { limit = 30, tagSlugs = [], keywordBoostTerms = [] } = options;
+  const { limit = 30, tagSlugs = [], keywordBoostTerms = [], associationId = null } = options;
   const vectorStr = `[${queryEmbedding.join(",")}]`;
 
   try {
@@ -103,6 +106,15 @@ export async function searchByEmbedding(
       paramIndex++;
     }
 
+    // Federation scope: always include global (NULL) content; optionally the
+    // user's own association.
+    let scopeWhere = `AND v."associationId" IS NULL`;
+    if (associationId) {
+      scopeWhere = `AND (v."associationId" IS NULL OR v."associationId" = $${paramIndex})`;
+      params.push(associationId);
+      paramIndex++;
+    }
+
     const query = `
       SELECT
         v."id",
@@ -120,6 +132,7 @@ export async function searchByEmbedding(
       WHERE v."isActive" = true
         AND v."embedding" IS NOT NULL
         ${tagFilterWhere}
+        ${scopeWhere}
       GROUP BY v."id"
       ${tagFilterHaving}
       ORDER BY similarity DESC
@@ -143,7 +156,7 @@ export async function searchByEmbedding(
   } catch (error: any) {
     if (error?.message?.includes("vector") || error?.code === "42704") {
       console.warn("pgvector not available - falling back to keyword search");
-      return fallbackKeywordSearch(keywordBoostTerms, tagSlugs, limit);
+      return fallbackKeywordSearch(keywordBoostTerms, tagSlugs, limit, associationId);
     }
     throw error;
   }
@@ -152,9 +165,10 @@ export async function searchByEmbedding(
 async function fallbackKeywordSearch(
   keywords: string[],
   tagSlugs: string[],
-  limit: number
+  limit: number,
+  associationId: string | null = null
 ): Promise<SemanticSearchResult[]> {
-  const andFilters: any[] = [];
+  const andFilters: any[] = [contentWhere(associationId)];
 
   // Tag filters are always hard constraints — each slug must be present.
   for (const slug of tagSlugs) {

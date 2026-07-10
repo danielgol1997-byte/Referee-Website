@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import {
   COUNTRY_FLAGS,
   STAT_CATEGORIES,
+  STAT_REFEREES,
   formatScore,
   getCategoryAverage,
   getCategoryLeaderboard,
+  type StatReferee,
 } from "@/lib/stats-mock";
 import { DistributionBar, DistributionLegend } from "./DistributionBar";
 import { InfoTip } from "./InfoTip";
@@ -17,7 +19,7 @@ import { scoreTextColor } from "./score-utils";
 
 const COLLAPSED_COUNT = 5;
 
-export function MarksByCategory() {
+export function MarksByCategory({ referees = STAT_REFEREES }: { referees?: StatReferee[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   return (
@@ -35,10 +37,10 @@ export function MarksByCategory() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {STAT_CATEGORIES.map((category, i) => {
-          const leaderboard = getCategoryLeaderboard(category.slug);
+          const leaderboard = getCategoryLeaderboard(category.slug, referees);
           const isExpanded = expanded[category.slug];
           const shown = isExpanded ? leaderboard : leaderboard.slice(0, COLLAPSED_COUNT);
-          const average = getCategoryAverage(category.slug);
+          const average = getCategoryAverage(category.slug, referees);
 
           return (
             <Card

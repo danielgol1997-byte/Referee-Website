@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    const { public: publicTests, myTests } = await getPoolVideoTests(session.user.id);
+    const { public: publicTests, myTests } = await getPoolVideoTests(session.user.id, session.user.associationId ?? null);
     return NextResponse.json({ tests: [...publicTests, ...myTests], public: publicTests, myTests });
   } catch (error) {
     console.error("[VIDEO_TESTS_POOL][GET]", error);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { contentWhere } from "@/lib/scope";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -25,9 +26,15 @@ export async function GET() {
         categoryId: category.id,
         isActive: true, // Must be visible
         isMandatory: false, // Pool tests (not mandatory)
-        OR: [
-          { isUserGenerated: false }, // Public tests
-          { createdById: session.user.id, isUserGenerated: true }, // User's own tests
+        AND: [
+          // Federation scope: global tests + the user's own association.
+          contentWhere(session.user.associationId ?? null),
+          {
+            OR: [
+              { isUserGenerated: false }, // Public tests
+              { createdById: session.user.id, isUserGenerated: true }, // User's own tests
+            ],
+          },
         ],
       },
       orderBy: { createdAt: "desc" },

@@ -1,9 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { getSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   return (
@@ -20,6 +22,9 @@ function LoginPageInner() {
   const callbackUrl = params.get("callbackUrl") ?? "/";
 
   const [loading, setLoading] = useState(false);
+  const [credLoading, setCredLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const waitForSession = async (timeoutMs = 2500) => {
@@ -41,6 +46,22 @@ function LoginPageInner() {
     // Redirect handled by NextAuth; fallback if it returns without redirect.
     await waitForSession();
     setLoading(false);
+    router.replace(callbackUrl);
+    router.refresh();
+  };
+
+  const handleCredentialsSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCredLoading(true);
+    setError(null);
+    const result = await signIn("credentials", { email, password, redirect: false });
+    if (result?.error) {
+      setError("Invalid email or password.");
+      setCredLoading(false);
+      return;
+    }
+    await waitForSession();
+    setCredLoading(false);
     router.replace(callbackUrl);
     router.refresh();
   };
@@ -162,12 +183,46 @@ function LoginPageInner() {
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-status-danger/10 border border-status-danger/20">
+            <div className="mb-4 p-3 rounded-lg bg-status-danger/10 border border-status-danger/20">
               <p className="text-sm text-status-danger">{error}</p>
             </div>
           )}
 
-          <Button type="button" className="w-full" size="lg" disabled={loading} onClick={handleGoogleSignIn}>
+          <form className="space-y-4" onSubmit={handleCredentialsSignIn}>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-primary">Email</label>
+              <Input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-primary">Password</label>
+              <Input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+              />
+            </div>
+            <Button type="submit" className="w-full" size="lg" disabled={credLoading}>
+              {credLoading ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-dark-600" />
+            <span className="text-xs uppercase tracking-wide text-text-muted">or</span>
+            <div className="h-px flex-1 bg-dark-600" />
+          </div>
+
+          <Button type="button" variant="secondary" className="w-full" size="lg" disabled={loading} onClick={handleGoogleSignIn}>
             {loading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -180,6 +235,13 @@ function LoginPageInner() {
               "Continue with Google"
             )}
           </Button>
+
+          <p className="mt-8 text-center text-sm text-text-secondary">
+            New here?{" "}
+            <Link href="/auth/register" className="font-semibold text-cyan-500 hover:text-cyan-400">
+              Create an account
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -3,18 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/roles";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!isSuperAdmin(session?.user?.role)) {
-    return { ok: false as const, session };
-  }
-  return { ok: true as const, session };
-}
+import { contentWhere } from "@/lib/scope";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -33,11 +22,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Test not found" }, { status: 404 });
     }
 
-    // Allow super admin to edit any test, or users to edit their own user-generated tests
+    // Super admins edit any test; users edit their own user-generated tests;
+    // FA admins edit admin tests belonging to their own association.
     const callerIsSuperAdmin = isSuperAdmin(session.user.role);
     const isOwner = existingTest.createdById === session.user.id && existingTest.isUserGenerated;
-    
-    if (!callerIsSuperAdmin && !isOwner) {
+    const isFaAdmin =
+      session.user.role === "ADMIN" &&
+      !!existingTest.associationId &&
+      existingTest.associationId === (session.user.associationId ?? null);
+
+    if (!callerIsSuperAdmin && !isOwner && !isFaAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -113,7 +107,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         type: "LOTG_TEXT",
         categoryId: existingTest.categoryId,
         isActive: true,
-        isUpToDate: true  // Only count up-to-date questions
+        isUpToDate: true,  // Only count up-to-date questions
+        ...contentWhere(existingTest.associationId),
       };
       
       // Filter by IFAB status based on include flags
@@ -196,11 +191,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Test not found" }, { status: 404 });
     }
 
-    // Allow super admin to delete any test, or users to delete their own user-generated tests
+    // Super admins delete any test; users delete their own user-generated tests;
+    // FA admins delete admin tests belonging to their own association.
     const callerIsSuperAdmin = isSuperAdmin(session.user.role);
     const isOwner = existingTest.createdById === session.user.id && existingTest.isUserGenerated;
-    
-    if (!callerIsSuperAdmin && !isOwner) {
+    const isFaAdmin =
+      session.user.role === "ADMIN" &&
+      !!existingTest.associationId &&
+      existingTest.associationId === (session.user.associationId ?? null);
+
+    if (!callerIsSuperAdmin && !isOwner && !isFaAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

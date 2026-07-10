@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { VideoTestType } from "@prisma/client";
+import { contentWhere } from "./scope";
 
 /** Fisher-Yates shuffle */
 function shuffleArray<T>(array: T[]): T[] {
@@ -11,11 +12,13 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export async function getMandatoryVideoTests(userId: string) {
+export async function getMandatoryVideoTests(userId: string, associationId: string | null = null) {
   const tests = await prisma.videoTest.findMany({
     where: {
       type: VideoTestType.MANDATORY,
       isActive: true,
+      // Federation scope: global tests + the user's own association.
+      ...contentWhere(associationId),
     },
     include: {
       completions: { where: { userId } },
@@ -29,12 +32,14 @@ export async function getMandatoryVideoTests(userId: string) {
   }));
 }
 
-export async function getPoolVideoTests(userId: string) {
+export async function getPoolVideoTests(userId: string, associationId: string | null = null) {
   const [publicTests, userTests] = await Promise.all([
     prisma.videoTest.findMany({
       where: {
         type: VideoTestType.PUBLIC,
         isActive: true,
+        // Federation scope: global tests + the user's own association.
+        ...contentWhere(associationId),
       },
       orderBy: { createdAt: "desc" },
     }),

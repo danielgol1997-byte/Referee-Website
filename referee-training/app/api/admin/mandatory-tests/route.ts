@@ -3,29 +3,22 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return { ok: false as const, session };
-  }
-  return { ok: true as const, session };
-}
+import { requireAdmin } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return unauthorized();
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  // Only show mandatory and public tests (exclude user-generated tests)
-  // Super admin page is for creating mandatory and public tests only
+  // Only show mandatory and public tests (exclude user-generated tests).
+  // FA admins additionally see only global + their own association's tests.
+  const where: Record<string, unknown> = { isUserGenerated: false };
+  if (!isSuperAdmin(auth.user.role)) {
+    Object.assign(where, contentWhere(auth.user.associationId));
+  }
+
   const tests = await prisma.mandatoryTest.findMany({
-    where: {
-      isUserGenerated: false, // Exclude all user-generated tests, even those created by super admins
-    },
+    where,
     include: { category: true, completions: true },
     orderBy: { createdAt: "desc" },
   });
@@ -64,9 +57,23 @@ export async function POST(req: Request) {
     const effectiveIncludeIfab = isUserGenerated ? true : includeIfab;
     const effectiveIncludeCustom = isUserGenerated ? false : includeCustom;
 
-    // Only super admins can create mandatory tests
-    if (isMandatory && !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: "Only super admins can create mandatory tests" }, { status: 403 });
+    const superAdmin = isSuperAdmin(session.user.role);
+    const adminRole = superAdmin || session.user.role === "ADMIN" || session.user.role === "DEVELOPER";
+
+    // Only admins (FA or super) can create mandatory / public admin tests.
+    if (!isUserGenerated && !adminRole) {
+      return NextResponse.json({ error: "Only admins can create admin tests" }, { status: 403 });
+    }
+
+    // Federation scope. User-generated + super-admin tests default to global;
+    // FA admins' admin tests are scoped to their own association.
+    const associationId = isUserGenerated
+      ? null
+      : superAdmin
+        ? (typeof body?.associationId === "string" && body.associationId ? body.associationId : null)
+        : (session.user.associationId ?? null);
+    if (!isUserGenerated && !superAdmin && !associationId) {
+      return NextResponse.json({ error: "Your account is not linked to an association." }, { status: 400 });
     }
 
     if (!title) {
@@ -103,7 +110,9 @@ export async function POST(req: Request) {
         type: "LOTG_TEXT",
         categoryId: category,
         isActive: true,
-        isUpToDate: true  // Only count up-to-date questions
+        isUpToDate: true,  // Only count up-to-date questions
+        // Scope the availability check to the pool this test will draw from.
+        ...contentWhere(associationId),
       };
       
       // Filter by IFAB status based on include flags
@@ -162,6 +171,7 @@ export async function POST(req: Request) {
         includeVar,
         includeIfab: effectiveIncludeIfab,
         includeCustom: effectiveIncludeCustom,
+        associationId,
         createdById: session.user.id,
       },
       include: { category: true },

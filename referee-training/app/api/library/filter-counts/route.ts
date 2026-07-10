@@ -1,9 +1,10 @@
-import { isSuperAdmin } from "@/lib/roles";
+import { isAdmin as isAdminRole, isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { buildVideoClipWhereForAdmin, buildVideoClipWhereForUser } from "@/lib/video-test-filters";
+import { contentWhere } from "@/lib/scope";
 
 type CountsByCategory = Record<string, Record<string, number>>;
 
@@ -59,19 +60,23 @@ export async function POST(req: Request) {
           : "user";
   const filters = body?.filters ?? {};
 
-  if ((scope === "admin" || scope === "admin-video-tests") && !isSuperAdmin(session.user.role)) {
+  if ((scope === "admin" || scope === "admin-video-tests") && !isAdminRole(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const isAdmin = scope === "admin" || scope === "admin-video-tests";
+  const superAdmin = isSuperAdmin(session.user.role);
   const educationalClause = scope === "admin-video-tests" || scope === "user-video-tests"
     ? [{ isEducational: false }]
     : [];
+  // Super admins are unscoped. Everyone else (including FA admins) sees global +
+  // own-association content only, so counts never leak across federations.
+  const scopeClause = superAdmin ? [] : [contentWhere(session.user.associationId ?? null)];
 
   // Build the video WHERE clause (relation-based, never fetches IDs into JS)
   const baseVideoWhere = isAdmin
-    ? { AND: [buildVideoClipWhereForAdmin(filters), ...educationalClause] }
-    : { AND: [buildVideoClipWhereForUser(filters), ...educationalClause] };
+    ? { AND: [buildVideoClipWhereForAdmin(filters), ...educationalClause, ...scopeClause] }
+    : { AND: [buildVideoClipWhereForUser(filters), ...educationalClause, ...scopeClause] };
 
   if (isAdmin) {
     // Admin: two parallel groupBy queries using relation-based filtering
@@ -81,6 +86,7 @@ export async function POST(req: Request) {
       AND: [
         buildVideoClipWhereForAdmin(filters, { excludeTagCategory: "category" }),
         ...educationalClause,
+        ...scopeClause,
       ],
     };
 

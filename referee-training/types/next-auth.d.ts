@@ -12,6 +12,8 @@ declare module "next-auth" {
       country?: string | null;
       profileComplete?: boolean;
       isActive?: boolean;
+      associationId?: string | null;
+      rankId?: string | null;
     };
   }
 
@@ -20,6 +22,8 @@ declare module "next-auth" {
     country?: string | null;
     profileComplete?: boolean;
     isActive?: boolean;
+    associationId?: string | null;
+    rankId?: string | null;
   }
 }
 
@@ -30,6 +34,8 @@ declare module "next-auth/jwt" {
     profileComplete?: boolean;
     isActive?: boolean;
     email?: string | null;
+    associationId?: string | null;
+    rankId?: string | null;
   }
 }
 

@@ -22,5 +22,14 @@ export default async function RefereeCategoryPage({
   const category = STAT_CATEGORIES.find((c) => c.slug === slug);
   if (!referee || !category) notFound();
 
+  // FA admins may only view referees inside their own federation.
+  if (
+    access.isAdminView &&
+    !access.isSuperAdminView &&
+    referee.associationCountryCode !== access.associationCountryCode
+  ) {
+    redirect("/stats");
+  }
+
   return <RefereeCategoryView refereeId={id} slug={slug} isOwnView={!access.isAdminView} />;
 }

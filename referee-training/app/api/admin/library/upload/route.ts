@@ -1,7 +1,5 @@
-import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/api-auth';
 import { uploadVideo, createEditedVideoFromPublicId, VideoEditPayload } from '@/lib/cloudinary';
 
 // Route segment config - increase timeout for large video uploads
@@ -16,15 +14,12 @@ export const maxDuration = 60; // 60 seconds for Pro plan, 10 for Hobby
 export async function POST(request: Request) {
   try {
     console.log('📹 Video upload request received');
-    
-    const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
+    const guard = await requireAdmin();
+    if (!guard.ok) {
       console.error('❌ Unauthorized upload attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: guard.error }, { status: guard.status });
     }
-
-    console.log('✅ User authorized:', session.user.email);
 
     const formData = await request.formData();
     const file = formData.get('video') as File;

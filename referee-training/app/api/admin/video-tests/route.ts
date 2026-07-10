@@ -1,10 +1,10 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VideoTestType } from "@prisma/client";
 import { buildVideoClipWhereForAdmin } from "@/lib/video-test-filters";
+import { requireAdmin } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 function shuffleArray<T>(array: T[]) {
   const shuffled = [...array];
@@ -15,20 +15,20 @@ function shuffleArray<T>(array: T[]) {
   return shuffled;
 }
 
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return { ok: false as const, session };
-  }
-  return { ok: true as const, session };
-}
-
 export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const where: Record<string, unknown> = {
+    type: { in: [VideoTestType.MANDATORY, VideoTestType.PUBLIC] },
+  };
+  // FA admins see only global + their own association's tests.
+  if (!isSuperAdmin(auth.user.role)) {
+    Object.assign(where, contentWhere(auth.user.associationId));
+  }
 
   const tests = await prisma.videoTest.findMany({
-    where: { type: { in: [VideoTestType.MANDATORY, VideoTestType.PUBLIC] } },
+    where,
     include: { clips: { include: { videoClip: { select: { id: true, title: true } } } } },
     orderBy: { createdAt: "desc" },
   });
@@ -37,8 +37,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const superAdmin = isSuperAdmin(auth.user.role);
 
   try {
     const body = await req.json();
@@ -61,6 +62,15 @@ export async function POST(req: Request) {
     }
     if (!type || (type !== VideoTestType.MANDATORY && type !== VideoTestType.PUBLIC)) {
       return NextResponse.json({ error: "type must be MANDATORY or PUBLIC" }, { status: 400 });
+    }
+
+    // Federation scope: FA admins' tests belong to their association and draw
+    // only from global + own-association clips; super admins default to global.
+    const associationId = superAdmin
+      ? (typeof body?.associationId === "string" && body.associationId ? body.associationId : null)
+      : auth.user.associationId;
+    if (!superAdmin && !associationId) {
+      return NextResponse.json({ error: "Your account is not linked to an association." }, { status: 400 });
     }
     const totalClipsNum = Number.isFinite(totalClips) ? Math.floor(totalClips as number) : 0;
     if (totalClipsNum <= 0) {
@@ -96,11 +106,15 @@ export async function POST(req: Request) {
 
     let finalClipIds: string[] = [];
 
+    // Super admins draw from all clips; FA admins from global + their own FA.
+    const clipScope = superAdmin ? {} : contentWhere(auth.user.associationId);
+
     if (filters) {
       const where = {
         AND: [
           buildVideoClipWhereForAdmin(filters),
           { isEducational: false },
+          clipScope,
         ],
       };
       const eligible = await prisma.videoClip.findMany({
@@ -139,7 +153,7 @@ export async function POST(req: Request) {
       }
 
       const count = await prisma.videoClip.count({
-        where: { id: { in: clipIds }, isActive: true, isEducational: false },
+        where: { id: { in: clipIds }, isActive: true, isEducational: false, ...clipScope },
       });
       if (count !== clipIds.length) {
         return NextResponse.json({ error: "Some clip IDs are invalid or inactive" }, { status: 400 });
@@ -159,7 +173,8 @@ export async function POST(req: Request) {
         dueDate: dueDate ? new Date(dueDate) : null,
         adminFilters: filters ?? null,
         isActive: !!isActive,
-        createdById: auth.session!.user!.id,
+        associationId,
+        createdById: auth.user.id,
       },
     });
 

@@ -16,6 +16,7 @@ import {
   getCategoryTrend,
   getRefereeDistribution,
   getTestsTaken,
+  type StatReferee,
 } from "@/lib/stats-mock";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { DistributionBar, DistributionLegend } from "./DistributionBar";
@@ -26,17 +27,24 @@ import { scoreTextColor } from "./score-utils";
 
 const WEEK_LABELS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"];
 
-export function CategoryStatsView({ slug }: { slug: string }) {
+export function CategoryStatsView({
+  slug,
+  referees = STAT_REFEREES,
+}: {
+  slug: string;
+  referees?: StatReferee[];
+}) {
   const router = useRouter();
   const index = STAT_CATEGORIES.findIndex((c) => c.slug === slug);
   const category = STAT_CATEGORIES[index];
   const previous = STAT_CATEGORIES[(index - 1 + STAT_CATEGORIES.length) % STAT_CATEGORIES.length];
   const next = STAT_CATEGORIES[(index + 1) % STAT_CATEGORIES.length];
 
-  const average = getCategoryAverage(slug);
+  const average = getCategoryAverage(slug, referees);
   const tests = getCategoryTestsTaken(slug);
   const trend = getCategoryTrend(slug);
-  const leaderboard = getCategoryLeaderboard(slug);
+  const leaderboard = getCategoryLeaderboard(slug, referees);
+  const topReferee = leaderboard[0];
 
   // Rankings are split by referee level — a referee is only ranked against
   // peers in the same level (Elite, Category 1, Category 2, ...).
@@ -102,16 +110,22 @@ export function CategoryStatsView({ slug }: { slug: string }) {
         </Card>
         <Card className="space-y-1">
           <p className="text-sm text-text-secondary">Top referee</p>
-          <Link
-            href={`/stats/referee/${leaderboard[0].id}/category/${slug}`}
-            className="block text-xl font-bold text-accent transition-colors hover:text-accent-dark"
-          >
-            {leaderboard[0].name} →
-          </Link>
-          <p className="text-xs text-text-muted">
-            {COUNTRY_FLAGS[leaderboard[0].country]} {leaderboard[0].country} · ave.{" "}
-            {formatScore(leaderboard[0].scores[slug] ?? 0)}
-          </p>
+          {topReferee ? (
+            <>
+              <Link
+                href={`/stats/referee/${topReferee.id}/category/${slug}`}
+                className="block text-xl font-bold text-accent transition-colors hover:text-accent-dark"
+              >
+                {topReferee.name} →
+              </Link>
+              <p className="text-xs text-text-muted">
+                {COUNTRY_FLAGS[topReferee.country]} {topReferee.country} · ave.{" "}
+                {formatScore(topReferee.scores[slug] ?? 0)}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-text-muted">No referees yet</p>
+          )}
         </Card>
       </div>
 
@@ -145,7 +159,7 @@ export function CategoryStatsView({ slug }: { slug: string }) {
         <div>
           <h2 className="text-xl font-semibold text-text-primary">Ranking</h2>
           <p className="mt-1 text-sm text-text-secondary">
-            All {STAT_REFEREES.length} referees, ranked by average mark in {category.name} within
+            All {referees.length} referees, ranked by average mark in {category.name} within
             their level. Click a row for the referee&apos;s full record.
           </p>
         </div>

@@ -1,23 +1,17 @@
-import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return { ok: false as const };
-  }
-  return { ok: true as const };
-}
+import { requireAdmin } from "@/lib/api-auth";
+import { isSuperAdmin } from "@/lib/roles";
+import { contentWhere } from "@/lib/scope";
 
 export async function GET() {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const scope = isSuperAdmin(auth.user.role) ? {} : contentWhere(auth.user.associationId);
 
   const clips = await prisma.videoClip.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...scope },
     select: { id: true, title: true },
     orderBy: { title: "asc" },
   });

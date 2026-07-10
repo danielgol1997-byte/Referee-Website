@@ -1,25 +1,14 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, QuestionType } from "@prisma/client";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!isSuperAdmin(session?.user?.role)) {
-    return { ok: false as const, session };
-  }
-  return { ok: true as const, session };
-}
+import { requireAdmin } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 export async function GET(req: Request) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return unauthorized();
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const superAdmin = isSuperAdmin(auth.user.role);
 
   const { searchParams } = new URL(req.url);
   const lawNumberParams = searchParams.getAll("lawNumber");
@@ -35,6 +24,11 @@ export async function GET(req: Request) {
   const isIfab = searchParams.get("isIfab");
 
   const where: Prisma.QuestionWhereInput = {};
+
+  // FA admins only see global questions + their own association's questions.
+  if (!superAdmin) {
+    Object.assign(where, contentWhere(auth.user.associationId));
+  }
 
   // VAR filtering
   if (onlyVar) {
@@ -113,8 +107,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return unauthorized();
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const superAdmin = isSuperAdmin(auth.user.role);
 
   try {
     const body = await req.json();
@@ -130,6 +125,17 @@ export async function POST(req: Request) {
       answerOptions = [],
       isIfab = true,
     } = body ?? {};
+
+    // Federation scope. FA admins author non-IFAB questions inside their own
+    // association; super admins author global (IFAB) questions by default but
+    // may target a specific association.
+    const associationId = superAdmin
+      ? (typeof body?.associationId === "string" && body.associationId ? body.associationId : null)
+      : auth.user.associationId;
+    if (!superAdmin && !associationId) {
+      return NextResponse.json({ error: "Your account is not linked to an association." }, { status: 400 });
+    }
+    const effectiveIsIfab = superAdmin ? isIfab : false;
 
     if (!type || !text || !explanation) {
       return NextResponse.json({ error: "type, text, and explanation are required." }, { status: 400 });
@@ -161,7 +167,8 @@ export async function POST(req: Request) {
         text,
         explanation,
         difficulty,
-        isIfab,
+        isIfab: effectiveIsIfab,
+        associationId,
         isActive: true,      // Default to active/visible
         isUpToDate: true,    // Default to current
         answerOptions: {

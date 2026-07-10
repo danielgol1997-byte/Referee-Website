@@ -176,12 +176,16 @@ export const authOptions: NextAuthOptions = {
           sub?: string;
           profileComplete?: boolean;
           isActive?: boolean;
+          associationId?: string | null;
+          rankId?: string | null;
         };
         session.user.id = tokenWithRole.sub ?? "";
         session.user.role = tokenWithRole.role ?? Role.REFEREE;
         session.user.country = tokenWithRole.country ?? null;
         session.user.profileComplete = tokenWithRole.profileComplete ?? false;
         session.user.isActive = tokenWithRole.isActive ?? true;
+        session.user.associationId = tokenWithRole.associationId ?? null;
+        session.user.rankId = tokenWithRole.rankId ?? null;
       }
       return session;
     },
@@ -201,6 +205,8 @@ export const authOptions: NextAuthOptions = {
               country: true,
               profileComplete: true,
               isActive: true,
+              associationId: true,
+              rankId: true,
             },
           });
           if (dbUser) {
@@ -209,6 +215,8 @@ export const authOptions: NextAuthOptions = {
             token.country = dbUser.country;
             token.profileComplete = dbUser.profileComplete;
             token.isActive = dbUser.isActive;
+            token.associationId = dbUser.associationId;
+            token.rankId = dbUser.rankId;
             return token;
           }
         }
@@ -227,6 +235,8 @@ export const authOptions: NextAuthOptions = {
             country: true,
             profileComplete: true,
             isActive: true,
+            associationId: true,
+            rankId: true,
           },
         });
         if (dbUser) {
@@ -237,6 +247,8 @@ export const authOptions: NextAuthOptions = {
           token.country = dbUser.country;
           token.profileComplete = dbUser.profileComplete;
           token.isActive = dbUser.isActive;
+          token.associationId = dbUser.associationId;
+          token.rankId = dbUser.rankId;
         } else {
           // User not found in database - invalid token
           console.warn(`JWT callback: User with email ${token.email} not found in database`);

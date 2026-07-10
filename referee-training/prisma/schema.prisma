@@ -25,6 +25,17 @@ model User {
   emailVerified         DateTime?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
+  // Federation hierarchy
+  associationId         String?
+  rankId                String?
+  internationalRankId   String?
+  // Physical profile (used by the stats profile card)
+  dateOfBirth           DateTime?
+  heightCm              Int?
+  weightKg              Int?
+  association           Association?         @relation("UserAssociation", fields: [associationId], references: [id], onDelete: SetNull)
+  rank                  Rank?                @relation("UserRank", fields: [rankId], references: [id], onDelete: SetNull)
+  internationalRank     Rank?                @relation("UserInternationalRank", fields: [internationalRankId], references: [id], onDelete: SetNull)
   accounts              Account[]
   mandatoryTestsCreated MandatoryTest[]
   testSessions          TestSession[]
@@ -40,6 +51,43 @@ model User {
   searchQueryLogs       SearchQueryLog[]
   arClipsCreated        ArClip[]
   arTestSessions        ArTestSession[]
+
+  @@index([associationId])
+  @@index([rankId])
+}
+
+// A football association / federation (e.g. "Israel FA", "Italian FA").
+// Referees belong to one association; admins manage a single association.
+model Association {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  countryCode    String?         // ISO 3166-1 alpha-2, drives the flag
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  ranks          Rank[]
+  members        User[]          @relation("UserAssociation")
+  videoClips     VideoClip[]
+  questions      Question[]
+  mandatoryTests MandatoryTest[]
+  videoTests     VideoTest[]
+}
+
+// An ordered rank within an association (e.g. "Elite", "Category 1").
+// A rank with associationId = null is an international panel (e.g. UEFA, FIFA).
+model Rank {
+  id                   String       @id @default(cuid())
+  name                 String
+  order                Int          @default(0)
+  associationId        String?
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  association          Association? @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  members              User[]       @relation("UserRank")
+  internationalMembers User[]       @relation("UserInternationalRank")
+
+  @@index([associationId, order])
 }
 
 model Account {
@@ -122,10 +170,13 @@ model VideoClip {
   searchDescriptionLang   String?
   aiProcessedAt           DateTime?
   aiProcessedById         String?
+  // Federation scope: null = global (e.g. RAP-edition clips).
+  associationId       String?
   questions           Question[]
   category            Category        @relation(fields: [categoryId], references: [id])
   uploadedBy          User?           @relation(fields: [uploadedById], references: [id])
   videoCategory       VideoCategory?  @relation(fields: [videoCategoryId], references: [id])
+  association         Association?    @relation(fields: [associationId], references: [id], onDelete: SetNull)
   tags                VideoTag[]
   videoTestClips      VideoTestClip[]
   aiGenerationFeedback AiGenerationFeedback[]
@@ -133,6 +184,7 @@ model VideoClip {
   @@index([videoCategoryId, order])
   @@index([lawNumbers])
   @@index([isActive, isFeatured])
+  @@index([associationId])
 }
 
 model Question {
@@ -150,9 +202,13 @@ model Question {
   isIfab        Boolean        @default(true)
   lawNumbers    Int[]          @default([])
   isVar         Boolean        @default(false)
+  // Federation scope: null = global. IFAB questions stay global; non-IFAB
+  // questions may be scoped to a single association.
+  associationId String?
   answerOptions AnswerOption[]
   category      Category       @relation(fields: [categoryId], references: [id])
   videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id])
+  association   Association?   @relation(fields: [associationId], references: [id], onDelete: SetNull)
   testAnswers   TestAnswer[]
   favorites     QuestionFavorite[]
 
@@ -160,6 +216,7 @@ model Question {
   @@index([lawNumbers])
   @@index([isUpToDate, isActive])
   @@index([isIfab, isActive])
+  @@index([associationId])
 }
 
 model AnswerOption {
@@ -250,10 +307,15 @@ model MandatoryTest {
   includeVar      Boolean              @default(false)
   includeIfab     Boolean              @default(true)
   includeCustom   Boolean              @default(false)
+  // Federation scope: null = global (available to everyone).
+  associationId   String?
   category        Category             @relation(fields: [categoryId], references: [id])
   createdBy       User                 @relation(fields: [createdById], references: [id])
+  association     Association?         @relation(fields: [associationId], references: [id], onDelete: SetNull)
   testSessions    TestSession[]
   completions     UserTestCompletion[]
+
+  @@index([associationId])
 }
 
 model UserTestCompletion {
@@ -489,13 +551,17 @@ model VideoTest {
   createdById     String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  // Federation scope: null = global (available to everyone).
+  associationId   String?
   createdBy       User?          @relation(fields: [createdById], references: [id])
+  association     Association?   @relation(fields: [associationId], references: [id], onDelete: SetNull)
   clips           VideoTestClip[]
   sessions        VideoTestSession[]
   completions     VideoTestCompletion[]
 
   @@index([type, isActive])
   @@index([createdById])
+  @@index([associationId])
 }
 
 model VideoTestClip {

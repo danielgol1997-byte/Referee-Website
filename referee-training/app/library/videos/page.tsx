@@ -1,15 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { VideoLibraryView } from "@/components/library/VideoLibraryView";
 import { Prisma } from "@prisma/client";
-
-export const revalidate = 300;
+import { getAuthedUser } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 export default async function VideoLibraryPage() {
   try {
+    const user = await getAuthedUser();
     // Fetch minimal video data for list view (optimized payload)
     const videos = await prisma.videoClip.findMany({
       where: {
         isActive: true,
+        // Federation scope: global (e.g. RAP-edition) + the user's association.
+        ...contentWhere(user?.associationId ?? null),
       },
       select: {
         id: true,

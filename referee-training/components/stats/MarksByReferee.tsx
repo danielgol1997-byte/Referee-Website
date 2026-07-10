@@ -12,13 +12,14 @@ import {
   STAT_CATEGORIES,
   STAT_REFEREES,
   getRefereeOverall,
+  type StatReferee,
 } from "@/lib/stats-mock";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
 type SortKey = "name" | "country" | "level" | "overall" | string; // category slug
 
-export function MarksByReferee() {
+export function MarksByReferee({ referees = STAT_REFEREES }: { referees?: StatReferee[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState<string>("all");
@@ -27,12 +28,12 @@ export function MarksByReferee() {
   const [sortDesc, setSortDesc] = useState(true);
 
   const countries = useMemo(
-    () => [...new Set(STAT_REFEREES.map((r) => r.country))].sort(),
-    []
+    () => [...new Set(referees.map((r) => r.country))].sort(),
+    [referees]
   );
 
   const rows = useMemo(() => {
-    let list = STAT_REFEREES.filter((r) => {
+    let list = referees.filter((r) => {
       if (search && !`${r.name} ${r.country}`.toLowerCase().includes(search.toLowerCase()))
         return false;
       if (country !== "all" && r.country !== country) return false;
@@ -50,7 +51,7 @@ export function MarksByReferee() {
       return sortDesc ? -cmp : cmp;
     });
     return list;
-  }, [search, country, level, sortKey, sortDesc]);
+  }, [referees, search, country, level, sortKey, sortDesc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {

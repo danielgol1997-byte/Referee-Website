@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildVideoClipWhereForUser } from "@/lib/video-test-filters";
+import { contentWhere } from "@/lib/scope";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
       AND: [
         buildVideoClipWhereForUser(filters),
         { isEducational: false },
+        // Federation scope: global + the user's own association.
+        contentWhere(session.user.associationId ?? null),
       ],
     };
     const count = await prisma.videoClip.count({ where });

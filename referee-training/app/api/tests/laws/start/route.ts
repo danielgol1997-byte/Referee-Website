@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       lawNumbers,
       mandatoryTestId,
       includeVar: finalIncludeVar,
+      associationId: session.user.associationId ?? null,
     });
 
     return NextResponse.json({ session: testSession });

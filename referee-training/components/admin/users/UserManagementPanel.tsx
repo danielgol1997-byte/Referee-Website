@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
+type Association = { id: string; name: string; countryCode: string | null };
+
 type UserRow = {
   id: string;
   email: string;
@@ -19,7 +21,13 @@ type UserRow = {
   isActive: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  associationId: string | null;
+  association: Association | null;
+  rank: { id: string; name: string } | null;
+  internationalRank: { id: string; name: string } | null;
 };
+
+const UNASSIGNED = "__none__";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All users" },
@@ -42,18 +50,46 @@ const formatDate = (value: string | null) => {
 
 export function UserManagementPanel() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [associations, setAssociations] = useState<Association[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [faFilter, setFaFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/associations")
+      .then((r) => r.json())
+      .then((data) => setAssociations(data.associations ?? []))
+      .catch(() => {});
+  }, []);
+
+  const faFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All federations" },
+      { value: UNASSIGNED, label: "Unassigned" },
+      ...associations.map((a) => ({ value: a.id, label: a.name })),
+    ],
+    [associations]
+  );
+
+  const faColumnOptions = useMemo(
+    () => [
+      { value: UNASSIGNED, label: "Unassigned" },
+      ...associations.map((a) => ({ value: a.id, label: a.name })),
+    ],
+    [associations]
+  );
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (status !== "all") params.set("status", status);
+    if (faFilter === UNASSIGNED) params.set("associationId", "none");
+    else if (faFilter !== "all") params.set("associationId", faFilter);
     return params.toString();
-  }, [search, status]);
+  }, [search, status, faFilter]);
 
   useEffect(() => {
     let active = true;
@@ -102,6 +138,12 @@ export function UserManagementPanel() {
   };
 
   const updateRole = async (id: string, role: string) => {
+    // FA Admins must administer a specific federation.
+    const target = users.find((u) => u.id === id);
+    if (role === "ADMIN" && target && !target.associationId) {
+      setError("Assign a federation to this user before making them an FA Admin.");
+      return;
+    }
     setActionLoading(id);
     setError(null);
     try {
@@ -117,6 +159,39 @@ export function UserManagementPanel() {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update user role";
+      setError(message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const updateAssociation = async (id: string, associationId: string | null) => {
+    setActionLoading(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ associationId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Failed to update federation");
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === id
+            ? {
+                ...user,
+                associationId: data.user?.associationId ?? null,
+                association: data.user?.association ?? null,
+                // Moving federation resets rank server-side.
+                rank: data.user?.rank ?? null,
+                internationalRank: data.user?.internationalRank ?? null,
+              }
+            : user
+        )
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update federation";
       setError(message);
     } finally {
       setActionLoading(null);
@@ -167,6 +242,9 @@ export function UserManagementPanel() {
         <div className="min-w-[200px]">
           <Select value={status} onChange={(value) => setStatus(String(value))} options={STATUS_OPTIONS} />
         </div>
+        <div className="min-w-[200px]">
+          <Select value={faFilter} onChange={(value) => setFaFilter(String(value))} options={faFilterOptions} />
+        </div>
       </div>
 
       {error && (
@@ -186,6 +264,8 @@ export function UserManagementPanel() {
                 <th className="px-4 py-3 text-left font-semibold">Name</th>
                 <th className="px-4 py-3 text-left font-semibold">Email</th>
                 <th className="px-4 py-3 text-left font-semibold">Provider</th>
+                <th className="px-4 py-3 text-left font-semibold">Federation</th>
+                <th className="px-4 py-3 text-left font-semibold">Rank</th>
                 <th className="px-4 py-3 text-left font-semibold">Role</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Profile</th>
@@ -203,7 +283,24 @@ export function UserManagementPanel() {
                   </td>
                   <td className="px-4 py-3">{user.email}</td>
                   <td className="px-4 py-3 capitalize">{user.authProvider}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 min-w-[180px]">
+                    <Select
+                      value={user.associationId ?? UNASSIGNED}
+                      onChange={(value) =>
+                        updateAssociation(user.id, value === UNASSIGNED ? null : String(value))
+                      }
+                      options={faColumnOptions}
+                    />
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {user.rank?.name ?? <span className="text-text-muted">Unranked</span>}
+                    {user.internationalRank && (
+                      <span className="ml-1 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-accent">
+                        {user.internationalRank.name}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 min-w-[150px]">
                     <Select
                       value={user.role}
                       onChange={(value) => updateRole(user.id, String(value))}
@@ -255,7 +352,7 @@ export function UserManagementPanel() {
               ))}
               {!loading && users.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={10} className="px-4 py-8 text-center text-text-muted">
                     No users match your filters.
                   </td>
                 </tr>

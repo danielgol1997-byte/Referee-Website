@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/api-auth';
 
 /**
  * GET /api/admin/library/categories
@@ -11,11 +12,8 @@ import { authOptions } from '@/lib/auth';
  */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const categories = await prisma.videoCategory.findMany({
       include: {

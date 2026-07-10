@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthedUser } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthedUser();
     const { searchParams } = new URL(request.url);
     
     const q = searchParams.get("q") || "";
@@ -21,7 +24,8 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {
       isActive: true,
-      AND: []
+      // Federation scope: global + the user's association.
+      AND: [contentWhere(user?.associationId ?? null)]
     };
 
     // Text search

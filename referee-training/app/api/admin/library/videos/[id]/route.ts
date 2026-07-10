@@ -1,8 +1,21 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin, type AuthedUser } from '@/lib/api-auth';
+
+/** FA admins may only touch global or own-association videos. */
+async function assertVideoInScope(user: AuthedUser, videoId: string) {
+  if (isSuperAdmin(user.role)) return { ok: true as const };
+  const video = await prisma.videoClip.findUnique({
+    where: { id: videoId },
+    select: { associationId: true },
+  });
+  if (!video) return { ok: false as const, status: 404, error: 'Video not found' };
+  if (video.associationId !== user.associationId) {
+    return { ok: false as const, status: 403, error: 'This video is not in your association.' };
+  }
+  return { ok: true as const };
+}
 
 /**
  * GET /api/admin/library/videos/[id]
@@ -14,13 +27,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const { id } = await params;
+    const scope = await assertVideoInScope(guard.user, id);
+    if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status });
     const baseSelect = {
       id: true,
       title: true,
@@ -149,13 +161,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const { id } = await params;
+    const scope = await assertVideoInScope(guard.user, id);
+    if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status });
     const body = await request.json();
     const {
       title,
@@ -190,6 +201,13 @@ export async function PUT(
       loopZoneStart,
       loopZoneEnd,
     } = body;
+
+    // Only super admins can re-target a video's association (move it between
+    // FAs or make it global). FA admins never change scope.
+    const associationUpdate =
+      isSuperAdmin(guard.user.role) && body.associationId !== undefined
+        ? { associationId: body.associationId || null }
+        : {};
 
     const hasTagUpdate = Array.isArray(tagData) || Array.isArray(tagIds);
     const normalizedTagIds = Array.isArray(tagIds)
@@ -272,6 +290,7 @@ export async function PUT(
       ...(cutSegments !== undefined ? { cutSegments } : {}),
       ...(loopZoneStart !== undefined ? { loopZoneStart } : {}),
       ...(loopZoneEnd !== undefined ? { loopZoneEnd } : {}),
+      ...associationUpdate,
       ...(hasTagUpdate ? { tags: tagRelations } : {}),
     };
 
@@ -329,13 +348,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const { id } = await params;
+    const scope = await assertVideoInScope(guard.user, id);
+    if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status });
     // Delete video (tags will be cascade deleted)
     await prisma.videoClip.delete({
       where: { id },

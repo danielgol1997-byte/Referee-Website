@@ -11,28 +11,29 @@ import {
   formatScore,
   getRefereeOverall,
   getTestsTaken,
+  type StatReferee,
 } from "@/lib/stats-mock";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
-export function StatsOverview() {
+export function StatsOverview({ referees: source = STAT_REFEREES }: { referees?: StatReferee[] }) {
   const [country, setCountry] = useState("all");
   const [level, setLevel] = useState("all");
 
   const countries = useMemo(
-    () => [...new Set(STAT_REFEREES.map((r) => r.country))].sort(),
-    []
+    () => [...new Set(source.map((r) => r.country))].sort(),
+    [source]
   );
 
   const referees = useMemo(
     () =>
-      STAT_REFEREES.filter((r) => {
+      source.filter((r) => {
         if (country !== "all" && r.country !== country) return false;
         if (level !== "all" && r.level !== level) return false;
         return true;
       }),
-    [country, level]
+    [source, country, level]
   );
 
   const totalTests = useMemo(

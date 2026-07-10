@@ -4,6 +4,8 @@
  * Figures are taken from the UEFA concept deck (slides 49-62).
  */
 
+import { codeForCountry } from "@/lib/countries";
+
 export type StatCategory = {
   name: string;
   slug: string;
@@ -103,6 +105,11 @@ export type StatReferee = {
   id: string;
   name: string;
   country: string;
+  /**
+   * ISO alpha-2 country code standing in for the referee's federation, so the
+   * mock demonstrates per-FA division until real stats are wired.
+   */
+  associationCountryCode: string | null;
   level: string;
   /** Average score per category slug (0-10 scale) */
   scores: Record<string, number>;
@@ -192,6 +199,7 @@ export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, lev
     id,
     name,
     country,
+    associationCountryCode: codeForCountry(country),
     level,
     scores,
     profile: {
@@ -211,6 +219,33 @@ export const REFEREE_LEVELS = ["Elite", "Category 1", "Category 2"];
 
 export function getRefereeById(id: string): StatReferee | undefined {
   return STAT_REFEREES.find((r) => r.id === id);
+}
+
+/**
+ * Federation-scoped referee list.
+ *  - Super admins see everyone (optionally narrowed to one FA's country code).
+ *  - FA admins see only referees in their own association's country.
+ *  - Referees see only themselves.
+ */
+export function getScopedReferees(opts: {
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+  associationCountryCode: string | null;
+  myRefereeId: string;
+  /** Super-admin-only filter: narrow to a single FA's country code. */
+  filterCountryCode?: string | null;
+}): StatReferee[] {
+  if (opts.isSuperAdmin) {
+    if (opts.filterCountryCode) {
+      return STAT_REFEREES.filter((r) => r.associationCountryCode === opts.filterCountryCode);
+    }
+    return STAT_REFEREES;
+  }
+  if (opts.isAdmin) {
+    if (!opts.associationCountryCode) return [];
+    return STAT_REFEREES.filter((r) => r.associationCountryCode === opts.associationCountryCode);
+  }
+  return STAT_REFEREES.filter((r) => r.id === opts.myRefereeId);
 }
 
 export function getTotalTournamentGames(referee: StatReferee): number {
@@ -299,8 +334,12 @@ export function getRefereeOverall(referee: StatReferee): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-export function getCategoryAverage(categorySlug: string): number {
-  const values = STAT_REFEREES.map((r) => r.scores[categorySlug] ?? 0);
+export function getCategoryAverage(
+  categorySlug: string,
+  referees: StatReferee[] = STAT_REFEREES
+): number {
+  if (referees.length === 0) return 0;
+  const values = referees.map((r) => r.scores[categorySlug] ?? 0);
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
@@ -322,8 +361,11 @@ export function getCategoryTrend(categorySlug: string): number[] {
 }
 
 /** Ranked referees for a category (highest average first). */
-export function getCategoryLeaderboard(categorySlug: string): StatReferee[] {
-  return [...STAT_REFEREES].sort(
+export function getCategoryLeaderboard(
+  categorySlug: string,
+  referees: StatReferee[] = STAT_REFEREES
+): StatReferee[] {
+  return [...referees].sort(
     (a, b) => (b.scores[categorySlug] ?? 0) - (a.scores[categorySlug] ?? 0)
   );
 }

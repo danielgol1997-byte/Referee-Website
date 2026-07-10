@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/embeddings";
 import { logSearchQuery } from "@/lib/ai/log-search-query";
 import { rerankSearchResults } from "@/lib/ai/rerank";
+import { contentWhere } from "@/lib/scope";
 
 // Common words that must never drive a text-contains match — matching "the"
 // or "on" would return essentially the whole library in arbitrary order.
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const associationId = session.user.associationId ?? null;
 
     const body = await request.json();
     const { query, tagFilters } = body;
@@ -96,6 +98,7 @@ export async function POST(request: Request) {
           tagSlugs: hardFilterSlugs,
           boostTagSlugs: boostSlugs,
           keywordBoostTerms: enhanced.keywords,
+          associationId,
         });
         // The hard filter requires a video to carry EVERY inferred tag. When
         // no video has that exact combination (e.g. "handball red card" where
@@ -107,6 +110,7 @@ export async function POST(request: Request) {
             tagSlugs: [],
             boostTagSlugs: boostSlugs,
             keywordBoostTerms: enhanced.keywords,
+            associationId,
           });
         }
         semanticSucceeded = true;
@@ -126,7 +130,8 @@ export async function POST(request: Request) {
         enhanced.keywords,
         enhanced.cleanedQuery,
         hardFilterSlugs,
-        50
+        50,
+        associationId
       );
       if (results && results.length > 0) {
         const vectorIds = new Set(results.map((r) => r.id));
@@ -143,7 +148,8 @@ export async function POST(request: Request) {
         enhanced.keywords,
         enhanced.cleanedQuery,
         hardFilterSlugs,
-        30
+        30,
+        associationId
       );
     }
 
@@ -278,9 +284,10 @@ async function keywordFallbackSearch(
   keywords: string[],
   cleanedQuery: string,
   tagSlugs: string[],
-  limit: number
+  limit: number,
+  associationId: string | null = null
 ) {
-  const andFilters: any[] = [];
+  const andFilters: any[] = [contentWhere(associationId)];
 
   // Tag filters are always hard constraints — each slug must be present.
   for (const slug of tagSlugs) {

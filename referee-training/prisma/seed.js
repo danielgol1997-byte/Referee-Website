@@ -4,8 +4,57 @@ const { hash } = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
+const DEFAULT_RANKS = ["Elite", "Category 1", "Category 2"];
+
+async function createFederationHierarchy() {
+  // International panels are ranks with no association (associationId = null).
+  const internationalPanels = ["UEFA", "FIFA"];
+  for (let i = 0; i < internationalPanels.length; i++) {
+    const name = internationalPanels[i];
+    const existing = await prisma.rank.findFirst({
+      where: { name, associationId: null },
+    });
+    if (!existing) {
+      await prisma.rank.create({ data: { name, order: i, associationId: null } });
+    }
+  }
+
+  // Example associations so the flow is testable end-to-end.
+  const associations = [
+    { name: "Israel FA", countryCode: "IL" },
+    { name: "Italian FA", countryCode: "IT" },
+  ];
+
+  const created = {};
+  for (const assoc of associations) {
+    const association = await prisma.association.upsert({
+      where: { name: assoc.name },
+      update: { countryCode: assoc.countryCode },
+      create: assoc,
+    });
+    created[assoc.name] = association;
+
+    for (let i = 0; i < DEFAULT_RANKS.length; i++) {
+      const rankName = DEFAULT_RANKS[i];
+      const existing = await prisma.rank.findFirst({
+        where: { name: rankName, associationId: association.id },
+      });
+      if (!existing) {
+        await prisma.rank.create({
+          data: { name: rankName, order: i, associationId: association.id },
+        });
+      }
+    }
+  }
+
+  return created;
+}
+
 async function createUsers() {
   const password = await hash("password123", 10);
+  const associations = await createFederationHierarchy();
+  const israel = associations["Israel FA"];
+
   await prisma.user.upsert({
     where: { email: "referee@example.com" },
     update: {},
@@ -14,9 +63,10 @@ async function createUsers() {
       name: "Referee User",
       password,
       role: Role.REFEREE,
-      country: "Denmark",
+      country: "Israel",
       authProvider: "credentials",
       profileComplete: true,
+      associationId: israel?.id,
     },
   });
 
@@ -25,12 +75,13 @@ async function createUsers() {
     update: {},
     create: {
       email: "admin@example.com",
-      name: "Analytics Admin",
+      name: "FA Admin",
       password,
       role: Role.ADMIN,
-      country: "Germany",
+      country: "Israel",
       authProvider: "credentials",
       profileComplete: true,
+      associationId: israel?.id,
     },
   });
 

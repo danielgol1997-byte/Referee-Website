@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.trim() ?? "";
     const status = searchParams.get("status");
+    const associationId = searchParams.get("associationId");
 
     const where: any = {};
 
@@ -38,6 +39,12 @@ export async function GET(request: Request) {
       where.isActive = false;
     }
 
+    if (associationId === "none") {
+      where.associationId = null;
+    } else if (associationId) {
+      where.associationId = associationId;
+    }
+
     const users = await prisma.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -54,6 +61,10 @@ export async function GET(request: Request) {
         isActive: true,
         createdAt: true,
         lastLoginAt: true,
+        associationId: true,
+        association: { select: { id: true, name: true, countryCode: true } },
+        rank: { select: { id: true, name: true } },
+        internationalRank: { select: { id: true, name: true } },
       },
     });
 

@@ -20,7 +20,7 @@ const INITIAL_VIDEO_FILTERS: AdminVideoFilters = {
   customTagFilters: {},
 };
 
-export function VideoLibraryContent() {
+export function VideoLibraryContent({ canManageTaxonomy = true }: { canManageTaxonomy?: boolean } = {}) {
   const { data: session } = useSession();
   const isDev = (session?.user as any)?.role === "DEVELOPER";
   const searchParams = useSearchParams();
@@ -368,19 +368,21 @@ export function VideoLibraryContent() {
         >
           {editingVideo ? 'Edit Video' : 'Upload Video'}
         </button>
-        <button
-          onClick={() => {
-            setActiveSubTab('tags');
-            setEditingVideo(null);
-          }}
-          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
-            activeSubTab === 'tags'
-              ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
-              : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
-          }`}
-        >
-          Tags ({tags.length})
-        </button>
+        {canManageTaxonomy && (
+          <button
+            onClick={() => {
+              setActiveSubTab('tags');
+              setEditingVideo(null);
+            }}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all ${
+              activeSubTab === 'tags'
+                ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-dark-900'
+                : 'text-text-secondary hover:text-text-primary hover:bg-dark-700'
+            }`}
+          >
+            Tags ({tags.length})
+          </button>
+        )}
         {isDev && (
           <button
             onClick={() => {
@@ -401,9 +403,11 @@ export function VideoLibraryContent() {
       {/* Content */}
       {activeSubTab === 'videos' && (
         <>
-          <BulkAnalyzePanel
-            onProgress={() => fetchVideos(pagination.page, filters, { background: true })}
-          />
+          {canManageTaxonomy && (
+            <BulkAnalyzePanel
+              onProgress={() => fetchVideos(pagination.page, filters, { background: true })}
+            />
+          )}
           {isInitialLoadingVideos ? (
             <div className="min-h-[60vh] flex items-center justify-center">
               <div className="flex flex-col items-center gap-4 text-text-secondary">
@@ -445,7 +449,7 @@ export function VideoLibraryContent() {
         />
       )}
 
-      {activeSubTab === 'tags' && (
+      {activeSubTab === 'tags' && canManageTaxonomy && (
         <>
           {isLoadingTags ? (
             <div className="min-h-[60vh] flex items-center justify-center">

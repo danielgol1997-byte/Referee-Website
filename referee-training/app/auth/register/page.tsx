@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -12,8 +13,6 @@ export default function RegisterPage() {
     name: "",
     email: "",
     password: "",
-    country: "",
-    level: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +37,18 @@ export default function RegisterPage() {
         setLoading(false);
         return;
       }
-      router.push("/auth/login");
+      // Auto sign-in, then send them to complete onboarding.
+      const result = await signIn("credentials", {
+        email: form.email,
+        password: form.password,
+        redirect: false,
+      });
+      if (result?.error) {
+        router.push("/auth/login");
+        return;
+      }
+      router.replace("/onboarding");
+      router.refresh();
     } catch {
       setError("Unexpected error. Please try again.");
     } finally {
@@ -143,6 +153,7 @@ export default function RegisterPage() {
               </label>
               <Input
                 name="name"
+                required
                 value={form.name}
                 onChange={handleChange}
                 placeholder="Alex Referee"
@@ -179,32 +190,6 @@ export default function RegisterPage() {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary">
-                  Country
-                </label>
-                <Input
-                  name="country"
-                  value={form.country}
-                  onChange={handleChange}
-                  placeholder="Denmark"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary">
-                  Level <span className="text-text-muted">(optional)</span>
-                </label>
-                <Input
-                  name="level"
-                  value={form.level}
-                  onChange={handleChange}
-                  placeholder="National, FIFA..."
-                />
-              </div>
-            </div>
-
             {error && (
               <div className="p-3 rounded-lg bg-status-danger/10 border border-status-danger/20">
                 <p className="text-sm text-status-danger">{error}</p>

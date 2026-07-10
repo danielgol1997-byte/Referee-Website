@@ -10,7 +10,11 @@ export async function GET() {
   }
 
   try {
-    const tests = await getMandatoryTestsForUser(session.user.id, "laws-of-the-game");
+    const tests = await getMandatoryTestsForUser(
+      session.user.id,
+      "laws-of-the-game",
+      session.user.associationId ?? null
+    );
     return NextResponse.json({ tests });
   } catch (error) {
     console.error("[MANDATORY_TESTS][GET]", error);

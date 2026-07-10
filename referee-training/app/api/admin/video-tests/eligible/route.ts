@@ -1,31 +1,27 @@
-import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildVideoClipWhereForAdmin } from "@/lib/video-test-filters";
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return { ok: false as const };
-  }
-  return { ok: true as const };
-}
+import { requireAdmin } from "@/lib/api-auth";
+import { isSuperAdmin } from "@/lib/roles";
+import { contentWhere } from "@/lib/scope";
 
 export async function POST(req: Request) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
     const body = await req.json().catch(() => ({}));
     const filters = body?.filters ?? {};
     const limit = typeof body?.limit === "number" ? body.limit : 500;
 
+    // Super admins draw from all clips; FA admins from global + their own FA.
+    const clipScope = isSuperAdmin(auth.user.role) ? {} : contentWhere(auth.user.associationId);
+
     const where = {
       AND: [
         buildVideoClipWhereForAdmin(filters),
         { isEducational: false },
+        clipScope,
       ],
     };
 

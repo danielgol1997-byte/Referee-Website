@@ -1,27 +1,33 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuestionType } from "@prisma/client";
+import { requireAdmin } from "@/lib/api-auth";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!isSuperAdmin(session?.user?.role)) {
-    return { ok: false as const, session };
+/**
+ * FA admins may only touch questions inside their own association.
+ * Returns an error response if not allowed, otherwise null.
+ */
+async function guardQuestionAccess(id: string, role: string, associationId: string | null) {
+  if (isSuperAdmin(role)) return null;
+  const question = await prisma.question.findUnique({
+    where: { id },
+    select: { associationId: true },
+  });
+  if (!question) return NextResponse.json({ error: "Question not found." }, { status: 404 });
+  if (!associationId || question.associationId !== associationId) {
+    return NextResponse.json({ error: "This question is not in your association." }, { status: 403 });
   }
-  return { ok: true as const, session };
+  return null;
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return unauthorized();
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const resolvedParams = await params;
+  const denied = await guardQuestionAccess(resolvedParams.id, auth.user.role, auth.user.associationId);
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -65,7 +71,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (difficulty !== undefined) data.difficulty = difficulty;
     if (isActive !== undefined) data.isActive = isActive;
     if (isUpToDate !== undefined) data.isUpToDate = isUpToDate;
-    if (isIfab !== undefined) data.isIfab = isIfab;
+    // Only super admins can flip the global (IFAB) flag.
+    if (isIfab !== undefined && isSuperAdmin(auth.user.role)) data.isIfab = isIfab;
 
     let question;
     if (answerOptions) {
@@ -102,10 +109,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return unauthorized();
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const resolvedParams = await params;
+  const denied = await guardQuestionAccess(resolvedParams.id, auth.user.role, auth.user.associationId);
+  if (denied) return denied;
 
   try {
     await prisma.question.delete({ where: { id: resolvedParams.id } });

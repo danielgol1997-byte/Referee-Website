@@ -1,10 +1,10 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { VideoTestType } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildVideoClipWhereForAdmin } from "@/lib/video-test-filters";
+import { requireAdmin } from "@/lib/api-auth";
+import { contentWhere } from "@/lib/scope";
 
 function shuffleArray<T>(array: T[]) {
   const shuffled = [...array];
@@ -15,17 +15,15 @@ function shuffleArray<T>(array: T[]) {
   return shuffled;
 }
 
-async function requireSuperAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return { ok: false as const };
-  }
-  return { ok: true as const };
+/** FA admins may only manage video tests in their own association. */
+function faForbidden(role: string, associationId: string | null, testAssociationId: string | null) {
+  if (isSuperAdmin(role)) return false;
+  return !testAssociationId || testAssociationId !== associationId;
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const resolvedParams = await params;
 
@@ -37,6 +35,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!existing || (existing.type !== VideoTestType.MANDATORY && existing.type !== VideoTestType.PUBLIC)) {
       return NextResponse.json({ error: "Video test not found" }, { status: 404 });
     }
+    if (faForbidden(auth.user.role, auth.user.associationId, existing.associationId)) {
+      return NextResponse.json({ error: "This test is not in your association." }, { status: 403 });
+    }
+    // Super admins draw from all clips; FA admins from global + their own FA.
+    const scopeClause = isSuperAdmin(auth.user.role) ? {} : contentWhere(auth.user.associationId);
 
     const body = await req.json().catch(() => ({}));
     const {
@@ -114,6 +117,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         AND: [
           buildVideoClipWhereForAdmin(filters),
           { isEducational: false },
+          scopeClause,
         ],
       };
       const eligible = await prisma.videoClip.findMany({
@@ -151,7 +155,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json({ error: "Selected clips must be at least total clips count" }, { status: 400 });
       }
       const count = await prisma.videoClip.count({
-        where: { id: { in: uniqueChosen }, isActive: true, isEducational: false },
+        where: { id: { in: uniqueChosen }, isActive: true, isEducational: false, ...scopeClause },
       });
       if (count !== uniqueChosen.length) {
         return NextResponse.json({ error: "Some selected clips are invalid or inactive" }, { status: 400 });
@@ -163,7 +167,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
 
       const count = await prisma.videoClip.count({
-        where: { id: { in: clipIds }, isActive: true, isEducational: false },
+        where: { id: { in: clipIds }, isActive: true, isEducational: false, ...scopeClause },
       });
       if (count !== clipIds.length) {
         return NextResponse.json({ error: "Some clip IDs are invalid or inactive" }, { status: 400 });
@@ -220,18 +224,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireSuperAdmin();
-  if (!auth.ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAdmin();
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const resolvedParams = await params;
 
   try {
     const existing = await prisma.videoTest.findUnique({
       where: { id: resolvedParams.id },
-      select: { id: true, type: true },
+      select: { id: true, type: true, associationId: true },
     });
     if (!existing || (existing.type !== VideoTestType.MANDATORY && existing.type !== VideoTestType.PUBLIC)) {
       return NextResponse.json({ error: "Video test not found" }, { status: 404 });
+    }
+    if (faForbidden(auth.user.role, auth.user.associationId, existing.associationId)) {
+      return NextResponse.json({ error: "This test is not in your association." }, { status: 403 });
     }
 
     await prisma.videoTest.delete({

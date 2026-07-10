@@ -1,10 +1,10 @@
 import { isSuperAdmin } from "@/lib/roles";
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/lib/auth';
 import { runVideoAnalysisPipeline } from '@/lib/ai/analyze-pipeline';
+import { requireAdmin } from '@/lib/api-auth';
+import { contentWhere } from '@/lib/scope';
 
 // Video creation itself is fast, but the background AI analysis kicked off
 // via after() needs the function to stay alive for a few minutes.
@@ -17,11 +17,8 @@ export const maxDuration = 300;
  */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -39,6 +36,11 @@ export async function GET(request: Request) {
 
     const where: any = {};
     const andFilters: any[] = [];
+
+    // FA admins only ever see global + their own association's videos.
+    if (!isSuperAdmin(guard.user.role)) {
+      andFilters.push(contentWhere(guard.user.associationId));
+    }
 
     if (search) {
       where.OR = [
@@ -201,15 +203,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     console.log('📹 Video creation request received');
-    
-    const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
+    const guard = await requireAdmin();
+    if (!guard.ok) {
       console.error('❌ Unauthorized video creation attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: guard.error }, { status: guard.status });
     }
-
-    console.log('✅ User authorized:', session.user.email, 'ID:', session.user.id);
+    const superAdmin = isSuperAdmin(guard.user.role);
 
     const body = await request.json();
     const {
@@ -245,6 +245,15 @@ export async function POST(request: Request) {
       loopZoneStart,
       loopZoneEnd,
     } = body;
+
+    // FA admins' uploads are auto-stamped with their association; super admins
+    // may target a specific FA or leave it global (null).
+    const associationId = superAdmin
+      ? (typeof body?.associationId === 'string' && body.associationId ? body.associationId : null)
+      : guard.user.associationId;
+    if (!superAdmin && !associationId) {
+      return NextResponse.json({ error: 'Your account is not linked to an association.' }, { status: 400 });
+    }
 
     const normalizedDuration = Number.isFinite(duration)
       ? Math.round(duration as number)
@@ -332,16 +341,16 @@ export async function POST(request: Request) {
       videoCategoryId,
       tagDataCount: tagData?.length || tagIds?.length || 0,
       lawNumbers,
-      uploadedById: session.user.id,
+      uploadedById: guard.user.id,
     });
 
     // Verify user exists before creating video
     const userExists = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: guard.user.id },
     });
 
     if (!userExists) {
-      console.warn('⚠️ User not found in database, creating video without uploadedById:', session.user.id);
+      console.warn('⚠️ User not found in database, creating video without uploadedById:', guard.user.id);
     }
 
     // Create video
@@ -368,7 +377,8 @@ export async function POST(request: Request) {
         offsideReason,
         varRelevant: varRelevant || false,
         varNotes,
-        uploadedById: userExists ? session.user.id : null, // Only set if user exists
+        associationId,
+        uploadedById: userExists ? guard.user.id : null, // Only set if user exists
         isFeatured: isFeatured || false,
         isActive: isActive !== undefined ? isActive : true,
         // Video editing metadata
@@ -410,7 +420,7 @@ export async function POST(request: Request) {
     // Kick off the AI analysis pipeline in the background (after the response
     // is sent). Marks the video as "analyzing" immediately so the admin UI can
     // show live status; the pipeline sets the final status when done.
-    const userId = userExists ? session.user.id : null;
+    const userId = userExists ? guard.user.id : null;
     await prisma.videoClip.update({
       where: { id: video.id },
       data: { searchDescriptionStatus: 'analyzing' },

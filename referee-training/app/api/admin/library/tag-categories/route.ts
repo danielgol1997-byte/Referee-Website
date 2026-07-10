@@ -3,19 +3,17 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/api-auth';
 
 /**
  * GET /api/admin/library/tag-categories
  * List all tag categories
- * Requires SUPER_ADMIN role
+ * Readable by any admin (taxonomy is global; writes stay super-admin).
  */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
     const tagCategories = await prisma.tagCategory.findMany({
       include: {

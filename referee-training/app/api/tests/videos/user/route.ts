@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VideoTestType } from "@prisma/client";
 import { buildVideoClipWhereForUser } from "@/lib/video-test-filters";
+import { contentWhere } from "@/lib/scope";
 
 function shuffleArray<T>(array: T[]) {
   const shuffled = [...array];
@@ -51,6 +52,8 @@ export async function POST(req: Request) {
           categoryTags,
         }),
         { isEducational: false },
+        // Federation scope: global + the user's own association.
+        contentWhere(session.user.associationId ?? null),
       ],
     };
 

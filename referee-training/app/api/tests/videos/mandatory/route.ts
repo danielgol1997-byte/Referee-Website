@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    const tests = await getMandatoryVideoTests(session.user.id);
+    const tests = await getMandatoryVideoTests(session.user.id, session.user.associationId ?? null);
     return NextResponse.json({ tests });
   } catch (error) {
     console.error("[VIDEO_TESTS_MANDATORY][GET]", error);

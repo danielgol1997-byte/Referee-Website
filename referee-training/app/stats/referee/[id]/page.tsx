@@ -21,5 +21,14 @@ export default async function RefereeStatsPage({
   const referee = STAT_REFEREES.find((r) => r.id === id);
   if (!referee) notFound();
 
+  // FA admins may only view referees inside their own federation.
+  if (
+    access.isAdminView &&
+    !access.isSuperAdminView &&
+    referee.associationCountryCode !== access.associationCountryCode
+  ) {
+    redirect("/stats");
+  }
+
   return <RefereeStatsView refereeId={id} isOwnView={!access.isAdminView} />;
 }

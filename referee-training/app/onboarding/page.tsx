@@ -15,8 +15,12 @@ export default async function OnboardingPage() {
     select: {
       name: true,
       country: true,
-      level: true,
+      image: true,
+      dateOfBirth: true,
+      heightCm: true,
+      weightKg: true,
       profileComplete: true,
+      association: { select: { id: true, name: true, countryCode: true } },
     },
   });
 
@@ -28,13 +32,19 @@ export default async function OnboardingPage() {
     <div className="min-h-screen bg-dark-900 text-white flex items-center justify-center px-6 py-12">
       <ProfileForm
         title="Complete your profile"
-        description="We only need a few details to set up your training profile."
+        description="Tell us where you officiate. Your association's admin sets your rank."
         submitLabel="Finish setup"
         redirectTo="/"
         initialValues={{
           name: user?.name ?? "",
           country: user?.country ?? "",
-          level: user?.level ?? "",
+          associationId: user?.association?.id ?? null,
+          associationName: user?.association?.name ?? null,
+          associationCountryCode: user?.association?.countryCode ?? null,
+          dateOfBirth: user?.dateOfBirth ? user.dateOfBirth.toISOString() : null,
+          heightCm: user?.heightCm ?? null,
+          weightKg: user?.weightKg ?? null,
+          image: user?.image ?? null,
         }}
       />
     </div>

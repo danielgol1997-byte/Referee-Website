@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { STAT_CATEGORIES } from "@/lib/stats-mock";
+import { STAT_CATEGORIES, getScopedReferees } from "@/lib/stats-mock";
 import { getStatsAccess } from "@/lib/stats-access";
 import { CategoryStatsView } from "@/components/stats/CategoryStatsView";
 
@@ -21,5 +21,13 @@ export default async function CategoryStatsPage({
   const category = STAT_CATEGORIES.find((c) => c.slug === slug);
   if (!category) notFound();
 
-  return <CategoryStatsView slug={slug} />;
+  // FA admins only rank referees inside their own federation.
+  const referees = getScopedReferees({
+    isSuperAdmin: access.isSuperAdminView,
+    isAdmin: access.isAdminView,
+    associationCountryCode: access.associationCountryCode,
+    myRefereeId: access.myRefereeId,
+  });
+
+  return <CategoryStatsView slug={slug} referees={referees} />;
 }

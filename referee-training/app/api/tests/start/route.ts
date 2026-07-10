@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       categorySlug,
       categoryType: categoryType as CategoryType | undefined,
       totalQuestions: totalQuestions ?? 10,
+      associationId: session.user.associationId ?? null,
     });
     return NextResponse.json({ session: testSession });
   } catch (error) {

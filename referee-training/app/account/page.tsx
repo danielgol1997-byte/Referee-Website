@@ -15,7 +15,11 @@ export default async function AccountPage() {
     select: {
       name: true,
       country: true,
-      level: true,
+      image: true,
+      dateOfBirth: true,
+      heightCm: true,
+      weightKg: true,
+      association: { select: { id: true, name: true, countryCode: true } },
     },
   });
 
@@ -27,12 +31,18 @@ export default async function AccountPage() {
     <div className="min-h-screen bg-dark-900 text-white px-6 py-12">
       <ProfileForm
         title="Your profile"
-        description="Update your basic account information."
+        description="Update your account information."
         submitLabel="Save changes"
         initialValues={{
           name: user.name ?? "",
           country: user.country ?? "",
-          level: user.level ?? "",
+          associationId: user.association?.id ?? null,
+          associationName: user.association?.name ?? null,
+          associationCountryCode: user.association?.countryCode ?? null,
+          dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString() : null,
+          heightCm: user.heightCm ?? null,
+          weightKg: user.weightKg ?? null,
+          image: user.image ?? null,
         }}
       />
     </div>

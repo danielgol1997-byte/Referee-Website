@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { CategoryType, Prisma, QuestionType } from "@prisma/client";
+import { contentWhere } from "./scope";
 
 type CreateSessionParams = {
   userId: string;
@@ -12,6 +13,8 @@ type CreateSessionParams = {
   includeVar?: boolean;
   includeIfab?: boolean;
   includeCustom?: boolean;
+  /** Federation of the user; scopes the question pool. */
+  associationId?: string | null;
 };
 
 /**
@@ -38,6 +41,7 @@ export async function createTestSession({
   includeVar = false,
   includeIfab = true,
   includeCustom = false,
+  associationId = null,
 }: CreateSessionParams) {
   const where: Prisma.CategoryWhereInput = {};
   if (categorySlug) where.slug = categorySlug;
@@ -102,7 +106,9 @@ export async function createTestSession({
       type, 
       categoryId: category.id,
       isActive: true,
-      isUpToDate: true  // Only show up-to-date questions to users
+      isUpToDate: true,  // Only show up-to-date questions to users
+      // Federation scope: global questions + the user's own association.
+      ...contentWhere(associationId),
     };
     
     // Filter by IFAB status based on include flags
@@ -205,7 +211,11 @@ export async function createMandatoryTest({
   });
 }
 
-export async function getMandatoryTestsForUser(userId: string, categorySlug?: string) {
+export async function getMandatoryTestsForUser(
+  userId: string,
+  categorySlug?: string,
+  associationId: string | null = null
+) {
   const category = categorySlug
     ? await prisma.category.findUnique({ where: { slug: categorySlug } })
     : null;
@@ -215,6 +225,8 @@ export async function getMandatoryTestsForUser(userId: string, categorySlug?: st
       isActive: true, // Must be visible
       isMandatory: true, // Only mandatory tests
       categoryId: category?.id,
+      // Federation scope: global tests + the user's own association.
+      ...contentWhere(associationId),
     },
     include: {
       completions: {
