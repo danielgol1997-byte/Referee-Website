@@ -58,12 +58,12 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
           "transition-all duration-200"
         )}
       >
-        <span className={cn(!selectedOption && "text-text-muted")}>
+        <span className={cn("truncate", !selectedOption && "text-text-muted")}>
           {selectedOption?.label || placeholder || "Select..."}
         </span>
         <svg 
           className={cn(
-            "w-4 h-4 text-text-secondary transition-transform duration-200",
+            "w-4 h-4 shrink-0 text-text-secondary transition-transform duration-200",
             isOpen && "rotate-180"
           )} 
           fill="none" 

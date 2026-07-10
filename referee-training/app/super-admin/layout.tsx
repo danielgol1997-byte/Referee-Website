@@ -34,11 +34,11 @@ export default async function SuperAdminLayout({ children }: { children: ReactNo
       {/* Content with glass effect */}
       <div className="relative z-10">
         <header className="relative border-b border-accent/20 backdrop-blur-sm bg-dark-900/50 overflow-hidden">
-          <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-2">
+          <div className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-2">
             <h1 className="text-xl font-semibold text-white drop-shadow-lg">Control Panel</h1>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+        <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
       </div>
     </div>
   );

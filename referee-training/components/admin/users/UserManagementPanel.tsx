@@ -258,32 +258,40 @@ export function UserManagementPanel() {
           {loading ? "Loading users..." : `${users.length} user${users.length === 1 ? "" : "s"} found`}
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-text-secondary">
+          <table className="w-full text-sm text-text-secondary">
             <thead className="bg-dark-800/80 text-xs uppercase text-text-muted">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold">Name</th>
-                <th className="px-4 py-3 text-left font-semibold">Email</th>
-                <th className="px-4 py-3 text-left font-semibold">Provider</th>
-                <th className="px-4 py-3 text-left font-semibold">Federation</th>
-                <th className="px-4 py-3 text-left font-semibold">Rank</th>
-                <th className="px-4 py-3 text-left font-semibold">Role</th>
-                <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Profile</th>
-                <th className="px-4 py-3 text-left font-semibold">Last login</th>
-                <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                <th className="px-3 py-3 text-left font-semibold">User</th>
+                <th className="px-3 py-3 text-left font-semibold">Federation</th>
+                <th className="px-3 py-3 text-left font-semibold">Rank</th>
+                <th className="px-3 py-3 text-left font-semibold">Role</th>
+                <th className="px-3 py-3 text-left font-semibold">Status</th>
+                <th className="px-3 py-3 text-left font-semibold">Profile</th>
+                <th className="px-3 py-3 text-left font-semibold">Last login</th>
+                <th className="px-3 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-t border-dark-700/70">
-                  <td className="px-4 py-3 font-medium text-text-primary">
-                    <Link className="text-accent hover:text-accent/80" href={`/super-admin/users/${user.id}`}>
+                  <td className="max-w-[240px] px-3 py-3">
+                    <Link
+                      className="block truncate font-medium text-accent hover:text-accent/80"
+                      href={`/super-admin/users/${user.id}`}
+                      title={user.name ?? undefined}
+                    >
                       {user.name || "View user"}
                     </Link>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-xs text-text-muted" title={user.email}>
+                        {user.email}
+                      </span>
+                      <span className="shrink-0 rounded bg-dark-700/80 px-1 py-px text-[10px] uppercase text-text-muted">
+                        {user.authProvider}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{user.email}</td>
-                  <td className="px-4 py-3 capitalize">{user.authProvider}</td>
-                  <td className="px-4 py-3 min-w-[180px]">
+                  <td className="w-[170px] px-3 py-3">
                     <Select
                       value={user.associationId ?? UNASSIGNED}
                       onChange={(value) =>
@@ -292,7 +300,7 @@ export function UserManagementPanel() {
                       options={faColumnOptions}
                     />
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     {user.rank?.name ?? <span className="text-text-muted">Unranked</span>}
                     {user.internationalRank && (
                       <span className="ml-1 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-accent">
@@ -300,14 +308,14 @@ export function UserManagementPanel() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 min-w-[150px]">
+                  <td className="w-[150px] px-3 py-3">
                     <Select
                       value={user.role}
                       onChange={(value) => updateRole(user.id, String(value))}
                       options={ROLE_OPTIONS}
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
                         user.isActive ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"
@@ -316,7 +324,7 @@ export function UserManagementPanel() {
                       {user.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <Button
                       variant="ghost"
                       size="xs"
@@ -326,8 +334,8 @@ export function UserManagementPanel() {
                       {user.profileComplete ? "Complete" : "Needs info"}
                     </Button>
                   </td>
-                  <td className="px-4 py-3">{formatDate(user.lastLoginAt)}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-3 whitespace-nowrap">{formatDate(user.lastLoginAt)}</td>
+                  <td className="px-3 py-3 text-right">
                     {user.isActive ? (
                       <Button
                         variant="danger"
@@ -352,7 +360,7 @@ export function UserManagementPanel() {
               ))}
               {!loading && users.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={8} className="px-3 py-8 text-center text-text-muted">
                     No users match your filters.
                   </td>
                 </tr>
