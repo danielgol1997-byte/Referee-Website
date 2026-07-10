@@ -43,6 +43,7 @@ export function loadEnv() {
 export const PW = {
   password: "PwfaTest123!",
   users: {
+    dev: "pwfa-dev@test.local",
     super: "pwfa-super@test.local",
     adminAlpha: "pwfa-admin-alpha@test.local",
     adminBeta: "pwfa-admin-beta@test.local",

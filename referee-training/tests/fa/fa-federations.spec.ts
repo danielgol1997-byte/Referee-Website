@@ -1,37 +1,39 @@
 /**
- * Super-admin hierarchy builder (/super-admin?tab=federations).
+ * Developer-only hierarchy builder (/super-admin?tab=federations).
  *
  * Full lifecycle through the real UI: create an association, add / rename /
- * reorder / delete ranks, manage international panels, delete the association.
+ * reorder / delete ranks, manage international categories, delete the
+ * association. Runs as the DEVELOPER fixture user — hierarchy mutations are
+ * closed to every other role.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { apiAs, statePath, PW } from "./helpers";
 
-test.use({ storageState: statePath("super") });
+test.use({ storageState: statePath("dev") });
 
 const TEMP_FA = "PWFA UI Temp FA";
 const TEMP_INTL = "PWFA UI Temp Intl";
 
-let superApi: APIRequestContext;
+let devApi: APIRequestContext;
 
 async function removeTempFa() {
-  const res = await superApi.get("/api/admin/associations");
+  const res = await devApi.get("/api/admin/associations");
   const { associations } = await res.json();
   for (const a of associations as Array<{ id: string; name: string }>) {
     if (a.name.startsWith(TEMP_FA) || a.name.startsWith(TEMP_INTL)) {
-      await superApi.delete(`/api/admin/associations/${a.id}`);
+      await devApi.delete(`/api/admin/associations/${a.id}`);
     }
   }
 }
 
 test.beforeAll(async ({ playwright }) => {
-  superApi = await apiAs(playwright, "super");
+  devApi = await apiAs(playwright, "dev");
   await removeTempFa();
 });
 
 test.afterAll(async () => {
   await removeTempFa();
-  await superApi.dispose();
+  await devApi.dispose();
 });
 
 test.describe.serial("federations hierarchy builder", () => {
@@ -74,12 +76,12 @@ test.describe.serial("federations hierarchy builder", () => {
     await expect(page.getByText("PWFA UI Temp Elite")).toBeVisible();
 
     // Verify server-side flag, then clean up.
-    const { associations } = await (await superApi.get("/api/admin/associations")).json();
+    const { associations } = await (await devApi.get("/api/admin/associations")).json();
     const fed = (associations as Array<{ id: string; name: string; isInternational: boolean }>).find(
       (a) => a.name === TEMP_INTL
     );
     expect(fed?.isInternational).toBe(true);
-    await superApi.delete(`/api/admin/associations/${fed!.id}`);
+    await devApi.delete(`/api/admin/associations/${fed!.id}`);
   });
 
   test("full association + rank lifecycle through the UI", async ({ page }) => {
@@ -114,14 +116,14 @@ test.describe.serial("federations hierarchy builder", () => {
     await rankTwoRow.getByRole("button", { name: "Move up" }).click();
     await expect
       .poll(async () => {
-        const res = await superApi.get("/api/admin/associations");
+        const res = await devApi.get("/api/admin/associations");
         const { associations } = await res.json();
         const fa = (associations as Array<{ id: string; name: string }>).find(
           (a) => a.name === TEMP_FA
         );
         if (!fa) return [];
         const ranks = await (
-          await superApi.get(`/api/admin/ranks?associationId=${fa.id}`)
+          await devApi.get(`/api/admin/ranks?associationId=${fa.id}`)
         ).json();
         return ranks.ranks.map((r: { name: string }) => r.name);
       })

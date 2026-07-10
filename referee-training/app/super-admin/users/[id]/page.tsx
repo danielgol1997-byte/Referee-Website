@@ -1,4 +1,4 @@
-import { isSuperAdmin } from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export default async function SuperAdminUserPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || !isSuperAdmin(session.user.role)) {
+  if (!session?.user || !isAdmin(session.user.role)) {
     redirect("/auth/login");
   }
 

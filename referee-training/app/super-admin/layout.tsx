@@ -2,13 +2,13 @@ import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { isSuperAdmin } from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 import Link from "next/link";
 
 export default async function SuperAdminLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
 
-  if (!isSuperAdmin(session?.user?.role)) {
+  if (!isAdmin(session?.user?.role)) {
     // Middleware should have already handled the redirect with callbackUrl
     // This is just a safety net - redirect to login (middleware will add callbackUrl)
     redirect("/auth/login");

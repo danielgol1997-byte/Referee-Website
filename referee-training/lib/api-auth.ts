@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
-import { isAdmin, isSuperAdmin } from "./roles";
+import { isAdmin, isDeveloper, isSuperAdmin } from "./roles";
 import { prisma } from "./prisma";
 
 export type AuthedUser = {
@@ -47,5 +47,13 @@ export async function requireAdmin(): Promise<Guard> {
   const user = await getAuthedUser();
   if (!user) return { ok: false, status: 401, error: "Unauthorized" };
   if (!isAdmin(user.role)) return { ok: false, status: 403, error: "Forbidden" };
+  return { ok: true, user };
+}
+
+/** Requires DEVELOPER only. */
+export async function requireDeveloper(): Promise<Guard> {
+  const user = await getAuthedUser();
+  if (!user) return { ok: false, status: 401, error: "Unauthorized" };
+  if (!isDeveloper(user.role)) return { ok: false, status: 403, error: "Forbidden" };
   return { ok: true, user };
 }

@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireSuperAdmin } from "@/lib/api-auth";
-import { isSuperAdmin } from "@/lib/roles";
+import { requireAdmin, requireDeveloper } from "@/lib/api-auth";
 
 /**
  * GET /api/admin/ranks?associationId=... | ?international=true
- * Lists ranks for an association, or every category belonging to an
- * international federation (?international=true).
- * FA admins may read their own association's ranks and international
- * categories; super admins may read any.
+ * Lists ranks for an association, every category belonging to an
+ * international federation (?international=true), or the full hierarchy.
+ * Readable by any admin: the Users tab needs every rank for its dropdowns.
  */
 export async function GET(request: Request) {
   const guard = await requireAdmin();
@@ -16,13 +14,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const international = searchParams.get("international") === "true";
-  let associationId = searchParams.get("associationId");
-
-  // FA admins can only read ranks for their own association.
-  if (!isSuperAdmin(guard.user.role) && !international) {
-    associationId = guard.user.associationId;
-    if (!associationId) return NextResponse.json({ ranks: [] });
-  }
+  const associationId = searchParams.get("associationId");
 
   const where = international
     ? { association: { isInternational: true } }
@@ -47,10 +39,10 @@ export async function GET(request: Request) {
 /**
  * POST /api/admin/ranks
  * Create a rank/category inside an association or international federation.
- * Super admin only.
+ * Developer only.
  */
 export async function POST(request: Request) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const body = await request.json().catch(() => null);

@@ -10,6 +10,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { apiAs, apiAnon, readFixtureIds, PW, type FixtureIds } from "./helpers";
 
 let ids: FixtureIds;
+let devApi: APIRequestContext;
 let superApi: APIRequestContext;
 let adminAlpha: APIRequestContext;
 let adminBeta: APIRequestContext;
@@ -21,8 +22,9 @@ let anon: APIRequestContext;
 
 test.beforeAll(async ({ playwright }) => {
   ids = readFixtureIds();
-  [superApi, adminAlpha, adminBeta, adminNoFa, refAlpha, refBeta, refNoFa, anon] =
+  [devApi, superApi, adminAlpha, adminBeta, adminNoFa, refAlpha, refBeta, refNoFa, anon] =
     await Promise.all([
+      apiAs(playwright, "dev"),
       apiAs(playwright, "super"),
       apiAs(playwright, "adminAlpha"),
       apiAs(playwright, "adminBeta"),
@@ -36,7 +38,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test.afterAll(async () => {
   await Promise.all(
-    [superApi, adminAlpha, adminBeta, adminNoFa, refAlpha, refBeta, refNoFa, anon]
+    [devApi, superApi, adminAlpha, adminBeta, adminNoFa, refAlpha, refBeta, refNoFa, anon]
       .filter(Boolean)
       .map((c) => c.dispose())
   );
@@ -131,18 +133,45 @@ test.describe("rank assignment permissions", () => {
     expect(res.status()).toBe(400);
   });
 
-  test("alpha admin cannot touch a referee from another FA", async () => {
+  test("alpha admin can rank a referee from another FA with that FA's rank", async () => {
     const res = await adminAlpha.patch(`/api/admin/users/${ids.refBetaId}`, {
       data: { rankId: ids.betaEliteRankId },
     });
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(200);
+    expect((await res.json()).user.rank?.name).toBe(PW.ranks.betaElite);
+
+    // Reset for the other specs.
+    const reset = await adminAlpha.patch(`/api/admin/users/${ids.refBetaId}`, {
+      data: { rankId: null },
+    });
+    expect(reset.status()).toBe(200);
   });
 
-  test("alpha admin cannot change role, status, or association", async () => {
+  test("alpha admin can move a referee between federations", async () => {
+    const res = await adminAlpha.patch(`/api/admin/users/${ids.refNoFaId}`, {
+      data: { associationId: ids.alphaFaId },
+    });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).user.association?.name).toBe(PW.fas.alpha);
+
+    // An international federation is rejected as a national FA.
+    const intl = await adminAlpha.patch(`/api/admin/users/${ids.refNoFaId}`, {
+      data: { associationId: ids.intlFedId },
+    });
+    expect(intl.status()).toBe(400);
+
+    // Reset for the other specs.
+    const reset = await adminAlpha.patch(`/api/admin/users/${ids.refNoFaId}`, {
+      data: { associationId: null },
+    });
+    expect(reset.status()).toBe(200);
+    expect((await reset.json()).user.association).toBeNull();
+  });
+
+  test("alpha admin cannot change role, status, or profile state", async () => {
     for (const data of [
       { role: "ADMIN" },
       { isActive: false },
-      { associationId: ids.betaFaId },
       { profileComplete: false },
     ]) {
       const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, { data });
@@ -230,53 +259,66 @@ test.describe("rank assignment permissions", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Hierarchy management guards (associations + ranks)                  */
+/* Hierarchy building guards (associations + ranks)                    */
 /* ------------------------------------------------------------------ */
-test.describe("hierarchy management is super-admin only", () => {
-  test("association CRUD is closed to FA admins and referees", async () => {
-    expect((await adminAlpha.get("/api/admin/associations")).status()).toBe(403);
+test.describe("hierarchy building is developer-only", () => {
+  test("hierarchy reads are open to admins, closed to referees", async () => {
+    expect((await adminAlpha.get("/api/admin/associations")).status()).toBe(200);
+    expect((await superApi.get("/api/admin/associations")).status()).toBe(200);
     expect((await refAlpha.get("/api/admin/associations")).status()).toBe(403);
     expect((await anon.get("/api/admin/associations")).status()).toBe(401);
-
-    expect(
-      (
-        await adminAlpha.post("/api/admin/associations", {
-          data: { name: "PWFA Sneaky FA" },
-        })
-      ).status()
-    ).toBe(403);
-    expect(
-      (
-        await adminAlpha.patch(`/api/admin/associations/${ids.alphaFaId}`, {
-          data: { name: "PWFA Hijacked" },
-        })
-      ).status()
-    ).toBe(403);
-    expect(
-      (await adminAlpha.delete(`/api/admin/associations/${ids.betaFaId}`)).status()
-    ).toBe(403);
   });
 
-  test("rank creation is closed to FA admins", async () => {
-    const res = await adminAlpha.post("/api/admin/ranks", {
-      data: { name: "PWFA Sneaky Rank", associationId: ids.alphaFaId },
-    });
-    expect(res.status()).toBe(403);
+  test("association mutations are closed to FA admins and super admins", async () => {
+    for (const [label, ctx] of [
+      ["FA admin", adminAlpha],
+      ["super admin", superApi],
+    ] as const) {
+      expect(
+        (
+          await ctx.post("/api/admin/associations", {
+            data: { name: "PWFA Sneaky FA" },
+          })
+        ).status(),
+        `${label} must not create associations`
+      ).toBe(403);
+      expect(
+        (
+          await ctx.patch(`/api/admin/associations/${ids.alphaFaId}`, {
+            data: { name: "PWFA Hijacked" },
+          })
+        ).status(),
+        `${label} must not rename associations`
+      ).toBe(403);
+      expect(
+        (await ctx.delete(`/api/admin/associations/${ids.betaFaId}`)).status(),
+        `${label} must not delete associations`
+      ).toBe(403);
+    }
   });
 
-  test("FA admin rank reads are locked to their own FA", async () => {
-    const own = await (await adminAlpha.get("/api/admin/ranks")).json();
-    expect(own.ranks.length).toBeGreaterThan(0);
-    for (const rank of own.ranks) expect(rank.associationId).toBe(ids.alphaFaId);
+  test("rank creation is closed to FA admins and super admins", async () => {
+    for (const ctx of [adminAlpha, superApi]) {
+      const res = await ctx.post("/api/admin/ranks", {
+        data: { name: "PWFA Sneaky Rank", associationId: ids.alphaFaId },
+      });
+      expect(res.status()).toBe(403);
+    }
+  });
 
-    // Requesting another FA's ranks must not leak them.
-    const cross = await (
+  test("admins can read the full rank hierarchy for assignment dropdowns", async () => {
+    const all = await (await adminAlpha.get("/api/admin/ranks")).json();
+    const allNames = all.ranks.map((r: { name: string }) => r.name);
+    expect(allNames).toContain(PW.ranks.alphaElite);
+    expect(allNames).toContain(PW.ranks.betaElite);
+
+    const beta = await (
       await adminAlpha.get(`/api/admin/ranks?associationId=${ids.betaFaId}`)
     ).json();
-    for (const rank of cross.ranks) expect(rank.associationId).toBe(ids.alphaFaId);
+    for (const rank of beta.ranks) expect(rank.associationId).toBe(ids.betaFaId);
 
-    // International categories are readable by FA admins (needed to assign
-    // referees), and every returned rank belongs to an international federation.
+    // International categories: every returned rank belongs to an
+    // international federation.
     const intl = await (await adminAlpha.get("/api/admin/ranks?international=true")).json();
     const names = intl.ranks.map((r: { name: string }) => r.name);
     expect(names).toContain(PW.ranks.intlElite);
@@ -300,8 +342,8 @@ test.describe("hierarchy management is super-admin only", () => {
     for (const a of associations) expect(a.isInternational).toBe(true);
   });
 
-  test("deleting an FA with members is blocked even for super admins", async () => {
-    const res = await superApi.delete(`/api/admin/associations/${ids.alphaFaId}`);
+  test("deleting an FA with members is blocked even for developers", async () => {
+    const res = await devApi.delete(`/api/admin/associations/${ids.alphaFaId}`);
     expect(res.status()).toBe(400);
     const { error } = await res.json();
     expect(error).toMatch(/referee/i);

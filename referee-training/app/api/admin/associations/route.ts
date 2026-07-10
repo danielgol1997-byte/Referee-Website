@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireSuperAdmin } from "@/lib/api-auth";
+import { requireAdmin, requireDeveloper } from "@/lib/api-auth";
 
 /**
  * GET /api/admin/associations
- *  - default: all associations with rank + member counts. Super admin only.
+ *  - default: all associations with rank + member counts. Any admin (the
+ *    Users tab needs the full list for its dropdowns).
  *  - ?international=true: international federations (FIFA, UEFA, ...) with
  *    their categories, readable by any admin (needed to assign referees).
  */
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ associations });
   }
 
-  const guard = await requireSuperAdmin();
+  const guard = await requireAdmin();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const associations = await prisma.association.findMany({
@@ -48,10 +49,11 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/admin/associations
- * Create a new association or international federation. Super admin only.
+ * Create a new association or international federation. Developer only:
+ * the hierarchy is built by developers, admins assign referees within it.
  */
 export async function POST(request: Request) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const body = await request.json().catch(() => null);

@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/api-auth";
+import { requireDeveloper } from "@/lib/api-auth";
 
 /**
  * PATCH /api/admin/ranks/[id]
  * Rename or reorder a rank. `direction` ("up"|"down") swaps order with the
- * neighbouring rank in the same group. Super admin only.
+ * neighbouring rank in the same group. Developer only.
  */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const { id } = await params;
@@ -53,13 +53,13 @@ export async function PATCH(
 /**
  * DELETE /api/admin/ranks/[id]
  * Delete a rank. Referees holding it have their rank cleared (set null).
- * Super admin only.
+ * Developer only.
  */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const { id } = await params;

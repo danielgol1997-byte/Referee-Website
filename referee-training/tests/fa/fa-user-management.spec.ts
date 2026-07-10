@@ -30,7 +30,7 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("super-admin user management", () => {
-  test("users API is super-admin only and returns federation info", async ({ playwright }) => {
+  test("users API is admin-gated and returns federation info", async ({ playwright }) => {
     const res = await superApi.get("/api/admin/users?search=pwfa-ref-alpha");
     expect(res.status()).toBe(200);
     const { users } = await res.json();
@@ -38,9 +38,15 @@ test.describe.serial("super-admin user management", () => {
     expect(ref).toBeTruthy();
     expect(ref.association?.name).toBe(PW.fas.alpha);
 
+    // FA admins manage hierarchy assignments from the same Users tab now.
     const adminCtx = await apiAs(playwright, "adminAlpha");
-    expect((await adminCtx.get("/api/admin/users")).status()).toBe(401);
+    expect((await adminCtx.get("/api/admin/users")).status()).toBe(200);
     await adminCtx.dispose();
+
+    // Referees stay locked out.
+    const refCtx = await apiAs(playwright, "refAlpha");
+    expect((await refCtx.get("/api/admin/users")).status()).toBe(401);
+    await refCtx.dispose();
   });
 
   test("users API filters by federation and unassigned", async () => {

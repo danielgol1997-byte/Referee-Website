@@ -2,7 +2,7 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 import { env } from "@/lib/env";
-import { isAdmin, isSuperAdmin } from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 
 export default withAuth(
   function middleware(req: NextRequestWithAuth) {
@@ -16,11 +16,12 @@ export default withAuth(
 
     // Role-gated areas: if you're authenticated but not allowed, don't bounce to login.
     // Redirect to home (or you can later replace with a dedicated /forbidden page).
-    if (pathname.startsWith("/admin") && !isAdmin(role as string)) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-
-    if (pathname.startsWith("/super-admin") && !isSuperAdmin(role as string)) {
+    // The Control Panel (/super-admin) serves every admin role; /admin only
+    // redirects there.
+    if (
+      (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) &&
+      !isAdmin(role as string)
+    ) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 

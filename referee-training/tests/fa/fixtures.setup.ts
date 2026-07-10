@@ -58,7 +58,7 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
   async function ensureUser(
     email: string,
     name: string,
-    role: "REFEREE" | "ADMIN" | "SUPER_ADMIN",
+    role: "REFEREE" | "ADMIN" | "SUPER_ADMIN" | "DEVELOPER",
     associationId: string | null
   ) {
     return prisma.user.upsert({
@@ -90,6 +90,7 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
     });
   }
 
+  await ensureUser(PW.users.dev, "PWFA Developer", "DEVELOPER", null);
   await ensureUser(PW.users.super, "PWFA Super Admin", "SUPER_ADMIN", null);
   const adminAlpha = await ensureUser(PW.users.adminAlpha, "PWFA Admin Alpha", "ADMIN", alphaFa.id);
   await ensureUser(PW.users.adminBeta, "PWFA Admin Beta", "ADMIN", betaFa.id);
@@ -233,6 +234,6 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
   }
 
   console.log(
-    "PWFA fixtures ready: 2 FAs + 1 intl fed, 7 users, 3 questions, 6 laws tests, 3 clips, 6 video tests"
+    "PWFA fixtures ready: 2 FAs + 1 intl fed, 8 users, 3 questions, 6 laws tests, 3 clips, 6 video tests"
   );
 });

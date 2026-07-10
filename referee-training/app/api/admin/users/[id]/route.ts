@@ -11,8 +11,8 @@ import { getAuthedUser } from "@/lib/api-auth";
  *
  * Super admins: status, role, profileComplete, association (move between FAs),
  * rank, international federation, and international category.
- * FA admins: rank, international federation, and international category for
- * referees in their own FA only.
+ * FA admins: association, rank, international federation, and international
+ * category (account fields — role, status, profile — stay super-admin only).
  */
 export async function PATCH(
   request: Request,
@@ -48,20 +48,13 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
-    // FA admins may only manage referees inside their own association, and only
-    // the rank / international-federation fields.
+    // Admins may manage the federation hierarchy fields (association, rank,
+    // international federation + category) for anyone. Account-level fields
+    // stay super-admin only.
     if (!superAdmin) {
-      if (!caller.associationId || target.associationId !== caller.associationId) {
-        return NextResponse.json({ error: "Referee is not in your association." }, { status: 403 });
-      }
-      if (
-        isActive !== undefined ||
-        role !== undefined ||
-        profileComplete !== undefined ||
-        associationId !== undefined
-      ) {
+      if (isActive !== undefined || role !== undefined || profileComplete !== undefined) {
         return NextResponse.json(
-          { error: "Only super admins can change status, role, or association." },
+          { error: "Only super admins can change status, role, or profile state." },
           { status: 403 }
         );
       }
@@ -93,14 +86,23 @@ export async function PATCH(
     // The association the referee will belong to after this update.
     let effectiveAssociationId = target.associationId;
 
-    // Moving a referee between FAs is super-admin only; it resets their rank
-    // because ranks belong to a specific association.
-    if (superAdmin && associationId !== undefined) {
+    // Moving a referee between FAs resets their rank because ranks belong to
+    // a specific association. The FA must be a national association.
+    if (associationId !== undefined) {
       const newAssoc = associationId
-        ? await prisma.association.findUnique({ where: { id: associationId }, select: { id: true } })
+        ? await prisma.association.findUnique({
+            where: { id: associationId },
+            select: { id: true, isInternational: true },
+          })
         : null;
       if (associationId && !newAssoc) {
         return NextResponse.json({ error: "Association not found." }, { status: 404 });
+      }
+      if (newAssoc?.isInternational) {
+        return NextResponse.json(
+          { error: "Use the international federation field for FIFA, UEFA, and other confederations." },
+          { status: 400 }
+        );
       }
       data.associationId = associationId || null;
       effectiveAssociationId = associationId || null;

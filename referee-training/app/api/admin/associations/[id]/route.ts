@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/api-auth";
+import { requireDeveloper } from "@/lib/api-auth";
 
 /**
  * PATCH /api/admin/associations/[id]
- * Rename, change country, or toggle active. Super admin only.
+ * Rename, change country, or toggle active/international. Developer only.
  */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const { id } = await params;
@@ -54,13 +54,13 @@ export async function PATCH(
 /**
  * DELETE /api/admin/associations/[id]
  * Delete an association. Blocked while referees are still assigned to it.
- * Super admin only.
+ * Developer only.
  */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireSuperAdmin();
+  const guard = await requireDeveloper();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const { id } = await params;

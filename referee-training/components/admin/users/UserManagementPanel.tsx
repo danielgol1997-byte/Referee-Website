@@ -81,7 +81,12 @@ function SkeletonRows({ rows = 6 }: { rows?: number }) {
   );
 }
 
-export function UserManagementPanel() {
+export function UserManagementPanel({
+  canManageAccounts = true,
+}: {
+  /** Super admins can change roles, status, and profile state; FA admins only manage the hierarchy fields. */
+  canManageAccounts?: boolean;
+} = {}) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [associations, setAssociations] = useState<Association[]>([]);
   const [ranks, setRanks] = useState<RankOption[]>([]);
@@ -311,8 +316,9 @@ export function UserManagementPanel() {
         <div>
           <h2 className="text-xl font-semibold text-text-primary">User Management</h2>
           <p className="text-sm text-text-secondary">
-            Assign federations, ranks, and roles. Make someone an FA Admin to let them manage
-            referees inside their federation.
+            {canManageAccounts
+              ? "Assign federations, ranks, international categories, and roles."
+              : "Assign federations, ranks, and international categories."}
           </p>
         </div>
       </div>
@@ -456,11 +462,17 @@ export function UserManagementPanel() {
                         </div>
                       </td>
                       <td className="w-[150px] px-3 py-3">
-                        <Select
-                          value={user.role}
-                          onChange={(value) => updateRole(user, String(value))}
-                          options={ROLE_OPTIONS}
-                        />
+                        {canManageAccounts ? (
+                          <Select
+                            value={user.role}
+                            onChange={(value) => updateRole(user, String(value))}
+                            options={ROLE_OPTIONS}
+                          />
+                        ) : (
+                          <span className="text-sm text-text-secondary">
+                            {ROLE_OPTIONS.find((r) => r.value === user.role)?.label ?? user.role}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <span
@@ -472,24 +484,34 @@ export function UserManagementPanel() {
                         </span>
                       </td>
                       <td className="px-3 py-3">
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => updateProfile(user, !user.profileComplete)}
-                        >
-                          {user.profileComplete ? "Complete" : "Needs info"}
-                        </Button>
+                        {canManageAccounts ? (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => updateProfile(user, !user.profileComplete)}
+                          >
+                            {user.profileComplete ? "Complete" : "Needs info"}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-text-muted">
+                            {user.profileComplete ? "Complete" : "Needs info"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">{formatDate(user.lastLoginAt)}</td>
                       <td className="px-3 py-3 text-right">
-                        {user.isActive ? (
-                          <Button variant="danger" size="xs" onClick={() => updateStatus(user, false)}>
-                            Deactivate
-                          </Button>
+                        {canManageAccounts ? (
+                          user.isActive ? (
+                            <Button variant="danger" size="xs" onClick={() => updateStatus(user, false)}>
+                              Deactivate
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" size="xs" onClick={() => updateStatus(user, true)}>
+                              Activate
+                            </Button>
+                          )
                         ) : (
-                          <Button variant="secondary" size="xs" onClick={() => updateStatus(user, true)}>
-                            Activate
-                          </Button>
+                          <span className="text-xs text-text-muted">—</span>
                         )}
                       </td>
                     </tr>

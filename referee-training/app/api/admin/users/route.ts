@@ -1,4 +1,4 @@
-import { isSuperAdmin } from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -6,14 +6,14 @@ import { authOptions } from "@/lib/auth";
 
 /**
  * GET /api/admin/users
- * List users (searchable)
- * Requires SUPER_ADMIN role
+ * List users (searchable). Any admin role: the Control Panel Users tab is
+ * where admins assign federations, ranks, and international categories.
  */
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || !isSuperAdmin(session.user.role)) {
+    if (!session || !session.user || !isAdmin(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
