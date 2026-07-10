@@ -150,29 +150,64 @@ test.describe("rank assignment permissions", () => {
     }
   });
 
-  test("alpha admin can assign an international panel (UEFA)", async () => {
+  test("alpha admin can assign an international federation + category", async () => {
+    const fed = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
+      data: { internationalAssociationId: ids.intlFedId },
+    });
+    expect(fed.status()).toBe(200);
+    expect((await fed.json()).user.internationalAssociation?.name).toBe(PW.fas.intl);
+
+    const cat = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
+      data: { internationalRankId: ids.intlEliteCategoryId },
+    });
+    expect(cat.status()).toBe(200);
+    expect((await cat.json()).user.internationalRank?.name).toBe(PW.ranks.intlElite);
+  });
+
+  test("changing the international federation resets the category", async () => {
     const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
-      data: { internationalRankId: ids.uefaPanelId },
+      data: { internationalAssociationId: null },
     });
     expect(res.status()).toBe(200);
     const { user } = await res.json();
-    expect(user.internationalRank?.name).toBe("UEFA");
+    expect(user.internationalAssociation).toBeNull();
+    expect(user.internationalRank).toBeNull();
+
+    // Re-assign for the following tests.
+    await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
+      data: { internationalAssociationId: ids.intlFedId, internationalRankId: ids.intlEliteCategoryId },
+    });
   });
 
-  test("an FA rank is rejected as an international panel", async () => {
+  test("a national FA is rejected as an international federation", async () => {
+    const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
+      data: { internationalAssociationId: ids.alphaFaId },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test("an FA rank is rejected as an international category", async () => {
     const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
       data: { internationalRankId: ids.alphaEliteRankId },
     });
     expect(res.status()).toBe(400);
   });
 
-  test("clearing rank and panel works", async () => {
+  test("a category cannot be set without an international federation", async () => {
     const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
-      data: { rankId: null, internationalRankId: null },
+      data: { internationalAssociationId: null, internationalRankId: ids.intlEliteCategoryId },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test("clearing rank and international federation works", async () => {
+    const res = await adminAlpha.patch(`/api/admin/users/${ids.refAlphaId}`, {
+      data: { rankId: null, internationalAssociationId: null, internationalRankId: null },
     });
     expect(res.status()).toBe(200);
     const { user } = await res.json();
     expect(user.rank).toBeNull();
+    expect(user.internationalAssociation).toBeNull();
     expect(user.internationalRank).toBeNull();
   });
 
@@ -240,11 +275,29 @@ test.describe("hierarchy management is super-admin only", () => {
     ).json();
     for (const rank of cross.ranks) expect(rank.associationId).toBe(ids.alphaFaId);
 
+    // International categories are readable by FA admins (needed to assign
+    // referees), and every returned rank belongs to an international federation.
     const intl = await (await adminAlpha.get("/api/admin/ranks?international=true")).json();
     const names = intl.ranks.map((r: { name: string }) => r.name);
-    expect(names).toContain("UEFA");
-    expect(names).toContain("FIFA");
-    for (const rank of intl.ranks) expect(rank.associationId).toBeNull();
+    expect(names).toContain(PW.ranks.intlElite);
+    for (const rank of intl.ranks) {
+      expect(rank.association?.isInternational).toBe(true);
+      expect(rank.associationId).not.toBe(ids.alphaFaId);
+    }
+  });
+
+  test("international federation catalogue is readable by FA admins", async () => {
+    const res = await adminAlpha.get("/api/admin/associations?international=true");
+    expect(res.status()).toBe(200);
+    const { associations } = await res.json();
+    const fed = associations.find((a: { name: string }) => a.name === PW.fas.intl);
+    expect(fed).toBeTruthy();
+    expect(fed.isInternational).toBe(true);
+    const rankNames = fed.ranks.map((r: { name: string }) => r.name);
+    expect(rankNames).toContain(PW.ranks.intlElite);
+    expect(rankNames).toContain(PW.ranks.intlFirst);
+    // Only international federations may leak to FA admins here.
+    for (const a of associations) expect(a.isInternational).toBe(true);
   });
 
   test("deleting an FA with members is blocked even for super admins", async () => {
@@ -260,6 +313,8 @@ test.describe("hierarchy management is super-admin only", () => {
     const names = associations.map((a: { name: string }) => a.name);
     expect(names).toContain(PW.fas.alpha);
     expect(names).toContain(PW.fas.beta);
+    // International federations are admin-assigned, never self-selected.
+    expect(names).not.toContain(PW.fas.intl);
   });
 });
 

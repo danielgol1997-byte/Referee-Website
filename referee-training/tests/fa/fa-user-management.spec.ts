@@ -19,7 +19,12 @@ test.beforeAll(async ({ playwright }) => {
 test.afterAll(async () => {
   // Restore the fixture referee to their original FA, unranked.
   await superApi.patch(`/api/admin/users/${ids.refAlphaId}`, {
-    data: { associationId: ids.alphaFaId, rankId: null, internationalRankId: null },
+    data: {
+      associationId: ids.alphaFaId,
+      rankId: null,
+      internationalAssociationId: null,
+      internationalRankId: null,
+    },
   });
   await superApi.dispose();
 });

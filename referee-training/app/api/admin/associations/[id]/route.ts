@@ -16,7 +16,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json().catch(() => null);
 
-  const data: { name?: string; countryCode?: string | null; isActive?: boolean } = {};
+  const data: { name?: string; countryCode?: string | null; isActive?: boolean; isInternational?: boolean } = {};
 
   if (typeof body?.name === "string") {
     const name = body.name.trim();
@@ -34,6 +34,9 @@ export async function PATCH(
   if (typeof body?.isActive === "boolean") {
     data.isActive = body.isActive;
   }
+  if (typeof body?.isInternational === "boolean") {
+    data.isInternational = body.isInternational;
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
@@ -42,7 +45,7 @@ export async function PATCH(
   const association = await prisma.association.update({
     where: { id },
     data,
-    include: { _count: { select: { members: true, ranks: true } } },
+    include: { _count: { select: { members: true, internationalMembers: true, ranks: true } } },
   });
 
   return NextResponse.json({ association });
@@ -62,7 +65,9 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const memberCount = await prisma.user.count({ where: { associationId: id } });
+  const memberCount = await prisma.user.count({
+    where: { OR: [{ associationId: id }, { internationalAssociationId: id }] },
+  });
   if (memberCount > 0) {
     return NextResponse.json(
       { error: `Move or remove the ${memberCount} referee(s) in this association first.` },

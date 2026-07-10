@@ -26,6 +26,10 @@ export default async function SuperAdminUserPage({ params }: { params: Promise<{
       isActive: true,
       createdAt: true,
       lastLoginAt: true,
+      association: { select: { name: true } },
+      rank: { select: { name: true } },
+      internationalAssociation: { select: { name: true } },
+      internationalRank: { select: { name: true } },
     },
   });
 
@@ -76,6 +80,26 @@ export default async function SuperAdminUserPage({ params }: { params: Promise<{
             <div>
               <div className="text-xs uppercase text-text-muted">Level</div>
               <div className="text-text-primary">{user.level ?? "—"}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs uppercase text-text-muted">Federation / Rank</div>
+              <div className="text-text-primary">
+                {user.association
+                  ? `${user.association.name}${user.rank ? ` — ${user.rank.name}` : ""}`
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs uppercase text-text-muted">International</div>
+              <div className="text-text-primary">
+                {user.internationalAssociation
+                  ? `${user.internationalAssociation.name}${
+                      user.internationalRank ? ` — ${user.internationalRank.name}` : ""
+                    }`
+                  : "—"}
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

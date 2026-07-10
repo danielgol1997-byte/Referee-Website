@@ -10,8 +10,9 @@ import { getAuthedUser } from "@/lib/api-auth";
  * PATCH /api/admin/users/[id]
  *
  * Super admins: status, role, profileComplete, association (move between FAs),
- * rank, and international panel.
- * FA admins: rank and international panel for referees in their own FA only.
+ * rank, international federation, and international category.
+ * FA admins: rank, international federation, and international category for
+ * referees in their own FA only.
  */
 export async function PATCH(
   request: Request,
@@ -29,18 +30,26 @@ export async function PATCH(
     const superAdmin = isSuperAdmin(callerRole);
     const { id } = await params;
     const body = await request.json();
-    const { isActive, role, profileComplete, associationId, rankId, internationalRankId } = body ?? {};
+    const {
+      isActive,
+      role,
+      profileComplete,
+      associationId,
+      rankId,
+      internationalAssociationId,
+      internationalRankId,
+    } = body ?? {};
 
     const target = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, associationId: true },
+      select: { id: true, associationId: true, internationalAssociationId: true },
     });
     if (!target) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
     // FA admins may only manage referees inside their own association, and only
-    // the rank / international-panel fields.
+    // the rank / international-federation fields.
     if (!superAdmin) {
       if (!caller.associationId || target.associationId !== caller.associationId) {
         return NextResponse.json({ error: "Referee is not in your association." }, { status: 403 });
@@ -116,17 +125,50 @@ export async function PATCH(
       }
     }
 
-    // International panel: must be a rank with no association (UEFA, FIFA, ...).
+    // International federation membership (FIFA, UEFA, ...). Changing or
+    // clearing it resets the category, because categories belong to a
+    // specific federation.
+    let effectiveInternationalId = target.internationalAssociationId;
+    if (internationalAssociationId !== undefined) {
+      if (internationalAssociationId === null || internationalAssociationId === "") {
+        data.internationalAssociationId = null;
+        data.internationalRankId = null;
+        effectiveInternationalId = null;
+      } else {
+        const federation = await prisma.association.findUnique({
+          where: { id: internationalAssociationId },
+          select: { id: true, isInternational: true },
+        });
+        if (!federation || !federation.isInternational) {
+          return NextResponse.json({ error: "Invalid international federation." }, { status: 400 });
+        }
+        data.internationalAssociationId = internationalAssociationId;
+        effectiveInternationalId = internationalAssociationId;
+        if (internationalAssociationId !== target.internationalAssociationId) {
+          data.internationalRankId = null;
+        }
+      }
+    }
+
+    // International category: must belong to the referee's (effective)
+    // international federation.
     if (internationalRankId !== undefined) {
       if (internationalRankId === null || internationalRankId === "") {
         data.internationalRankId = null;
       } else {
-        const panel = await prisma.rank.findUnique({
+        const category = await prisma.rank.findUnique({
           where: { id: internationalRankId },
           select: { id: true, associationId: true },
         });
-        if (!panel || panel.associationId !== null) {
-          return NextResponse.json({ error: "Invalid international panel." }, { status: 400 });
+        if (
+          !category ||
+          !effectiveInternationalId ||
+          category.associationId !== effectiveInternationalId
+        ) {
+          return NextResponse.json(
+            { error: "That category is not part of this referee's international federation." },
+            { status: 400 }
+          );
         }
         data.internationalRankId = internationalRankId;
       }
@@ -151,6 +193,8 @@ export async function PATCH(
         associationId: true,
         association: { select: { id: true, name: true, countryCode: true } },
         rank: { select: { id: true, name: true } },
+        internationalAssociationId: true,
+        internationalAssociation: { select: { id: true, name: true, countryCode: true } },
         internationalRank: { select: { id: true, name: true } },
       },
     });

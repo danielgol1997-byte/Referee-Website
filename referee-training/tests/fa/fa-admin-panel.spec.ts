@@ -12,7 +12,7 @@ test.describe("FA admin panel — alpha admin", () => {
     const superApi = await apiAs(playwright, "super");
     const ids = readFixtureIds();
     await superApi.patch(`/api/admin/users/${ids.refAlphaId}`, {
-      data: { rankId: null, internationalRankId: null },
+      data: { rankId: null, internationalAssociationId: null, internationalRankId: null },
     });
     await superApi.dispose();
   });
@@ -39,7 +39,9 @@ test.describe("FA admin panel — alpha admin", () => {
     await expect(page.getByText(PW.users.refAlpha)).toBeVisible();
   });
 
-  test("assigns a rank and an international panel through the UI", async ({ page }) => {
+  test("assigns a rank, an international federation, and a category through the UI", async ({
+    page,
+  }) => {
     const ids = readFixtureIds();
     await page.goto("/admin?tab=referees");
 
@@ -54,17 +56,23 @@ test.describe("FA admin panel — alpha admin", () => {
     await page.getByRole("button", { name: PW.ranks.alphaElite }).click();
     await expect(row.getByRole("button", { name: PW.ranks.alphaElite })).toBeVisible();
 
-    // Assign the international panel.
-    await row.getByRole("button", { name: "No panel" }).click();
-    await page.getByRole("button", { name: "UEFA", exact: true }).click();
-    await expect(row.getByRole("button", { name: "UEFA", exact: true })).toBeVisible();
+    // Assign the international federation...
+    await row.getByRole("button", { name: "None", exact: true }).click();
+    await page.getByRole("button", { name: new RegExp(PW.fas.intl) }).click();
+    await expect(row.getByRole("button", { name: new RegExp(PW.fas.intl) })).toBeVisible();
 
-    // Both stuck server-side.
+    // ...then a category inside it.
+    await row.getByRole("button", { name: "No category" }).click();
+    await page.getByRole("button", { name: PW.ranks.intlElite }).click();
+    await expect(row.getByRole("button", { name: PW.ranks.intlElite })).toBeVisible();
+
+    // All three stuck server-side.
     const res = await page.request.get("/api/admin/referees?search=pwfa-ref-alpha");
     const { referees } = await res.json();
     const ref = referees.find((r: { id: string }) => r.id === ids.refAlphaId);
     expect(ref.rank?.name).toBe(PW.ranks.alphaElite);
-    expect(ref.internationalRank?.name).toBe("UEFA");
+    expect(ref.internationalAssociation?.name).toBe(PW.fas.intl);
+    expect(ref.internationalRank?.name).toBe(PW.ranks.intlElite);
 
     // Rank options never include another FA's ranks.
     await row.getByRole("button", { name: PW.ranks.alphaElite }).click();

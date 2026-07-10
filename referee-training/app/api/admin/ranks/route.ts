@@ -5,9 +5,10 @@ import { isSuperAdmin } from "@/lib/roles";
 
 /**
  * GET /api/admin/ranks?associationId=... | ?international=true
- * Lists ranks for an association, or the international panels (no association).
- * Admins may read their own association's ranks and international panels;
- * super admins may read any.
+ * Lists ranks for an association, or every category belonging to an
+ * international federation (?international=true).
+ * FA admins may read their own association's ranks and international
+ * categories; super admins may read any.
  */
 export async function GET(request: Request) {
   const guard = await requireAdmin();
@@ -24,15 +25,20 @@ export async function GET(request: Request) {
   }
 
   const where = international
-    ? { associationId: null }
+    ? { association: { isInternational: true } }
     : associationId
       ? { associationId }
       : {};
 
   const ranks = await prisma.rank.findMany({
     where,
-    orderBy: { order: "asc" },
-    include: { _count: { select: { members: true, internationalMembers: true } } },
+    orderBy: [{ associationId: "asc" }, { order: "asc" }],
+    include: {
+      _count: { select: { members: true, internationalMembers: true } },
+      ...(international
+        ? { association: { select: { id: true, name: true, isInternational: true } } }
+        : {}),
+    },
   });
 
   return NextResponse.json({ ranks });
@@ -40,7 +46,8 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/admin/ranks
- * Create a rank. associationId null = international panel. Super admin only.
+ * Create a rank/category inside an association or international federation.
+ * Super admin only.
  */
 export async function POST(request: Request) {
   const guard = await requireSuperAdmin();
@@ -56,12 +63,13 @@ export async function POST(request: Request) {
   if (!name) {
     return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
+  if (!associationId) {
+    return NextResponse.json({ error: "Association is required." }, { status: 400 });
+  }
 
-  if (associationId) {
-    const association = await prisma.association.findUnique({ where: { id: associationId } });
-    if (!association) {
-      return NextResponse.json({ error: "Association not found." }, { status: 404 });
-    }
+  const association = await prisma.association.findUnique({ where: { id: associationId } });
+  if (!association) {
+    return NextResponse.json({ error: "Association not found." }, { status: 404 });
   }
 
   const last = await prisma.rank.findFirst({

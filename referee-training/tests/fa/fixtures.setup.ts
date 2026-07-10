@@ -33,9 +33,15 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
     update: { countryCode: "BR", isActive: true },
     create: { name: PW.fas.beta, countryCode: "BR" },
   });
+  // International federation (FIFA/UEFA-style) with categories inside it.
+  const intlFed = await prisma.association.upsert({
+    where: { name: PW.fas.intl },
+    update: { isInternational: true, isActive: true },
+    create: { name: PW.fas.intl, isInternational: true },
+  });
 
   // ---------------------------------------------------------------- Ranks
-  async function ensureRank(name: string, associationId: string | null, order: number) {
+  async function ensureRank(name: string, associationId: string, order: number) {
     const existing = await prisma.rank.findFirst({ where: { name, associationId } });
     if (existing) return existing;
     return prisma.rank.create({ data: { name, associationId, order } });
@@ -44,8 +50,8 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
   const alphaFirst = await ensureRank(PW.ranks.alphaFirst, alphaFa.id, 1);
   const betaElite = await ensureRank(PW.ranks.betaElite, betaFa.id, 0);
   await ensureRank(PW.ranks.betaFirst, betaFa.id, 1);
-  const uefa = await ensureRank("UEFA", null, 0);
-  const fifa = await ensureRank("FIFA", null, 1);
+  const intlElite = await ensureRank(PW.ranks.intlElite, intlFed.id, 0);
+  const intlFirst = await ensureRank(PW.ranks.intlFirst, intlFed.id, 1);
 
   // ---------------------------------------------------------------- Users
   const passwordHash = await hash(PW.password, 10);
@@ -62,8 +68,9 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
         password: passwordHash,
         role,
         associationId,
-        // Deterministic baseline: specs assign ranks/panels themselves.
+        // Deterministic baseline: specs assign ranks/federations themselves.
         rankId: null,
+        internationalAssociationId: null,
         internationalRankId: null,
         authProvider: "credentials",
         profileComplete: true,
@@ -205,8 +212,9 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
     alphaEliteRankId: alphaElite.id,
     alphaFirstRankId: alphaFirst.id,
     betaEliteRankId: betaElite.id,
-    uefaPanelId: uefa.id,
-    fifaPanelId: fifa.id,
+    intlFedId: intlFed.id,
+    intlEliteCategoryId: intlElite.id,
+    intlFirstCategoryId: intlFirst.id,
     refAlphaId: refAlpha.id,
     refBetaId: refBeta.id,
     refNoFaId: refNoFa.id,
@@ -224,5 +232,7 @@ setup("create FA fixtures and per-role auth states", async ({ playwright }) => {
     await loginAndSave(playwright, PW.users[who], statePath(who));
   }
 
-  console.log("PWFA fixtures ready: 2 FAs, 7 users, 3 questions, 6 laws tests, 3 clips, 6 video tests");
+  console.log(
+    "PWFA fixtures ready: 2 FAs + 1 intl fed, 7 users, 3 questions, 6 laws tests, 3 clips, 6 video tests"
+  );
 });

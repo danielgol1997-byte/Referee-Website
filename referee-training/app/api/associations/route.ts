@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/associations
- * Lists active associations for onboarding (any signed-in user).
+ * Lists active national associations for onboarding (any signed-in user).
+ * International federations are excluded: those are assigned by admins.
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -14,7 +15,7 @@ export async function GET() {
   }
 
   const associations = await prisma.association.findMany({
-    where: { isActive: true },
+    where: { isActive: true, isInternational: false },
     orderBy: { name: "asc" },
     select: { id: true, name: true, countryCode: true },
   });

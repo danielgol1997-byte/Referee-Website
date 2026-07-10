@@ -25,9 +25,12 @@ model User {
   emailVerified         DateTime?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
-  // Federation hierarchy
+  // Federation hierarchy. A referee belongs to one national association and
+  // may additionally belong to one international federation (FIFA, UEFA, ...)
+  // with a category (rank) inside it.
   associationId         String?
   rankId                String?
+  internationalAssociationId String?
   internationalRankId   String?
   // Physical profile (used by the stats profile card)
   dateOfBirth           DateTime?
@@ -35,6 +38,7 @@ model User {
   weightKg              Int?
   association           Association?         @relation("UserAssociation", fields: [associationId], references: [id], onDelete: SetNull)
   rank                  Rank?                @relation("UserRank", fields: [rankId], references: [id], onDelete: SetNull)
+  internationalAssociation Association?      @relation("UserInternationalAssociation", fields: [internationalAssociationId], references: [id], onDelete: SetNull)
   internationalRank     Rank?                @relation("UserInternationalRank", fields: [internationalRankId], references: [id], onDelete: SetNull)
   accounts              Account[]
   mandatoryTestsCreated MandatoryTest[]
@@ -54,27 +58,33 @@ model User {
 
   @@index([associationId])
   @@index([rankId])
+  @@index([internationalAssociationId])
 }
 
 // A football association / federation (e.g. "Israel FA", "Italian FA").
 // Referees belong to one association; admins manage a single association.
+// isInternational = true marks confederations (FIFA, UEFA, CAF, ...) that can
+// be assigned to referees *in addition to* their national association.
 model Association {
-  id             String          @id @default(cuid())
-  name           String          @unique
-  countryCode    String?         // ISO 3166-1 alpha-2, drives the flag
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  ranks          Rank[]
-  members        User[]          @relation("UserAssociation")
-  videoClips     VideoClip[]
-  questions      Question[]
-  mandatoryTests MandatoryTest[]
-  videoTests     VideoTest[]
+  id                   String          @id @default(cuid())
+  name                 String          @unique
+  countryCode          String?         // ISO 3166-1 alpha-2, drives the flag
+  isInternational      Boolean         @default(false)
+  isActive             Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  ranks                Rank[]
+  members              User[]          @relation("UserAssociation")
+  internationalMembers User[]          @relation("UserInternationalAssociation")
+  videoClips           VideoClip[]
+  questions            Question[]
+  mandatoryTests       MandatoryTest[]
+  videoTests           VideoTest[]
 }
 
-// An ordered rank within an association (e.g. "Elite", "Category 1").
-// A rank with associationId = null is an international panel (e.g. UEFA, FIFA).
+// An ordered rank/category within an association (e.g. "Elite", "Category 1").
+// International federations (Association.isInternational) use the same model
+// for their categories (e.g. UEFA Elite, UEFA First Category).
 model Rank {
   id                   String       @id @default(cuid())
   name                 String

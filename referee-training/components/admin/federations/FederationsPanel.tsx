@@ -10,8 +10,9 @@ type Association = {
   id: string;
   name: string;
   countryCode: string | null;
+  isInternational: boolean;
   isActive: boolean;
-  _count: { members: number; ranks: number };
+  _count: { members: number; internationalMembers: number; ranks: number };
 };
 
 type Rank = {
@@ -21,8 +22,6 @@ type Rank = {
   associationId: string | null;
   _count: { members: number; internationalMembers: number };
 };
-
-const INTERNATIONAL = "__international__";
 
 /** Lets other mounted panels (e.g. Users) refresh their FA/rank dropdowns. */
 function notifyHierarchyChanged() {
@@ -62,6 +61,7 @@ export function FederationsPanel() {
 
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
+  const [newIsInternational, setNewIsInternational] = useState(false);
   const [newRank, setNewRank] = useState("");
 
   const loadAssociations = useCallback(async () => {
@@ -80,8 +80,7 @@ export function FederationsPanel() {
   const loadRanks = useCallback(async (key: string, { silent = false } = {}) => {
     if (!silent) setRanksLoading(true);
     try {
-      const qs = key === INTERNATIONAL ? "international=true" : `associationId=${key}`;
-      const res = await fetch(`/api/admin/ranks?${qs}`);
+      const res = await fetch(`/api/admin/ranks?associationId=${key}`);
       const data = await res.json();
       if (res.ok) setRanks(data.ranks ?? []);
     } finally {
@@ -119,11 +118,16 @@ export function FederationsPanel() {
         fetch("/api/admin/associations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: newName.trim(), countryCode: newCode || null }),
+          body: JSON.stringify({
+            name: newName.trim(),
+            countryCode: newIsInternational ? null : newCode || null,
+            isInternational: newIsInternational,
+          }),
         }),
       () => {
         setNewName("");
         setNewCode("");
+        setNewIsInternational(false);
         loadAssociations();
       }
     );
@@ -158,7 +162,7 @@ export function FederationsPanel() {
 
   const addRank = async () => {
     if (!newRank.trim() || !selected) return;
-    const associationId = selected === INTERNATIONAL ? null : selected;
+    const associationId = selected;
     await run(
       () =>
         fetch("/api/admin/ranks", {
@@ -222,18 +226,20 @@ export function FederationsPanel() {
     );
   };
 
-  const selectedLabel =
-    selected === INTERNATIONAL
-      ? "International panels"
-      : associations.find((a) => a.id === selected)?.name ?? "";
+  const selectedAssociation = associations.find((a) => a.id === selected) ?? null;
+  const selectedLabel = selectedAssociation?.name ?? "";
+  const selectedIsInternational = selectedAssociation?.isInternational ?? false;
+  const nationals = associations.filter((a) => !a.isInternational);
+  const internationals = associations.filter((a) => a.isInternational);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-text-primary">Federations</h2>
         <p className="text-sm text-text-secondary">
-          Build the hierarchy: create associations and define the ranks inside each one. Admins assign
-          referees to these ranks.
+          Build the hierarchy: create national associations and international federations (FIFA, UEFA,
+          ...), then define the ranks or categories inside each one. Referees belong to one association
+          and can additionally be assigned to one international federation.
         </p>
       </div>
 
@@ -247,66 +253,110 @@ export function FederationsPanel() {
         {/* Associations column */}
         <div className="rounded-xl border border-dark-600 bg-dark-900/60">
           <div className="border-b border-dark-700 px-4 py-3 text-sm font-medium text-text-primary">
-            Associations {loading ? "" : `(${associations.length})`}
+            Federations {loading ? "" : `(${associations.length})`}
           </div>
           {loading ? (
             <ListSkeleton />
           ) : (
-            <div className="divide-y divide-dark-700/70">
-              {associations.map((a) => (
-                <FederationRow
-                  key={a.id}
-                  association={a}
-                  active={selected === a.id}
-                  onSelect={() => setSelected(a.id)}
-                  onRename={(name) => renameAssociation(a.id, name)}
-                  onDelete={() => deleteAssociation(a.id)}
-                />
-              ))}
+            <>
+              <div className="bg-dark-800/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                National associations
+              </div>
+              <div className="divide-y divide-dark-700/70">
+                {nationals.map((a) => (
+                  <FederationRow
+                    key={a.id}
+                    association={a}
+                    active={selected === a.id}
+                    onSelect={() => setSelected(a.id)}
+                    onRename={(name) => renameAssociation(a.id, name)}
+                    onDelete={() => deleteAssociation(a.id)}
+                  />
+                ))}
+                {nationals.length === 0 && (
+                  <div className="px-4 py-4 text-center text-xs text-text-muted">
+                    No national associations yet.
+                  </div>
+                )}
+              </div>
 
-              {/* International panels pseudo-entry */}
-              <button
-                type="button"
-                onClick={() => setSelected(INTERNATIONAL)}
-                className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors ${
-                  selected === INTERNATIONAL ? "bg-accent/10" : "hover:bg-dark-800/60"
-                }`}
-              >
-                <span className="flex items-center gap-2 font-medium text-text-primary">
-                  <span className="text-base">🌍</span> International panels
-                </span>
-                <span className="text-xs text-text-muted">UEFA, FIFA, ...</span>
-              </button>
-            </div>
+              <div className="border-t border-dark-700 bg-dark-800/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                International federations
+              </div>
+              <div className="divide-y divide-dark-700/70">
+                {internationals.map((a) => (
+                  <FederationRow
+                    key={a.id}
+                    association={a}
+                    active={selected === a.id}
+                    onSelect={() => setSelected(a.id)}
+                    onRename={(name) => renameAssociation(a.id, name)}
+                    onDelete={() => deleteAssociation(a.id)}
+                  />
+                ))}
+                {internationals.length === 0 && (
+                  <div className="px-4 py-4 text-center text-xs text-text-muted">
+                    No international federations yet. Toggle &ldquo;International&rdquo; below to add one.
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
-          <div className="flex flex-wrap gap-2 border-t border-dark-700 p-3">
-            <div className="w-32">
-              <CountryPicker value={newCode} onChange={setNewCode} placeholder="Flag" />
+          <div className="space-y-2 border-t border-dark-700 p-3">
+            <div className="flex flex-wrap gap-2">
+              {!newIsInternational && (
+                <div className="w-32">
+                  <CountryPicker value={newCode} onChange={setNewCode} placeholder="Flag" />
+                </div>
+              )}
+              <div className="min-w-[140px] flex-1">
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder={newIsInternational ? "New federation (e.g. UEFA)" : "New association name"}
+                  onKeyDown={(e) => e.key === "Enter" && addAssociation()}
+                />
+              </div>
+              <Button onClick={addAssociation} disabled={!newName.trim()}>
+                Add
+              </Button>
             </div>
-            <div className="min-w-[140px] flex-1">
-              <Input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="New association name"
-                onKeyDown={(e) => e.key === "Enter" && addAssociation()}
-              />
-            </div>
-            <Button onClick={addAssociation} disabled={!newName.trim()}>
-              Add
-            </Button>
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newIsInternational}
+                onClick={() => setNewIsInternational((v) => !v)}
+                className={`relative h-5 w-9 rounded-full transition-colors ${
+                  newIsInternational ? "bg-accent" : "bg-dark-600"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                    newIsInternational ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+              <span>
+                🌍 International federation
+                <span className="ml-1 text-text-muted">— assignable in addition to a referee&rsquo;s FA</span>
+              </span>
+            </label>
           </div>
         </div>
 
         {/* Ranks column */}
         <div className="rounded-xl border border-dark-600 bg-dark-900/60">
           <div className="border-b border-dark-700 px-4 py-3 text-sm font-medium text-text-primary">
-            {selected ? `Ranks — ${selectedLabel}` : "Ranks"}
+            {selected
+              ? `${selectedIsInternational ? "Categories" : "Ranks"} — ${selectedLabel}`
+              : "Ranks / Categories"}
           </div>
 
           {!selected ? (
             <div className="px-4 py-10 text-center text-sm text-text-muted">
-              Select an association to manage its ranks.
+              Select a federation to manage its ranks or categories.
             </div>
           ) : ranksLoading ? (
             <ListSkeleton />
@@ -326,7 +376,9 @@ export function FederationsPanel() {
                 ))}
                 {ranks.length === 0 && (
                   <div className="px-4 py-10 text-center text-sm text-text-muted">
-                    No ranks yet. Add the highest rank first.
+                    {selectedIsInternational
+                      ? "No categories yet. Add the highest category first (e.g. Elite)."
+                      : "No ranks yet. Add the highest rank first."}
                   </div>
                 )}
               </div>
@@ -336,7 +388,9 @@ export function FederationsPanel() {
                   <Input
                     value={newRank}
                     onChange={(e) => setNewRank(e.target.value)}
-                    placeholder={selected === INTERNATIONAL ? "New panel (e.g. UEFA)" : "New rank name"}
+                    placeholder={
+                      selectedIsInternational ? "New category (e.g. Elite)" : "New rank name"
+                    }
                     onKeyDown={(e) => e.key === "Enter" && addRank()}
                   />
                 </div>
@@ -396,11 +450,20 @@ function FederationRow({
       ) : (
         <>
           <button type="button" onClick={onSelect} className="flex flex-1 items-center gap-2 text-left">
-            <span className="text-base leading-none">{flagEmoji(association.countryCode) || "🏳️"}</span>
-            <span className="font-medium text-text-primary">{association.name}</span>
-            <span className="text-xs text-text-muted">
-              {association._count.members} referee{association._count.members === 1 ? "" : "s"}
+            <span className="text-base leading-none">
+              {association.isInternational ? "🌍" : flagEmoji(association.countryCode) || "🏳️"}
             </span>
+            <span className="font-medium text-text-primary">{association.name}</span>
+            {(() => {
+              const count = association.isInternational
+                ? association._count.internationalMembers
+                : association._count.members;
+              return (
+                <span className="text-xs text-text-muted">
+                  {count} referee{count === 1 ? "" : "s"}
+                </span>
+              );
+            })()}
           </button>
           <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
             Rename

@@ -96,7 +96,8 @@ test.describe.serial("registration and onboarding", () => {
     // The account page shows the FA as admin-managed, not editable.
     await page.goto(`${BASE_URL}/account`);
     await expect(page.getByText("Managed by your association")).toBeVisible();
-    await expect(page.getByText(PW.fas.alpha)).toBeVisible();
+    // The FA appears in both the identity card and the locked form row.
+    await expect(page.getByText(PW.fas.alpha).first()).toBeVisible();
 
     // And the API silently ignores attempts to switch FA.
     const res = await page.request.put(`${BASE_URL}/api/users/me/profile`, {

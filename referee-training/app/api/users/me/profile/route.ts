@@ -15,6 +15,7 @@ const PROFILE_SELECT = {
   profileComplete: true,
   association: { select: { id: true, name: true, countryCode: true } },
   rank: { select: { id: true, name: true } },
+  internationalAssociation: { select: { id: true, name: true, countryCode: true } },
   internationalRank: { select: { id: true, name: true } },
 } as const;
 

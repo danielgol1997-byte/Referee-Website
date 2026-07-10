@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
-type Association = { id: string; name: string; countryCode: string | null };
+type Association = {
+  id: string;
+  name: string;
+  countryCode: string | null;
+  isInternational: boolean;
+};
 
 type RankOption = { id: string; name: string; associationId: string | null };
 
@@ -26,6 +31,8 @@ type UserRow = {
   associationId: string | null;
   association: Association | null;
   rank: { id: string; name: string } | null;
+  internationalAssociationId: string | null;
+  internationalAssociation: { id: string; name: string } | null;
   internationalRank: { id: string; name: string } | null;
 };
 
@@ -106,21 +113,38 @@ export function UserManagementPanel() {
     return () => window.removeEventListener("fa-hierarchy-changed", loadHierarchy);
   }, [loadHierarchy]);
 
+  const nationalAssociations = useMemo(
+    () => associations.filter((a) => !a.isInternational),
+    [associations]
+  );
+  const internationalFederations = useMemo(
+    () => associations.filter((a) => a.isInternational),
+    [associations]
+  );
+
   const faFilterOptions = useMemo(
     () => [
       { value: "all", label: "All federations" },
       { value: UNASSIGNED, label: "Unassigned" },
-      ...associations.map((a) => ({ value: a.id, label: a.name })),
+      ...nationalAssociations.map((a) => ({ value: a.id, label: a.name })),
     ],
-    [associations]
+    [nationalAssociations]
   );
 
   const faColumnOptions = useMemo(
     () => [
       { value: UNASSIGNED, label: "Unassigned" },
-      ...associations.map((a) => ({ value: a.id, label: a.name })),
+      ...nationalAssociations.map((a) => ({ value: a.id, label: a.name })),
     ],
-    [associations]
+    [nationalAssociations]
+  );
+
+  const internationalOptions = useMemo(
+    () => [
+      { value: NONE, label: "None" },
+      ...internationalFederations.map((a) => ({ value: a.id, label: `🌍 ${a.name}` })),
+    ],
+    [internationalFederations]
   );
 
   const ranksByAssociation = useMemo(() => {
@@ -133,14 +157,6 @@ export function UserManagementPanel() {
     }
     return map;
   }, [ranks]);
-
-  const panelOptions = useMemo(
-    () => [
-      { value: NONE, label: "No panel" },
-      ...(ranksByAssociation.get(null) ?? []).map((r) => ({ value: r.id, label: r.name })),
-    ],
-    [ranksByAssociation]
-  );
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -252,15 +268,32 @@ export function UserManagementPanel() {
     );
   };
 
-  const updatePanel = (user: UserRow, internationalRankId: string | null) => {
+  const updateInternationalFederation = (user: UserRow, internationalAssociationId: string | null) => {
+    if (internationalAssociationId === user.internationalAssociationId) return;
+    const federation = internationalAssociationId
+      ? internationalFederations.find((a) => a.id === internationalAssociationId) ?? null
+      : null;
+    // Changing federation resets the category server-side; mirror that here.
+    patchUser(
+      user.id,
+      { internationalAssociationId },
+      {
+        internationalAssociationId,
+        internationalAssociation: federation ? { id: federation.id, name: federation.name } : null,
+        internationalRank: null,
+      }
+    );
+  };
+
+  const updateInternationalRank = (user: UserRow, internationalRankId: string | null) => {
     if ((user.internationalRank?.id ?? null) === internationalRankId) return;
-    const panel = internationalRankId
+    const category = internationalRankId
       ? ranks.find((r) => r.id === internationalRankId) ?? null
       : null;
     patchUser(
       user.id,
       { internationalRankId },
-      { internationalRank: panel ? { id: panel.id, name: panel.name } : null }
+      { internationalRank: category ? { id: category.id, name: category.name } : null }
     );
   };
 
@@ -325,8 +358,8 @@ export function UserManagementPanel() {
             <thead className="bg-dark-800/80 text-xs uppercase text-text-muted">
               <tr>
                 <th className="px-3 py-3 text-left font-semibold">User</th>
-                <th className="px-3 py-3 text-left font-semibold">Federation</th>
-                <th className="px-3 py-3 text-left font-semibold">Rank / Panel</th>
+                <th className="px-3 py-3 text-left font-semibold">Federation / Rank</th>
+                <th className="px-3 py-3 text-left font-semibold">International</th>
                 <th className="px-3 py-3 text-left font-semibold">Role</th>
                 <th className="px-3 py-3 text-left font-semibold">Status</th>
                 <th className="px-3 py-3 text-left font-semibold">Profile</th>
@@ -346,6 +379,13 @@ export function UserManagementPanel() {
                   const rankOptions = [
                     { value: NONE, label: "Unranked" },
                     ...faRanks.map((r) => ({ value: r.id, label: r.name })),
+                  ];
+                  const federationCategories = user.internationalAssociationId
+                    ? ranksByAssociation.get(user.internationalAssociationId) ?? []
+                    : [];
+                  const categoryOptions = [
+                    { value: NONE, label: "No category" },
+                    ...federationCategories.map((r) => ({ value: r.id, label: r.name })),
                   ];
 
                   return (
@@ -373,17 +413,15 @@ export function UserManagementPanel() {
                         </div>
                       </td>
                       <td className="w-[165px] px-3 py-3">
-                        <Select
-                          value={user.associationId ?? UNASSIGNED}
-                          onChange={(value) =>
-                            updateAssociation(user, value === UNASSIGNED ? null : String(value))
-                          }
-                          options={faColumnOptions}
-                        />
-                      </td>
-                      <td className="w-[165px] px-3 py-3">
-                        {user.associationId ? (
-                          <div className="space-y-1.5">
+                        <div className="space-y-1.5">
+                          <Select
+                            value={user.associationId ?? UNASSIGNED}
+                            onChange={(value) =>
+                              updateAssociation(user, value === UNASSIGNED ? null : String(value))
+                            }
+                            options={faColumnOptions}
+                          />
+                          {user.associationId && (
                             <Select
                               value={user.rank?.id ?? NONE}
                               onChange={(value) =>
@@ -391,17 +429,31 @@ export function UserManagementPanel() {
                               }
                               options={rankOptions}
                             />
+                          )}
+                        </div>
+                      </td>
+                      <td className="w-[165px] px-3 py-3">
+                        <div className="space-y-1.5">
+                          <Select
+                            value={user.internationalAssociationId ?? NONE}
+                            onChange={(value) =>
+                              updateInternationalFederation(
+                                user,
+                                value === NONE ? null : String(value)
+                              )
+                            }
+                            options={internationalOptions}
+                          />
+                          {user.internationalAssociationId && (
                             <Select
                               value={user.internationalRank?.id ?? NONE}
                               onChange={(value) =>
-                                updatePanel(user, value === NONE ? null : String(value))
+                                updateInternationalRank(user, value === NONE ? null : String(value))
                               }
-                              options={panelOptions}
+                              options={categoryOptions}
                             />
-                          </div>
-                        ) : (
-                          <span className="text-xs text-text-muted">Needs federation</span>
-                        )}
+                          )}
+                        </div>
                       </td>
                       <td className="w-[150px] px-3 py-3">
                         <Select

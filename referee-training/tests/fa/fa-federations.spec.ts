@@ -10,6 +10,7 @@ import { apiAs, statePath, PW } from "./helpers";
 test.use({ storageState: statePath("super") });
 
 const TEMP_FA = "PWFA UI Temp FA";
+const TEMP_INTL = "PWFA UI Temp Intl";
 
 let superApi: APIRequestContext;
 
@@ -17,7 +18,7 @@ async function removeTempFa() {
   const res = await superApi.get("/api/admin/associations");
   const { associations } = await res.json();
   for (const a of associations as Array<{ id: string; name: string }>) {
-    if (a.name.startsWith(TEMP_FA)) {
+    if (a.name.startsWith(TEMP_FA) || a.name.startsWith(TEMP_INTL)) {
       await superApi.delete(`/api/admin/associations/${a.id}`);
     }
   }
@@ -34,18 +35,51 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("federations hierarchy builder", () => {
-  test("panel lists existing associations and international panels", async ({ page }) => {
+  test("panel lists national associations and international federations", async ({ page }) => {
     await page.goto("/super-admin?tab=federations");
     await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
+    await expect(page.getByText("National associations")).toBeVisible();
+    await expect(page.getByText("International federations")).toBeVisible();
     await expect(page.getByText(PW.fas.alpha)).toBeVisible();
     await expect(page.getByText(PW.fas.beta)).toBeVisible();
-    await expect(page.getByText("International panels")).toBeVisible();
+    await expect(page.getByText(PW.fas.intl)).toBeVisible();
 
-    // International panels contain UEFA + FIFA.
-    await page.getByText("International panels").click();
-    await expect(page.getByText("Ranks — International panels")).toBeVisible();
-    await expect(page.getByText("UEFA", { exact: true })).toBeVisible();
-    await expect(page.getByText("FIFA", { exact: true })).toBeVisible();
+    // An international federation holds its own categories.
+    await page.getByText(PW.fas.intl).click();
+    await expect(page.getByText(`Categories — ${PW.fas.intl}`)).toBeVisible();
+    await expect(page.getByText(PW.ranks.intlElite)).toBeVisible();
+    await expect(page.getByText(PW.ranks.intlFirst)).toBeVisible();
+  });
+
+  test("creates an international federation with the toggle", async ({ page }) => {
+    await page.goto("/super-admin?tab=federations");
+    await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
+
+    // Flip the international toggle: the placeholder changes and the flag
+    // picker disappears.
+    await page.getByRole("switch").click();
+    const input = page.getByPlaceholder("New federation (e.g. UEFA)");
+    await input.fill(TEMP_INTL);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText(TEMP_INTL)).toBeVisible();
+
+    // It lands in the international section and takes categories.
+    await page.getByText(TEMP_INTL).click();
+    await expect(page.getByText(`Categories — ${TEMP_INTL}`)).toBeVisible();
+    await expect(page.getByText("No categories yet", { exact: false })).toBeVisible();
+
+    const categoryInput = page.getByPlaceholder("New category (e.g. Elite)");
+    await categoryInput.fill("PWFA UI Temp Elite");
+    await page.getByRole("button", { name: "Add", exact: true }).nth(1).click();
+    await expect(page.getByText("PWFA UI Temp Elite")).toBeVisible();
+
+    // Verify server-side flag, then clean up.
+    const { associations } = await (await superApi.get("/api/admin/associations")).json();
+    const fed = (associations as Array<{ id: string; name: string; isInternational: boolean }>).find(
+      (a) => a.name === TEMP_INTL
+    );
+    expect(fed?.isInternational).toBe(true);
+    await superApi.delete(`/api/admin/associations/${fed!.id}`);
   });
 
   test("full association + rank lifecycle through the UI", async ({ page }) => {

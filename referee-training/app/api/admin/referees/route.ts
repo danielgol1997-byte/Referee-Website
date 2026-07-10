@@ -50,6 +50,8 @@ export async function GET(request: Request) {
       associationId: true,
       association: { select: { id: true, name: true, countryCode: true } },
       rank: { select: { id: true, name: true } },
+      internationalAssociationId: true,
+      internationalAssociation: { select: { id: true, name: true, countryCode: true } },
       internationalRank: { select: { id: true, name: true } },
     },
   });

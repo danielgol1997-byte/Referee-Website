@@ -54,12 +54,15 @@ export const PW = {
   fas: {
     alpha: "PWFA Alpha FA",
     beta: "PWFA Beta FA",
+    intl: "PWFA World Fed",
   },
   ranks: {
     alphaElite: "PWFA Alpha Elite",
     alphaFirst: "PWFA Alpha First",
     betaElite: "PWFA Beta Elite",
     betaFirst: "PWFA Beta First",
+    intlElite: "PWFA World Elite",
+    intlFirst: "PWFA World First",
   },
   content: {
     globalQuestion: "PWFA GLOBAL QUESTION (ifab, visible to everyone)",
@@ -98,8 +101,9 @@ export type FixtureIds = {
   alphaEliteRankId: string;
   alphaFirstRankId: string;
   betaEliteRankId: string;
-  uefaPanelId: string;
-  fifaPanelId: string;
+  intlFedId: string;
+  intlEliteCategoryId: string;
+  intlFirstCategoryId: string;
   refAlphaId: string;
   refBetaId: string;
   refNoFaId: string;
