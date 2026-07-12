@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CountryPicker } from "@/components/ui/CountryPicker";
 import { flagEmoji } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 
 type Association = {
   id: string;
@@ -28,23 +29,96 @@ function notifyHierarchyChanged() {
   window.dispatchEvent(new Event("fa-hierarchy-changed"));
 }
 
+/* ------------------------------------------------------------------ */
+/* Small icon set (inline, stroke=currentColor to match the rest of   */
+/* the admin UI)                                                       */
+/* ------------------------------------------------------------------ */
+function Icon({ path, className }: { path: string; className?: string }) {
+  return (
+    <svg className={cn("h-4 w-4", className)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={path} />
+    </svg>
+  );
+}
+const ICONS = {
+  search: "M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z",
+  plus: "M12 5v14M5 12h14",
+  pencil: "M16.862 4.487a2.25 2.25 0 113.182 3.182L7.5 20.213l-4 1 1-4L16.862 4.487z",
+  trash: "M6 7h12M9 7V4.8c0-.44.36-.8.8-.8h4.4c.44 0 .8.36.8.8V7m-8 0 1 13.2A2 2 0 0010 22h4a2 2 0 002-1.8L17 7",
+  chevronUp: "M5 15l7-7 7 7",
+  chevronDown: "M19 9l-7 7-7-7",
+  check: "M5 13l4 4L19 7",
+  x: "M6 18L18 6M6 6l12 12",
+  users:
+    "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
+  flag: "M5 3v18M5 4h11l-2 3.5L16 11H5",
+};
+
+function IconButton({
+  icon,
+  label,
+  onClick,
+  tone = "ghost",
+  disabled = false,
+}: {
+  icon: keyof typeof ICONS;
+  label: string;
+  onClick: () => void;
+  tone?: "ghost" | "danger";
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-20",
+        tone === "danger"
+          ? "text-text-muted hover:bg-red-900/30 hover:text-red-400"
+          : "text-text-muted hover:bg-accent/10 hover:text-accent"
+      )}
+    >
+      <Icon path={ICONS[icon]} />
+    </button>
+  );
+}
+
+function StatChip({ icon, label, value }: { icon: string; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-dark-600 bg-dark-900/50 px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-lg leading-none">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <div className="text-lg font-semibold leading-tight text-text-primary">{value}</div>
+        <div className="truncate text-xs text-text-muted">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="divide-y divide-dark-700/70">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3.5">
           <div
-            className="h-4 w-5 animate-pulse rounded bg-dark-700/70"
+            className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-dark-700/70"
             style={{ animationDelay: `${i * 100}ms` }}
           />
-          <div
-            className="h-4 flex-1 animate-pulse rounded bg-dark-700/60"
-            style={{ animationDelay: `${i * 100 + 50}ms` }}
-          />
-          <div
-            className="h-4 w-16 animate-pulse rounded bg-dark-700/40"
-            style={{ animationDelay: `${i * 100 + 100}ms` }}
-          />
+          <div className="flex-1 space-y-1.5">
+            <div
+              className="h-3.5 w-2/3 animate-pulse rounded bg-dark-700/60"
+              style={{ animationDelay: `${i * 100 + 50}ms` }}
+            />
+            <div
+              className="h-3 w-1/3 animate-pulse rounded bg-dark-700/40"
+              style={{ animationDelay: `${i * 100 + 100}ms` }}
+            />
+          </div>
         </div>
       ))}
     </div>
@@ -59,6 +133,7 @@ export function FederationsPanel() {
   const [loading, setLoading] = useState(true);
   const [ranksLoading, setRanksLoading] = useState(false);
 
+  const [faSearch, setFaSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newIsInternational, setNewIsInternational] = useState(false);
@@ -232,39 +307,75 @@ export function FederationsPanel() {
   const nationals = associations.filter((a) => !a.isInternational);
   const internationals = associations.filter((a) => a.isInternational);
 
+  const search = faSearch.trim().toLowerCase();
+  const filteredNationals = search ? nationals.filter((a) => a.name.toLowerCase().includes(search)) : nationals;
+  const filteredInternationals = search
+    ? internationals.filter((a) => a.name.toLowerCase().includes(search))
+    : internationals;
+
+  const totalRanks = useMemo(() => associations.reduce((sum, a) => sum + a._count.ranks, 0), [associations]);
+  const totalReferees = useMemo(
+    () => associations.reduce((sum, a) => sum + a._count.members + a._count.internationalMembers, 0),
+    [associations]
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-text-primary">Federations</h2>
-        <p className="text-sm text-text-secondary">
-          Build the hierarchy: create national associations and international federations (FIFA, UEFA,
-          ...), then define the ranks or categories inside each one. Referees belong to one association
-          and can additionally be assigned to one international federation.
+        <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+          This is the referee world map. Add each country&rsquo;s{" "}
+          <span className="font-medium text-text-primary">FA</span> on the left, and layer{" "}
+          <span className="font-medium text-text-primary">confederations</span> like FIFA and UEFA on top.
+          Select any one to define the ranks or categories inside it — every referee belongs to one FA, and
+          can optionally also belong to one confederation.
         </p>
       </div>
 
+      {!loading && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatChip icon="🏳️" label="National FAs" value={nationals.length} />
+          <StatChip icon="🌍" label="Confederations" value={internationals.length} />
+          <StatChip icon="🏆" label="Ranks & categories" value={totalRanks} />
+          <StatChip icon="👤" label="Referees mapped" value={totalReferees} />
+        </div>
+      )}
+
       {error && (
-        <div className="rounded-lg border border-status-danger/30 bg-status-danger/10 px-4 py-3 text-sm text-status-danger">
+        <div className="flex items-start gap-2 rounded-lg border border-status-danger/30 bg-status-danger/10 px-4 py-3 text-sm text-status-danger">
+          <Icon path="M12 9v3.75m0 3.75h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z" className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Associations column */}
-        <div className="rounded-xl border border-dark-600 bg-dark-900/60">
-          <div className="border-b border-dark-700 px-4 py-3 text-sm font-medium text-text-primary">
-            Federations {loading ? "" : `(${associations.length})`}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        {/* Federations column */}
+        <div className="overflow-hidden rounded-2xl border border-dark-600 bg-dark-900/60 shadow-card">
+          <div className="border-b border-dark-700 px-4 py-3">
+            <div className="flex items-center justify-between text-sm font-medium text-text-primary">
+              <span>Federations {loading ? "" : `(${associations.length})`}</span>
+            </div>
+            {!loading && associations.length > 4 && (
+              <div className="relative mt-2">
+                <Icon path={ICONS.search} className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                <input
+                  value={faSearch}
+                  onChange={(e) => setFaSearch(e.target.value)}
+                  placeholder="Search federations..."
+                  className="w-full rounded-lg border border-dark-600 bg-dark-800/60 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-text-muted focus:border-accent/40 focus:outline-none focus:ring-1 focus:ring-accent/20"
+                />
+              </div>
+            )}
           </div>
+
           {loading ? (
             <ListSkeleton />
           ) : (
             <>
-              <div className="bg-dark-800/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                National associations
-              </div>
-              <div className="divide-y divide-dark-700/70">
-                {nationals.map((a) => (
-                  <FederationRow
+              <SectionLabel>National associations</SectionLabel>
+              <div className="divide-y divide-dark-700/60">
+                {filteredNationals.map((a) => (
+                  <FederationCard
                     key={a.id}
                     association={a}
                     active={selected === a.id}
@@ -273,19 +384,17 @@ export function FederationsPanel() {
                     onDelete={() => deleteAssociation(a.id)}
                   />
                 ))}
-                {nationals.length === 0 && (
-                  <div className="px-4 py-4 text-center text-xs text-text-muted">
-                    No national associations yet.
-                  </div>
+                {filteredNationals.length === 0 && (
+                  <EmptyRow>
+                    {search ? "No national associations match your search." : "No national associations yet."}
+                  </EmptyRow>
                 )}
               </div>
 
-              <div className="border-t border-dark-700 bg-dark-800/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                International federations
-              </div>
-              <div className="divide-y divide-dark-700/70">
-                {internationals.map((a) => (
-                  <FederationRow
+              <SectionLabel accent>International federations</SectionLabel>
+              <div className="divide-y divide-dark-700/60">
+                {filteredInternationals.map((a) => (
+                  <FederationCard
                     key={a.id}
                     association={a}
                     active={selected === a.id}
@@ -294,16 +403,50 @@ export function FederationsPanel() {
                     onDelete={() => deleteAssociation(a.id)}
                   />
                 ))}
-                {internationals.length === 0 && (
-                  <div className="px-4 py-4 text-center text-xs text-text-muted">
-                    No international federations yet. Toggle &ldquo;International&rdquo; below to add one.
-                  </div>
+                {filteredInternationals.length === 0 && (
+                  <EmptyRow>
+                    {search
+                      ? "No international federations match your search."
+                      : 'No international federations yet. Toggle "International" below to add one.'}
+                  </EmptyRow>
                 )}
               </div>
             </>
           )}
 
-          <div className="space-y-2 border-t border-dark-700 p-3">
+          {/* Add federation */}
+          <div className="space-y-3 border-t border-dark-700 bg-dark-800/30 p-3">
+            <div
+              role="radiogroup"
+              aria-label="Federation type"
+              className="inline-flex rounded-lg border border-dark-600 bg-dark-900/60 p-0.5 text-xs font-medium"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!newIsInternational}
+                onClick={() => setNewIsInternational(false)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors",
+                  !newIsInternational ? "bg-accent text-dark-900" : "text-text-secondary hover:text-white"
+                )}
+              >
+                🏳️ National
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={newIsInternational}
+                onClick={() => setNewIsInternational(true)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors",
+                  newIsInternational ? "bg-accent text-dark-900" : "text-text-secondary hover:text-white"
+                )}
+              >
+                🌍 International
+              </button>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {!newIsInternational && (
                 <div className="w-32">
@@ -319,71 +462,90 @@ export function FederationsPanel() {
                 />
               </div>
               <Button onClick={addAssociation} disabled={!newName.trim()}>
+                <Icon path={ICONS.plus} className="h-4 w-4" />
                 Add
               </Button>
             </div>
-            <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={newIsInternational}
-                onClick={() => setNewIsInternational((v) => !v)}
-                className={`relative h-5 w-9 rounded-full transition-colors ${
-                  newIsInternational ? "bg-accent" : "bg-dark-600"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
-                    newIsInternational ? "left-[18px]" : "left-0.5"
-                  }`}
-                />
-              </button>
-              <span>
-                🌍 International federation
-                <span className="ml-1 text-text-muted">— assignable in addition to a referee&rsquo;s FA</span>
-              </span>
-            </label>
           </div>
         </div>
 
         {/* Ranks column */}
-        <div className="rounded-xl border border-dark-600 bg-dark-900/60">
-          <div className="border-b border-dark-700 px-4 py-3 text-sm font-medium text-text-primary">
-            {selected
-              ? `${selectedIsInternational ? "Categories" : "Ranks"} — ${selectedLabel}`
-              : "Ranks / Categories"}
+        <div className="overflow-hidden rounded-2xl border border-dark-600 bg-dark-900/60 shadow-card">
+          <div className="flex items-center gap-3 border-b border-dark-700 px-4 py-3">
+            {selectedAssociation ? (
+              <>
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base leading-none ring-1",
+                    selectedIsInternational
+                      ? "bg-gradient-to-br from-accent/25 to-accent/5 ring-accent/30"
+                      : "bg-dark-700 ring-dark-500"
+                  )}
+                >
+                  {selectedIsInternational ? "🌍" : flagEmoji(selectedAssociation.countryCode) || "🏳️"}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-text-primary">
+                    {selectedIsInternational ? "Categories" : "Ranks"} — {selectedLabel}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {ranks.length} {selectedIsInternational ? "categor" : "rank"}
+                    {ranks.length === 1 ? (selectedIsInternational ? "y" : "") : selectedIsInternational ? "ies" : "s"}
+                    , highest first
+                  </div>
+                </div>
+              </>
+            ) : (
+              <span className="text-sm font-medium text-text-primary">Ranks / Categories</span>
+            )}
           </div>
 
           {!selected ? (
-            <div className="px-4 py-10 text-center text-sm text-text-muted">
-              Select a federation to manage its ranks or categories.
+            <div className="flex flex-col items-center gap-2 px-4 py-14 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-dark-800 text-2xl">
+                🏆
+              </span>
+              <p className="text-sm text-text-muted">
+                Select a federation to manage its ranks or categories.
+              </p>
             </div>
           ) : ranksLoading ? (
             <ListSkeleton />
           ) : (
             <>
-              <div className="divide-y divide-dark-700/70">
-                {ranks.map((r, index) => (
-                  <RankRow
-                    key={r.id}
-                    rank={r}
-                    isFirst={index === 0}
-                    isLast={index === ranks.length - 1}
-                    onRename={(name) => renameRank(r.id, name)}
-                    onMove={(dir) => moveRank(r.id, dir)}
-                    onDelete={() => deleteRank(r.id)}
-                  />
-                ))}
-                {ranks.length === 0 && (
-                  <div className="px-4 py-10 text-center text-sm text-text-muted">
+              <div className="relative">
+                {ranks.length > 1 && (
+                  <div className="pointer-events-none absolute bottom-8 left-[34px] top-8 w-px bg-gradient-to-b from-accent/50 via-dark-600 to-dark-600/20" />
+                )}
+                <div className="divide-y divide-dark-700/40">
+                  {ranks.map((r, index) => (
+                    <RankItem
+                      key={r.id}
+                      rank={r}
+                      position={index}
+                      isFirst={index === 0}
+                      isLast={index === ranks.length - 1}
+                      onRename={(name) => renameRank(r.id, name)}
+                      onMove={(dir) => moveRank(r.id, dir)}
+                      onDelete={() => deleteRank(r.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+              {ranks.length === 0 && (
+                <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-dark-800 text-lg">
+                    {selectedIsInternational ? "🥇" : "🎖️"}
+                  </span>
+                  <p className="text-sm text-text-muted">
                     {selectedIsInternational
                       ? "No categories yet. Add the highest category first (e.g. Elite)."
                       : "No ranks yet. Add the highest rank first."}
-                  </div>
-                )}
-              </div>
+                  </p>
+                </div>
+              )}
 
-              <div className="flex gap-2 border-t border-dark-700 p-3">
+              <div className="flex gap-2 border-t border-dark-700 bg-dark-800/30 p-3">
                 <div className="flex-1">
                   <Input
                     value={newRank}
@@ -395,6 +557,7 @@ export function FederationsPanel() {
                   />
                 </div>
                 <Button onClick={addRank} disabled={!newRank.trim()}>
+                  <Icon path={ICONS.plus} className="h-4 w-4" />
                   Add
                 </Button>
               </div>
@@ -406,7 +569,24 @@ export function FederationsPanel() {
   );
 }
 
-function FederationRow({
+function SectionLabel({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 border-t border-dark-700 bg-dark-800/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider first:border-t-0",
+        accent ? "text-accent/80" : "text-text-muted"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function EmptyRow({ children }: { children: React.ReactNode }) {
+  return <div className="px-4 py-4 text-center text-xs text-text-muted">{children}</div>;
+}
+
+function FederationCard({
   association,
   active,
   onSelect,
@@ -421,64 +601,85 @@ function FederationRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(association.name);
+  const count = association.isInternational
+    ? association._count.internationalMembers
+    : association._count.members;
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-3 text-sm ${active ? "bg-accent/10" : "hover:bg-dark-800/60"}`}>
+    <div
+      data-testid="fa-row"
+      className={cn(
+        "flex items-center gap-2 border-l-2 px-3.5 py-3 text-sm transition-colors",
+        active ? "border-l-accent bg-accent/10" : "border-l-transparent hover:bg-dark-800/60"
+      )}
+    >
       {editing ? (
         <>
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 flex-1" />
-          <Button
-            size="xs"
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-9 flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onRename(name.trim());
+                setEditing(false);
+              }
+            }}
+          />
+          <IconButton
+            icon="check"
+            label="Save"
             onClick={() => {
               onRename(name.trim());
               setEditing(false);
             }}
-          >
-            Save
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
+          />
+          <IconButton
+            icon="x"
+            label="Cancel"
             onClick={() => {
               setName(association.name);
               setEditing(false);
             }}
-          >
-            Cancel
-          </Button>
+          />
         </>
       ) : (
         <>
-          <button type="button" onClick={onSelect} className="flex flex-1 items-center gap-2 text-left">
-            <span className="text-base leading-none">
+          <button type="button" onClick={onSelect} className="flex flex-1 items-center gap-2.5 text-left min-w-0">
+            <span
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm leading-none ring-1",
+                association.isInternational
+                  ? "bg-gradient-to-br from-accent/25 to-accent/5 ring-accent/30"
+                  : "bg-dark-700 ring-dark-500"
+              )}
+            >
               {association.isInternational ? "🌍" : flagEmoji(association.countryCode) || "🏳️"}
             </span>
-            <span className="font-medium text-text-primary">{association.name}</span>
-            {(() => {
-              const count = association.isInternational
-                ? association._count.internationalMembers
-                : association._count.members;
-              return (
-                <span className="text-xs text-text-muted">
-                  {count} referee{count === 1 ? "" : "s"}
-                </span>
-              );
-            })()}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium text-text-primary">{association.name}</span>
+              <span className="block text-[11px] text-text-muted">
+                {association._count.ranks} {association.isInternational ? "categor" : "rank"}
+                {association._count.ranks === 1 ? (association.isInternational ? "y" : "") : association.isInternational ? "ies" : "s"}
+                {" · "}
+                {count} referee{count === 1 ? "" : "s"}
+              </span>
+            </span>
           </button>
-          <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
-            Rename
-          </Button>
-          <Button size="xs" variant="danger" onClick={onDelete}>
-            Delete
-          </Button>
+          <IconButton icon="pencil" label="Rename" onClick={() => setEditing(true)} />
+          <IconButton icon="trash" label="Delete" tone="danger" onClick={onDelete} />
         </>
       )}
     </div>
   );
 }
 
-function RankRow({
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function RankItem({
   rank,
+  position,
   isFirst,
   isLast,
   onRename,
@@ -486,6 +687,7 @@ function RankRow({
   onDelete,
 }: {
   rank: Rank;
+  position: number;
   isFirst: boolean;
   isLast: boolean;
   onRename: (name: string) => void;
@@ -495,65 +697,70 @@ function RankRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(rank.name);
   const holders = rank._count.members + rank._count.internationalMembers;
+  const badge = MEDALS[position] ?? String(position + 1);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 text-sm">
-      <div className="flex flex-col">
-        <button
-          type="button"
-          onClick={() => onMove("up")}
-          disabled={isFirst}
-          className="text-text-muted hover:text-accent disabled:opacity-20"
-          aria-label="Move up"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          onClick={() => onMove("down")}
-          disabled={isLast}
-          className="text-text-muted hover:text-accent disabled:opacity-20"
-          aria-label="Move down"
-        >
-          ▼
-        </button>
-      </div>
+    <div data-testid="rank-row" className="flex items-center gap-3 px-4 py-3 text-sm">
+      <span className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dark-900 text-sm font-semibold ring-1 ring-dark-600">
+        {badge}
+      </span>
 
       {editing ? (
         <>
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 flex-1" />
-          <Button
-            size="xs"
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-9 flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onRename(name.trim());
+                setEditing(false);
+              }
+            }}
+          />
+          <IconButton
+            icon="check"
+            label="Save"
             onClick={() => {
               onRename(name.trim());
               setEditing(false);
             }}
-          >
-            Save
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
+          />
+          <IconButton
+            icon="x"
+            label="Cancel"
             onClick={() => {
               setName(rank.name);
               setEditing(false);
             }}
-          >
-            Cancel
-          </Button>
+          />
         </>
       ) : (
         <>
-          <span className="flex-1 font-medium text-text-primary">{rank.name}</span>
-          <span className="text-xs text-text-muted">
-            {holders} referee{holders === 1 ? "" : "s"}
-          </span>
-          <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
-            Rename
-          </Button>
-          <Button size="xs" variant="danger" onClick={onDelete}>
-            Delete
-          </Button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium text-text-primary">{rank.name}</div>
+            <div className="flex items-center gap-1 text-[11px] text-text-muted">
+              <Icon path={ICONS.users} className="h-3 w-3" />
+              {holders} referee{holders === 1 ? "" : "s"}
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <IconButton
+              icon="chevronUp"
+              label="Move up"
+              disabled={isFirst}
+              onClick={() => onMove("up")}
+            />
+            <IconButton
+              icon="chevronDown"
+              label="Move down"
+              disabled={isLast}
+              onClick={() => onMove("down")}
+            />
+            <IconButton icon="pencil" label="Rename" onClick={() => setEditing(true)} />
+            <IconButton icon="trash" label="Delete" tone="danger" onClick={onDelete} />
+          </div>
         </>
       )}
     </div>

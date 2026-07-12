@@ -57,9 +57,9 @@ test.describe.serial("federations hierarchy builder", () => {
     await page.goto("/super-admin?tab=federations");
     await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
 
-    // Flip the international toggle: the placeholder changes and the flag
-    // picker disappears.
-    await page.getByRole("switch").click();
+    // Flip to the international segment: the placeholder changes and the
+    // flag picker disappears.
+    await page.getByRole("radio", { name: "International" }).click();
     const input = page.getByPlaceholder("New federation (e.g. UEFA)");
     await input.fill(TEMP_INTL);
     await page.getByRole("button", { name: "Add", exact: true }).click();
@@ -109,10 +109,7 @@ test.describe.serial("federations hierarchy builder", () => {
     await expect(page.getByText("PWFA UI Rank Two")).toBeVisible();
 
     // Reorder: move Rank Two above Rank One.
-    const rankTwoRow = page
-      .locator("div")
-      .filter({ hasText: /^▲▼PWFA UI Rank Two/ })
-      .last();
+    const rankTwoRow = page.getByTestId("rank-row").filter({ hasText: "PWFA UI Rank Two" });
     await rankTwoRow.getByRole("button", { name: "Move up" }).click();
     await expect
       .poll(async () => {
@@ -130,10 +127,7 @@ test.describe.serial("federations hierarchy builder", () => {
       .toEqual(["PWFA UI Rank Two", "PWFA UI Rank One"]);
 
     // Rename Rank One.
-    const rankOneRow = page
-      .locator("div")
-      .filter({ hasText: /^▲▼PWFA UI Rank One/ })
-      .last();
+    const rankOneRow = page.getByTestId("rank-row").filter({ hasText: "PWFA UI Rank One" });
     await rankOneRow.getByRole("button", { name: "Rename" }).click();
     const editInput = page.locator('input[value="PWFA UI Rank One"]');
     await editInput.fill("PWFA UI Rank Renamed");
@@ -142,17 +136,14 @@ test.describe.serial("federations hierarchy builder", () => {
 
     // Delete both ranks.
     for (const rank of ["PWFA UI Rank Two", "PWFA UI Rank Renamed"]) {
-      const row = page
-        .locator("div")
-        .filter({ hasText: new RegExp(`^▲▼${rank}`) })
-        .last();
+      const row = page.getByTestId("rank-row").filter({ hasText: rank });
       await row.getByRole("button", { name: "Delete" }).click();
       await expect(page.getByText(rank)).toBeHidden();
     }
     await expect(page.getByText("No ranks yet")).toBeVisible();
 
     // Delete the association itself (no members, so this succeeds).
-    const faRow = page.locator("div").filter({ hasText: new RegExp(`^🏳️${TEMP_FA}`) }).last();
+    const faRow = page.getByTestId("fa-row").filter({ hasText: TEMP_FA });
     await faRow.getByRole("button", { name: "Delete" }).click();
     // The row (a select button named after the FA) must disappear from the list.
     await expect(page.getByRole("button", { name: new RegExp(TEMP_FA) })).toHaveCount(0);
