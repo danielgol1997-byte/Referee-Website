@@ -5,6 +5,10 @@
  * reorder / delete ranks, manage international categories, delete the
  * association. Runs as the DEVELOPER fixture user — hierarchy mutations are
  * closed to every other role.
+ *
+ * The panel has two sub-tabs:
+ *   1. Add federations  — always-visible create form + existing list
+ *   2. Ranks & categories — pick a federation, then edit its ladder
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { apiAs, statePath, PW } from "./helpers";
@@ -40,15 +44,18 @@ test.describe.serial("federations hierarchy builder", () => {
   test("panel lists national associations and international federations", async ({ page }) => {
     await page.goto("/super-admin?tab=federations");
     await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Add federations/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Ranks & categories/i })).toBeVisible();
     await expect(page.getByText("National associations")).toBeVisible();
     await expect(page.getByText("International federations")).toBeVisible();
     await expect(page.getByText(PW.fas.alpha)).toBeVisible();
     await expect(page.getByText(PW.fas.beta)).toBeVisible();
     await expect(page.getByText(PW.fas.intl)).toBeVisible();
 
-    // An international federation holds its own categories.
-    await page.getByText(PW.fas.intl).click();
-    await expect(page.getByText(`Categories — ${PW.fas.intl}`)).toBeVisible();
+    // Jump into the international federation's categories via the list CTA.
+    const intlRow = page.getByTestId("fa-row").filter({ hasText: PW.fas.intl });
+    await intlRow.getByRole("button", { name: /Categories/i }).click();
+    await expect(page.getByText(`Categories · ${PW.fas.intl}`)).toBeVisible();
     await expect(page.getByText(PW.ranks.intlElite)).toBeVisible();
     await expect(page.getByText(PW.ranks.intlFirst)).toBeVisible();
   });
@@ -57,22 +64,23 @@ test.describe.serial("federations hierarchy builder", () => {
     await page.goto("/super-admin?tab=federations");
     await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
 
-    // Flip to the international segment: the placeholder changes and the
-    // flag picker disappears.
-    await page.getByRole("radio", { name: "International" }).click();
+    // Flip to the international card: the placeholder changes and the flag
+    // picker disappears.
+    await page.getByRole("radio", { name: /International/i }).click();
     const input = page.getByPlaceholder("New federation (e.g. UEFA)");
     await input.fill(TEMP_INTL);
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText(TEMP_INTL)).toBeVisible();
 
     // It lands in the international section and takes categories.
-    await page.getByText(TEMP_INTL).click();
-    await expect(page.getByText(`Categories — ${TEMP_INTL}`)).toBeVisible();
+    const tempRow = page.getByTestId("fa-row").filter({ hasText: TEMP_INTL });
+    await tempRow.getByRole("button", { name: /Categories/i }).click();
+    await expect(page.getByText(`Categories · ${TEMP_INTL}`)).toBeVisible();
     await expect(page.getByText("No categories yet", { exact: false })).toBeVisible();
 
     const categoryInput = page.getByPlaceholder("New category (e.g. Elite)");
     await categoryInput.fill("PWFA UI Temp Elite");
-    await page.getByRole("button", { name: "Add", exact: true }).nth(1).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("PWFA UI Temp Elite")).toBeVisible();
 
     // Verify server-side flag, then clean up.
@@ -88,24 +96,25 @@ test.describe.serial("federations hierarchy builder", () => {
     await page.goto("/super-admin?tab=federations");
     await expect(page.getByRole("heading", { name: "Federations" })).toBeVisible();
 
-    // Create the association.
+    // Create the association on tab 1.
     await page.getByPlaceholder("New association name").fill(TEMP_FA);
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText(TEMP_FA)).toBeVisible();
 
-    // Select it; it has no ranks yet.
-    await page.getByText(TEMP_FA).click();
-    await expect(page.getByText(`Ranks — ${TEMP_FA}`)).toBeVisible();
+    // Open its ranks on tab 2.
+    const faRow = page.getByTestId("fa-row").filter({ hasText: TEMP_FA });
+    await faRow.getByRole("button", { name: /Ranks/i }).click();
+    await expect(page.getByText(`Ranks · ${TEMP_FA}`)).toBeVisible();
     await expect(page.getByText("No ranks yet")).toBeVisible();
 
     // Add two ranks.
     const rankInput = page.getByPlaceholder("New rank name");
     await rankInput.fill("PWFA UI Rank One");
-    await page.getByRole("button", { name: "Add", exact: true }).nth(1).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("PWFA UI Rank One")).toBeVisible();
 
     await rankInput.fill("PWFA UI Rank Two");
-    await page.getByRole("button", { name: "Add", exact: true }).nth(1).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("PWFA UI Rank Two")).toBeVisible();
 
     // Reorder: move Rank Two above Rank One.
@@ -142,11 +151,11 @@ test.describe.serial("federations hierarchy builder", () => {
     }
     await expect(page.getByText("No ranks yet")).toBeVisible();
 
-    // Delete the association itself (no members, so this succeeds).
-    const faRow = page.getByTestId("fa-row").filter({ hasText: TEMP_FA });
-    await faRow.getByRole("button", { name: "Delete" }).click();
-    // The row (a select button named after the FA) must disappear from the list.
-    await expect(page.getByRole("button", { name: new RegExp(TEMP_FA) })).toHaveCount(0);
+    // Back to tab 1 to delete the association itself.
+    await page.getByRole("tab", { name: /Add federations/i }).click();
+    const deleteRow = page.getByTestId("fa-row").filter({ hasText: TEMP_FA });
+    await deleteRow.getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByTestId("fa-row").filter({ hasText: TEMP_FA })).toHaveCount(0);
   });
 
   test("duplicate association names are rejected with a visible error", async ({ page }) => {
