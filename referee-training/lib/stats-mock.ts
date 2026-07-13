@@ -101,6 +101,10 @@ export type RefereeProfile = {
   tournaments: Record<TournamentKey, number>;
 };
 
+/** International confederations a referee may additionally belong to. */
+export const CONFERENCES = ["UEFA", "FIFA"] as const;
+export type Conference = (typeof CONFERENCES)[number];
+
 export type StatReferee = {
   id: string;
   name: string;
@@ -110,6 +114,11 @@ export type StatReferee = {
    * mock demonstrates per-FA division until real stats are wired.
    */
   associationCountryCode: string | null;
+  /**
+   * International confederation this referee also belongs to (in addition to
+   * their national federation), mirroring `Association.isInternational`.
+   */
+  conference: Conference | null;
   level: string;
   /** Average score per category slug (0-10 scale) */
   scores: Record<string, number>;
@@ -124,18 +133,18 @@ export type StatReferee = {
 
 // Average marks per category, from the concept deck (slide 52).
 // Column order there: Challenges, Handball, DOGSO/SPA, Simulation, PAI, Teamwork, Dissent, Offside, LOTG
-const rawReferees: Array<[string, string, string, number[]]> = [
-  ["Lars Andersen", "Denmark", "Elite", [9.3, 7.6, 8.4, 8.9, 9.25, 8.8, 9.1, 9.0, 9.0]],
-  ["Mateusz Kowalczyk", "Poland", "Category 1", [9.0, 7.25, 6.8, 8.25, 7.4, 8.0, 8.7, 8.85, 8.8]],
-  ["Giovanni Bianchi", "Italy", "Elite", [8.8, 9.2, 8.75, 9.4, 8.75, 9.45, 7.9, 8.7, 9.55]],
-  ["Pavel Novák", "Czech Republic", "Category 1", [8.75, 7.5, 7.7, 8.4, 7.9, 7.7, 8.75, 8.15, 9.45]],
-  ["Andreas Schmidt", "Germany", "Category 1", [8.5, 7.0, 9.3, 7.55, 8.85, 8.4, 8.55, 7.9, 9.15]],
-  ["Juan García Pérez", "Spain", "Elite", [8.2, 9.4, 7.8, 8.0, 8.5, 7.8, 8.25, 9.45, 8.6]],
-  ["Kristjan Mägi", "Estonia", "Category 2", [8.0, 9.2, 7.3, 7.0, 7.6, 7.55, 7.8, 9.3, 8.5]],
-  ["Mihai Dumitrescu", "Romania", "Category 1", [7.8, 8.8, 9.0, 7.25, 9.0, 9.65, 7.4, 9.2, 7.9]],
-  ["Tomáš Horváth", "Slovakia", "Category 2", [7.75, 8.75, 9.75, 7.75, 8.35, 8.7, 9.8, 8.45, 7.9]],
-  ["Nikos Georgiou", "Greece", "Category 1", [7.5, 7.8, 8.6, 9.2, 7.3, 9.15, 9.5, 8.3, 7.8]],
-  ["Erik Lambercht", "Belgium", "Elite", [9.1, 8.6, 9.0, 8.8, 9.3, 8.9, 8.5, 9.1, 9.2]],
+const rawReferees: Array<[string, string, string, Conference | null, number[]]> = [
+  ["Lars Andersen", "Denmark", "Elite", "UEFA", [9.3, 7.6, 8.4, 8.9, 9.25, 8.8, 9.1, 9.0, 9.0]],
+  ["Mateusz Kowalczyk", "Poland", "Category 1", null, [9.0, 7.25, 6.8, 8.25, 7.4, 8.0, 8.7, 8.85, 8.8]],
+  ["Giovanni Bianchi", "Italy", "Elite", "UEFA", [8.8, 9.2, 8.75, 9.4, 8.75, 9.45, 7.9, 8.7, 9.55]],
+  ["Pavel Novák", "Czech Republic", "Category 1", null, [8.75, 7.5, 7.7, 8.4, 7.9, 7.7, 8.75, 8.15, 9.45]],
+  ["Andreas Schmidt", "Germany", "Category 1", "UEFA", [8.5, 7.0, 9.3, 7.55, 8.85, 8.4, 8.55, 7.9, 9.15]],
+  ["Juan García Pérez", "Spain", "Elite", "FIFA", [8.2, 9.4, 7.8, 8.0, 8.5, 7.8, 8.25, 9.45, 8.6]],
+  ["Kristjan Mägi", "Estonia", "Category 2", null, [8.0, 9.2, 7.3, 7.0, 7.6, 7.55, 7.8, 9.3, 8.5]],
+  ["Mihai Dumitrescu", "Romania", "Category 1", null, [7.8, 8.8, 9.0, 7.25, 9.0, 9.65, 7.4, 9.2, 7.9]],
+  ["Tomáš Horváth", "Slovakia", "Category 2", null, [7.75, 8.75, 9.75, 7.75, 8.35, 8.7, 9.8, 8.45, 7.9]],
+  ["Nikos Georgiou", "Greece", "Category 1", "UEFA", [7.5, 7.8, 8.6, 9.2, 7.3, 9.15, 9.5, 8.3, 7.8]],
+  ["Erik Lambercht", "Belgium", "Elite", "UEFA", [9.1, 8.6, 9.0, 8.8, 9.3, 8.9, 8.5, 9.1, 9.2]],
 ];
 
 // Bio / fitness / career, parallel to rawReferees.
@@ -182,7 +191,7 @@ const deckColumnSlugs = [
   "laws-of-the-game",
 ];
 
-export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, level, marks], idx) => {
+export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, level, conference, marks], idx) => {
   const scores: Record<string, number> = {};
   deckColumnSlugs.forEach((slug, i) => {
     scores[slug] = marks[i];
@@ -200,6 +209,7 @@ export const STAT_REFEREES: StatReferee[] = rawReferees.map(([name, country, lev
     name,
     country,
     associationCountryCode: codeForCountry(country),
+    conference,
     level,
     scores,
     profile: {
@@ -221,31 +231,68 @@ export function getRefereeById(id: string): StatReferee | undefined {
   return STAT_REFEREES.find((r) => r.id === id);
 }
 
+/** Which part of an admin's scope to view, when they have both. */
+export type AdminScope = "federation" | "conference" | "both";
+
 /**
- * Federation-scoped referee list.
- *  - Super admins see everyone (optionally narrowed to one FA's country code).
- *  - FA admins see only referees in their own association's country.
+ * Federation/conference-scoped referee list.
+ *  - Super admins / developers see everyone (optionally narrowed to one
+ *    association — national or international — and/or one rank).
+ *  - FA admins see referees in their own national federation. If they're also
+ *    a conference admin (their user has an international association), they
+ *    additionally see that confederation's members; `scope` picks which part
+ *    of that combined access to display.
  *  - Referees see only themselves.
  */
 export function getScopedReferees(opts: {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   associationCountryCode: string | null;
+  conference: Conference | null;
   myRefereeId: string;
-  /** Super-admin-only filter: narrow to a single FA's country code. */
+  /** Super-admin-only filter: narrow to a single association's country code, or a conference name. */
   filterCountryCode?: string | null;
+  filterConference?: Conference | null;
+  /** Which slice of a dual-scoped (federation + conference) admin's access to show. */
+  scope?: AdminScope;
+  /** Narrow to a single referee rank/level (Elite, Category 1, ...). */
+  rank?: string | null;
 }): StatReferee[] {
+  let list: StatReferee[];
+
   if (opts.isSuperAdmin) {
+    list = STAT_REFEREES;
     if (opts.filterCountryCode) {
-      return STAT_REFEREES.filter((r) => r.associationCountryCode === opts.filterCountryCode);
+      list = list.filter((r) => r.associationCountryCode === opts.filterCountryCode);
+    } else if (opts.filterConference) {
+      list = list.filter((r) => r.conference === opts.filterConference);
     }
-    return STAT_REFEREES;
+  } else if (opts.isAdmin) {
+    if (!opts.associationCountryCode && !opts.conference) return [];
+    const scope = opts.scope ?? "both";
+    const inFederation = opts.associationCountryCode
+      ? STAT_REFEREES.filter((r) => r.associationCountryCode === opts.associationCountryCode)
+      : [];
+    const inConference = opts.conference
+      ? STAT_REFEREES.filter((r) => r.conference === opts.conference)
+      : [];
+    if (scope === "federation" || !opts.conference) list = inFederation;
+    else if (scope === "conference" || !opts.associationCountryCode) list = inConference;
+    else {
+      const seen = new Set<string>();
+      list = [...inFederation, ...inConference].filter((r) =>
+        seen.has(r.id) ? false : (seen.add(r.id), true)
+      );
+    }
+  } else {
+    list = STAT_REFEREES.filter((r) => r.id === opts.myRefereeId);
   }
-  if (opts.isAdmin) {
-    if (!opts.associationCountryCode) return [];
-    return STAT_REFEREES.filter((r) => r.associationCountryCode === opts.associationCountryCode);
+
+  if (opts.rank) {
+    list = list.filter((r) => r.level === opts.rank);
   }
-  return STAT_REFEREES.filter((r) => r.id === opts.myRefereeId);
+
+  return list;
 }
 
 export function getTotalTournamentGames(referee: StatReferee): number {

@@ -115,15 +115,15 @@ export function RefereeCategoryView({
 
       {/* Summary metrics for this referee in this category */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Tests completed</p>
           <p className="text-3xl font-bold text-cyan-500">
             <AnimatedNumber value={tests} />
           </p>
           <p className="text-xs text-text-muted">in {category.name}</p>
         </Card>
-        <Card className="space-y-1">
-          <p className="flex items-center gap-1 text-sm text-text-secondary">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
+          <p className="flex items-center justify-center gap-1 text-sm text-text-secondary">
             Category rank
             <InfoTip text={`Where this referee sits among ${referee.level} referees for this category.`} />
           </p>
@@ -134,7 +134,7 @@ export function RefereeCategoryView({
             </span>
           </p>
         </Card>
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Latest test</p>
           <p className={`text-3xl font-bold tabular-nums ${scoreTextColor(latest.score)}`}>
             {latest.score}

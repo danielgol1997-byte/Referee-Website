@@ -18,6 +18,7 @@ import { Sparkline } from "./Sparkline";
 import { ScoreBadge } from "./ScoreBadge";
 import { ProfileCard } from "./ProfileCard";
 import { ReportsInsights } from "./ReportsInsights";
+import { ExportButton } from "./ExportDialog";
 import { scoreTextColor } from "./score-utils";
 
 export function RefereeStatsView({
@@ -65,22 +66,29 @@ export function RefereeStatsView({
             </>
           )}
         </nav>
-        {!isOwnView && (
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/stats/referee/${previous.id}`}
-              className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
-            >
-              ← {previous.name.split(" ")[0]}
-            </Link>
-            <Link
-              href={`/stats/referee/${next.id}`}
-              className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
-            >
-              {next.name.split(" ")[0]} →
-            </Link>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {!isOwnView && (
+            <>
+              <Link
+                href={`/stats/referee/${previous.id}`}
+                className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
+              >
+                ← {previous.name.split(" ")[0]}
+              </Link>
+              <Link
+                href={`/stats/referee/${next.id}`}
+                className="rounded-lg border border-dark-600 bg-dark-800/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-all hover:border-accent/40 hover:text-accent"
+              >
+                {next.name.split(" ")[0]} →
+              </Link>
+            </>
+          )}
+          <ExportButton
+            role={isOwnView ? "REFEREE" : "ADMIN"}
+            referees={[referee]}
+            scopeLabel={isOwnView ? "My stats" : referee.name}
+          />
+        </div>
       </div>
 
       {/* Profile */}
@@ -105,7 +113,7 @@ export function RefereeStatsView({
           tone="focus"
           href={`/stats/referee/${refereeId}/category/${weakest.slug}`}
         />
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Tests completed</p>
           <p className="text-xl font-bold text-cyan-500">
             <AnimatedNumber value={totalTests} />
@@ -243,7 +251,7 @@ function HighlightCard({
 }) {
   const toneColor = tone === "strong" ? "text-[#4ade80]" : "text-[#f87171]";
   const inner = (
-    <Card hoverable={!!href} className="h-full space-y-1">
+    <Card hoverable={!!href} className="flex h-full flex-col items-center justify-center space-y-1 text-center">
       <p className="text-sm text-text-secondary">{label}</p>
       <p className={`text-xl font-bold transition-colors ${toneColor} ${href ? "group-hover:text-accent" : ""}`}>
         {name}

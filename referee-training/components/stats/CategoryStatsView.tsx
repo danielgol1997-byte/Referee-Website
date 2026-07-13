@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
   getCategoryTrend,
   getRefereeDistribution,
   getTestsTaken,
+  type Conference,
   type StatReferee,
 } from "@/lib/stats-mock";
 import { AnimatedNumber } from "./AnimatedNumber";
@@ -24,17 +25,42 @@ import { TrendChart } from "./TrendChart";
 import { ScoreBadge } from "./ScoreBadge";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
+import type { FilterableAssociation } from "./StatsFilterBar";
+import { useStatsFilters } from "@/lib/stats-filters-context";
+import { applyStatsFilters } from "@/lib/apply-stats-filters";
 
 const WEEK_LABELS = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"];
 
 export function CategoryStatsView({
   slug,
-  referees = STAT_REFEREES,
+  referees: baseReferees = STAT_REFEREES,
+  isSuperAdmin = false,
+  hasDualScope = false,
+  associations = [],
+  federationCountryCode = null,
+  conferenceName = null,
 }: {
   slug: string;
   referees?: StatReferee[];
+  isSuperAdmin?: boolean;
+  hasDualScope?: boolean;
+  associations?: FilterableAssociation[];
+  federationCountryCode?: string | null;
+  conferenceName?: Conference | null;
 }) {
   const router = useRouter();
+  const { filters, clearAll, hasActiveFilters } = useStatsFilters();
+  const referees = useMemo(
+    () =>
+      applyStatsFilters(baseReferees, filters, {
+        isSuperAdmin,
+        hasDualScope,
+        associations,
+        federationCountryCode,
+        conferenceName,
+      }),
+    [baseReferees, filters, isSuperAdmin, hasDualScope, associations, federationCountryCode, conferenceName]
+  );
   const index = STAT_CATEGORIES.findIndex((c) => c.slug === slug);
   const category = STAT_CATEGORIES[index];
   const previous = STAT_CATEGORIES[(index - 1 + STAT_CATEGORIES.length) % STAT_CATEGORIES.length];
@@ -96,19 +122,19 @@ export function CategoryStatsView({
 
       {/* Summary metrics */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Average mark</p>
           <p className={`text-3xl font-bold ${scoreTextColor(average)}`}>
             <AnimatedNumber value={average} decimals={2} />
           </p>
         </Card>
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Tests completed</p>
           <p className="text-3xl font-bold text-cyan-500">
             <AnimatedNumber value={tests} />
           </p>
         </Card>
-        <Card className="space-y-1">
+        <Card className="flex flex-col items-center justify-center space-y-1 text-center">
           <p className="text-sm text-text-secondary">Top referee</p>
           {topReferee ? (
             <>
@@ -156,12 +182,27 @@ export function CategoryStatsView({
 
       {/* Ranking table (deck slide: Referee / Country / Category / Tests made / Ave. mark) */}
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-text-primary">Ranking</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            All {referees.length} referees, ranked by average mark in {category.name} within
-            their level. Click a row for the referee&apos;s full record.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary">Ranking</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              {referees.length} referee{referees.length !== 1 ? "s" : ""}, ranked by average mark
+              in {category.name} within their level. Click a row for the referee&apos;s full
+              record.
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition-all hover:bg-accent/20"
+            >
+              Filters applied
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
         <Card padded={false}>
           <div className="overflow-x-auto">

@@ -27,12 +27,12 @@ function Metric({
   info?: string;
 }) {
   return (
-    <div className="rounded-lg border border-dark-600 bg-dark-900/40 px-3 py-2.5">
-      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-text-muted">
+    <div className="flex h-[74px] flex-col items-center justify-center gap-0.5 rounded-lg border border-dark-600 bg-dark-900/40 px-3 py-2.5 text-center">
+      <p className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-text-muted">
         {label}
         {info && <InfoTip text={info} />}
       </p>
-      <p className="mt-0.5 text-lg font-bold text-text-primary tabular-nums">
+      <p className="text-lg font-bold text-text-primary tabular-nums">
         {value}
         {unit && <span className="ml-0.5 text-xs font-medium text-text-muted">{unit}</span>}
       </p>
@@ -144,12 +144,12 @@ export function ProfileCard({
             unit="%"
             info="Estimated body-fat percentage from the latest fitness assessment."
           />
-          <div className="rounded-lg border border-dark-600 bg-dark-900/40 px-3 py-2.5">
-            <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-text-muted">
+          <div className="flex h-[74px] flex-col items-center justify-center gap-1 rounded-lg border border-dark-600 bg-dark-900/40 px-3 py-2.5 text-center">
+            <p className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-text-muted">
               Fitness
               <InfoTip text="Overall fitness band from the latest assessment: Excellent down to Poor." />
             </p>
-            <p className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${fitness.badge}`}>
+            <p className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${fitness.badge}`}>
               {profile.fitnessLevel}
             </p>
           </div>
