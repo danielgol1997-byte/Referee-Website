@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { VideoLibrarySearchView } from "@/components/library/VideoLibrarySearchView";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function VideoLibraryPage() {
   // Fetch top-level categories with video counts

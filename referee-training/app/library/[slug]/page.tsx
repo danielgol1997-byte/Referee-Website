@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 type Section = {
   title?: string;
