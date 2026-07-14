@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LawSnippetsCarousel } from "@/components/LawSnippetsCarousel";
 import type { Prisma } from "@prisma/client";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function LawsPage() {
   let articles: Prisma.LibraryArticleGetPayload<{ include: { category: true } }>[] = [];

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Category } from "@prisma/client";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 type PracticeCategory = Pick<Category, "id" | "name" | "slug" | "type">;
 
