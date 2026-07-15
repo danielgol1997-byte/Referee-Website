@@ -6,6 +6,7 @@ import { CURRENT_SEASON, SEASONS, type Season } from "@/lib/stats-mock";
 import { getObserverReports } from "@/lib/observer-reports-mock";
 import { AiInsights } from "./AiInsights";
 import { ObserverReports } from "./ObserverReports";
+import { GradingGuide } from "./GradingGuide";
 import { InfoTip } from "./InfoTip";
 
 type Tab = "ai" | "reports";
@@ -40,10 +41,13 @@ export function ReportsInsights({ refereeId }: { refereeId: string }) {
       {/* Shared header: title + single season filter */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="flex items-center gap-1.5 text-xl font-semibold text-text-primary">
-            Performance analysis
-            <InfoTip text="An AI read of this season's observer reports, plus the reports it's based on. One season filter controls both tabs." />
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="flex items-center gap-1.5 text-xl font-semibold text-text-primary">
+              Performance analysis
+              <InfoTip text="An AI read of this season's observer reports, plus the reports it's based on. One season filter controls both tabs." />
+            </h2>
+            <GradingGuide />
+          </div>
           <p className="mt-1 text-sm text-text-secondary">
             AI summary and the observer reports behind it
           </p>

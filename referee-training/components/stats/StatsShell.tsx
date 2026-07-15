@@ -69,20 +69,29 @@ export function StatsShell({
   };
 
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-6">
+    <div className="mx-auto max-w-screen-xl px-6 py-8 space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="w-12 h-1 bg-gradient-to-r from-warm to-cyan-500 rounded-full mb-4" />
-          <h1 className="text-3xl font-bold text-premium">Statistics</h1>
-          <p className="mt-2 text-text-secondary">Referees, categories, and tests at a glance</p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-            Mock preview — placeholder data
-          </span>
-          <ExportButton role={exportRole} referees={scopedReferees} scopeLabel={federationLabel} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="h-6 w-1 rounded-full bg-gradient-to-b from-warm to-cyan-500" />
+        <h1 className="text-2xl font-bold text-premium">Statistics</h1>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          Mock preview
+        </span>
+        <div className="ml-auto">
+          <ExportButton
+            role={exportRole}
+            referees={referees}
+            scopeLabel={federationLabel}
+            scope={{
+              isSuperAdmin,
+              hasDualScope,
+              associations,
+              federationCountryCode,
+              federationLabel,
+              conferenceName,
+            }}
+          />
         </div>
       </div>
 
@@ -93,6 +102,9 @@ export function StatsShell({
         hasDualScope={hasDualScope}
         federationLabel={federationLabel}
         conferenceLabel={conferenceName}
+        referees={referees}
+        federationCountryCode={federationCountryCode}
+        conferenceName={conferenceName}
       />
 
       {/* Tabs */}

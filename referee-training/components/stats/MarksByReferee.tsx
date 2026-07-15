@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import {
   COUNTRY_FLAGS,
-  REFEREE_LEVELS,
   STAT_CATEGORIES,
   STAT_REFEREES,
   getRefereeOverall,
@@ -22,22 +20,13 @@ type SortKey = "name" | "country" | "level" | "overall" | string; // category sl
 export function MarksByReferee({ referees = STAT_REFEREES }: { referees?: StatReferee[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [country, setCountry] = useState<string>("all");
-  const [level, setLevel] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDesc, setSortDesc] = useState(true);
-
-  const countries = useMemo(
-    () => [...new Set(referees.map((r) => r.country))].sort(),
-    [referees]
-  );
 
   const rows = useMemo(() => {
     let list = referees.filter((r) => {
       if (search && !`${r.name} ${r.country}`.toLowerCase().includes(search.toLowerCase()))
         return false;
-      if (country !== "all" && r.country !== country) return false;
-      if (level !== "all" && r.level !== level) return false;
       return true;
     });
 
@@ -51,7 +40,7 @@ export function MarksByReferee({ referees = STAT_REFEREES }: { referees?: StatRe
       return sortDesc ? -cmp : cmp;
     });
     return list;
-  }, [referees, search, country, level, sortKey, sortDesc]);
+  }, [referees, search, sortKey, sortDesc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -79,31 +68,13 @@ export function MarksByReferee({ referees = STAT_REFEREES }: { referees?: StatRe
         </div>
       </div>
 
-      {/* Search by… (deck: Referees → Category, Country, Name) */}
+      {/* Name search (federation/rank filtering lives in the shared top filter bar) */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name…"
           className="sm:max-w-xs"
-        />
-        <Select
-          value={country}
-          onChange={(v) => setCountry(String(v))}
-          options={[
-            { value: "all", label: "All countries" },
-            ...countries.map((c) => ({ value: c, label: `${COUNTRY_FLAGS[c] ?? ""} ${c}` })),
-          ]}
-          className="sm:w-52"
-        />
-        <Select
-          value={level}
-          onChange={(v) => setLevel(String(v))}
-          options={[
-            { value: "all", label: "All categories" },
-            ...REFEREE_LEVELS.map((l) => ({ value: l, label: l })),
-          ]}
-          className="sm:w-48"
         />
       </div>
 
@@ -128,7 +99,7 @@ export function MarksByReferee({ referees = STAT_REFEREES }: { referees?: StatRe
                   className="cursor-pointer select-none px-3 py-3 font-medium transition-colors hover:text-accent"
                   onClick={() => toggleSort("level")}
                 >
-                  Category{sortIndicator("level")}
+                  Rank{sortIndicator("level")}
                 </th>
                 {STAT_CATEGORIES.map((c) => (
                   <th

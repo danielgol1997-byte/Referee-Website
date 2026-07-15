@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import {
   COUNTRY_FLAGS,
+  CURRENT_SEASON,
   STAT_CATEGORIES,
   STAT_REFEREES,
   formatHistoryDate,
@@ -11,10 +12,13 @@ import {
   getTestHistory,
   getTestsTaken,
 } from "@/lib/stats-mock";
+import { getComparison } from "@/lib/observer-reports-mock";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { CategoryTabs } from "./CategoryTabs";
 import { DistributionBar, DistributionLegend } from "./DistributionBar";
 import { TrendChart } from "./TrendChart";
+import { GradingGuide } from "./GradingGuide";
+import { CriterionCompare } from "./TestVsMatch";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
@@ -43,6 +47,10 @@ export function RefereeCategoryView({
       .findIndex((r) => r.id === refereeId) + 1;
 
   const refereeHref = `/stats/referee/${refereeId}`;
+
+  // Observer match read for this criterion (only some categories are graded by
+  // observers on the match template).
+  const comparisonPoint = getComparison(refereeId, CURRENT_SEASON).find((p) => p.slug === slug);
 
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
@@ -166,6 +174,25 @@ export function RefereeCategoryView({
           />
         </Card>
       </div>
+
+      {/* Tests vs match performance for this criterion */}
+      {comparisonPoint && (
+        <Card className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-primary">
+                Tests vs match performance
+                <InfoTip text="This referee's platform test mark and the observers' match read for this criterion, both on the 0–100 Performance Index (70 = expected)." />
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                Theory vs pitch application in {category.name} · {CURRENT_SEASON}
+              </p>
+            </div>
+            <GradingGuide />
+          </div>
+          <CriterionCompare point={comparisonPoint} />
+        </Card>
+      )}
 
       {/* Dated test history (this referee, this category) */}
       <div className="space-y-4">

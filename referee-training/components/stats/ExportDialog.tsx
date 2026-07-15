@@ -1,11 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
-import { STAT_CATEGORIES, type StatReferee } from "@/lib/stats-mock";
+import {
+  COUNTRY_FLAGS,
+  STAT_CATEGORIES,
+  type Conference,
+  type StatReferee,
+} from "@/lib/stats-mock";
 import { runExport, type ExportFormat } from "@/lib/stats-export";
-import { COUNTRY_FLAGS } from "@/lib/stats-mock";
+import { useStatsFilters, type StatsFiltersState } from "@/lib/stats-filters-context";
+import {
+  applyStatsFilters,
+  getAvailableRanks,
+  type StatsFilterContext,
+} from "@/lib/apply-stats-filters";
+import { ScopeControls } from "./ScopeControls";
+import type { FilterableAssociation } from "./StatsFilterBar";
+
+/** Scope context enabling the in-dialog association/rank pickers. */
+export type ExportScope = {
+  isSuperAdmin: boolean;
+  hasDualScope: boolean;
+  associations: FilterableAssociation[];
+  federationCountryCode: string | null;
+  federationLabel: string | null;
+  conferenceName: Conference | null;
+};
 
 const FORMATS: { value: ExportFormat; label: string; hint: string }[] = [
   { value: "csv", label: "CSV", hint: "Plain data, opens anywhere" },
@@ -51,18 +73,80 @@ function Checkbox({
   );
 }
 
+/** Human-readable description of the currently-selected export scope. */
+function deriveScopeLabel(
+  scope: ExportScope | undefined,
+  localFilters: StatsFiltersState,
+  fallback: string | null | undefined
+): string {
+  if (!scope) return fallback || "All referees";
+
+  let base: string;
+  if (scope.isSuperAdmin) {
+    const assoc = localFilters.associationId
+      ? scope.associations.find((a) => a.id === localFilters.associationId)
+      : null;
+    base = assoc ? assoc.name : "All federations & confederations";
+  } else if (scope.hasDualScope) {
+    if (localFilters.scope === "federation") base = scope.federationLabel ?? "Federation";
+    else if (localFilters.scope === "conference") base = scope.conferenceName ?? "Conference";
+    else
+      base = `${scope.federationLabel ?? "Federation"} + ${scope.conferenceName ?? "Conference"}`;
+  } else {
+    base = scope.federationLabel || fallback || "All referees";
+  }
+
+  return localFilters.rank ? `${base} · ${localFilters.rank}` : base;
+}
+
 function ExportDialogBody({
   role,
   referees,
   scopeLabel,
+  scope,
   onClose,
 }: {
   role: "ADMIN" | "SUPER_ADMIN" | "REFEREE";
   referees: StatReferee[];
   scopeLabel?: string | null;
+  scope?: ExportScope;
   onClose: () => void;
 }) {
-  const [refereeIds, setRefereeIds] = useState<Set<string>>(new Set(referees.map((r) => r.id)));
+  const { filters } = useStatsFilters();
+  const showScopeControls =
+    !!scope && (scope.isSuperAdmin || scope.hasDualScope);
+
+  // Seed the dialog's scope from the page's current filters, but keep it local
+  // so tweaking the export doesn't disturb the page.
+  const [localFilters, setLocalFilters] = useState<StatsFiltersState>(filters);
+
+  const filterCtx: StatsFilterContext | null = useMemo(
+    () =>
+      scope
+        ? {
+            isSuperAdmin: scope.isSuperAdmin,
+            hasDualScope: scope.hasDualScope,
+            associations: scope.associations,
+            federationCountryCode: scope.federationCountryCode,
+            conferenceName: scope.conferenceName,
+          }
+        : null,
+    [scope]
+  );
+
+  const scopedReferees = useMemo(
+    () => (filterCtx ? applyStatsFilters(referees, localFilters, filterCtx) : referees),
+    [referees, localFilters, filterCtx]
+  );
+
+  const availableRanks = useMemo(
+    () => (filterCtx ? getAvailableRanks(referees, localFilters, filterCtx) : []),
+    [referees, localFilters, filterCtx]
+  );
+
+  const [refereeIds, setRefereeIds] = useState<Set<string>>(
+    () => new Set(scopedReferees.map((r) => r.id))
+  );
   const [categorySlugs, setCategorySlugs] = useState<Set<string>>(
     new Set(STAT_CATEGORIES.map((c) => c.slug))
   );
@@ -70,9 +154,10 @@ function ExportDialogBody({
   const [exporting, setExporting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // Whenever the scope selection changes the visible pool, select all of it.
   useEffect(() => {
-    setRefereeIds(new Set(referees.map((r) => r.id)));
-  }, [referees]);
+    setRefereeIds(new Set(scopedReferees.map((r) => r.id)));
+  }, [scopedReferees]);
 
   const toggleReferee = (id: string) =>
     setRefereeIds((prev) => {
@@ -89,22 +174,20 @@ function ExportDialogBody({
       return next;
     });
 
-  const allRefereesSelected = refereeIds.size === referees.length;
+  const allRefereesSelected =
+    scopedReferees.length > 0 && refereeIds.size === scopedReferees.length;
   const allCategoriesSelected = categorySlugs.size === STAT_CATEGORIES.length;
 
-  const selectedReferees = referees.filter((r) => refereeIds.has(r.id));
+  const selectedReferees = scopedReferees.filter((r) => refereeIds.has(r.id));
   const selectedCategories = STAT_CATEGORIES.filter((c) => categorySlugs.has(c.slug));
+
+  const liveScopeLabel = deriveScopeLabel(scope, localFilters, scopeLabel);
 
   const handleExport = async () => {
     if (selectedReferees.length === 0 || selectedCategories.length === 0) return;
     setExporting(true);
     try {
-      await runExport(
-        format,
-        selectedReferees,
-        selectedCategories,
-        scopeLabel || "All referees"
-      );
+      await runExport(format, selectedReferees, selectedCategories, liveScopeLabel);
       setDone(true);
       setTimeout(() => {
         setDone(false);
@@ -122,42 +205,76 @@ function ExportDialogBody({
         <Dialog.Description className="mt-1 text-sm text-text-secondary">
           {role === "REFEREE"
             ? "Download your own statistics."
-            : `Scope: ${scopeLabel || "all referees currently in view"}. Fine-tune what's included below.`}
+            : `Scope: ${liveScopeLabel}. Fine-tune what's included below.`}
         </Dialog.Description>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-        {role !== "REFEREE" && referees.length > 1 && (
+        {showScopeControls && (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+              Scope
+            </p>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dark-600 bg-dark-900/40 p-2.5">
+              <ScopeControls
+                isSuperAdmin={scope!.isSuperAdmin}
+                associations={scope!.associations}
+                hasDualScope={scope!.hasDualScope}
+                federationLabel={scope!.federationLabel}
+                conferenceLabel={scope!.conferenceName}
+                associationId={localFilters.associationId}
+                scope={localFilters.scope}
+                rank={localFilters.rank}
+                availableRanks={availableRanks}
+                onAssociationChange={(id) =>
+                  setLocalFilters((f) => ({ ...f, associationId: id }))
+                }
+                onScopeChange={(s) => setLocalFilters((f) => ({ ...f, scope: s }))}
+                onRankChange={(r) => setLocalFilters((f) => ({ ...f, rank: r }))}
+              />
+            </div>
+          </div>
+        )}
+
+        {role !== "REFEREE" && (
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Referees ({refereeIds.size} of {referees.length})
+                Referees ({refereeIds.size} of {scopedReferees.length})
               </p>
               <button
                 type="button"
                 onClick={() =>
-                  setRefereeIds(allRefereesSelected ? new Set() : new Set(referees.map((r) => r.id)))
+                  setRefereeIds(
+                    allRefereesSelected ? new Set() : new Set(scopedReferees.map((r) => r.id))
+                  )
                 }
                 className="text-xs font-medium text-cyan-500 hover:text-cyan-400"
               >
                 {allRefereesSelected ? "Deselect all" : "Select all"}
               </button>
             </div>
-            <div className="grid max-h-40 grid-cols-1 gap-0.5 overflow-y-auto rounded-lg border border-dark-600 bg-dark-900/40 p-1.5 sm:grid-cols-2">
-              {referees.map((r) => (
-                <Checkbox
-                  key={r.id}
-                  checked={refereeIds.has(r.id)}
-                  onChange={() => toggleReferee(r.id)}
-                  label={
-                    <>
-                      {COUNTRY_FLAGS[r.country] ?? ""} {r.name}
-                    </>
-                  }
-                  sub={r.level}
-                />
-              ))}
-            </div>
+            {scopedReferees.length === 0 ? (
+              <p className="rounded-lg border border-dark-600 bg-dark-900/40 px-3 py-4 text-center text-sm text-text-muted">
+                No referees in this scope.
+              </p>
+            ) : (
+              <div className="grid max-h-40 grid-cols-1 gap-0.5 overflow-y-auto rounded-lg border border-dark-600 bg-dark-900/40 p-1.5 sm:grid-cols-2">
+                {scopedReferees.map((r) => (
+                  <Checkbox
+                    key={r.id}
+                    checked={refereeIds.has(r.id)}
+                    onChange={() => toggleReferee(r.id)}
+                    label={
+                      <>
+                        {COUNTRY_FLAGS[r.country] ?? ""} {r.name}
+                      </>
+                    }
+                    sub={r.level}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -262,10 +379,14 @@ export function ExportButton({
   role,
   referees,
   scopeLabel,
+  scope,
+  className,
 }: {
   role: "ADMIN" | "SUPER_ADMIN" | "REFEREE";
   referees: StatReferee[];
   scopeLabel?: string | null;
+  scope?: ExportScope;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -274,7 +395,7 @@ export function ExportButton({
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3.5 py-2 text-xs font-semibold text-cyan-400 transition-all hover:bg-cyan-500/20"
+          className={`inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-400 transition-all hover:bg-cyan-500/20 ${className ?? ""}`}
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -295,6 +416,7 @@ export function ExportButton({
               role={role}
               referees={referees}
               scopeLabel={scopeLabel}
+              scope={scope}
               onClose={() => setOpen(false)}
             />
           )}

@@ -50,6 +50,7 @@ export default async function CategoryStatsPage({
       hasDualScope={access.hasDualScope}
       associations={associations}
       federationCountryCode={access.associationCountryCode}
+      federationLabel={access.associationName}
       conferenceName={access.conferenceName}
     />
   );

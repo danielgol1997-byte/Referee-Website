@@ -1,11 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
 import {
-  COUNTRY_FLAGS,
-  REFEREE_LEVELS,
   STAT_CATEGORIES,
   STAT_REFEREES,
   formatScore,
@@ -17,25 +14,7 @@ import { AnimatedNumber } from "./AnimatedNumber";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
 
-export function StatsOverview({ referees: source = STAT_REFEREES }: { referees?: StatReferee[] }) {
-  const [country, setCountry] = useState("all");
-  const [level, setLevel] = useState("all");
-
-  const countries = useMemo(
-    () => [...new Set(source.map((r) => r.country))].sort(),
-    [source]
-  );
-
-  const referees = useMemo(
-    () =>
-      source.filter((r) => {
-        if (country !== "all" && r.country !== country) return false;
-        if (level !== "all" && r.level !== level) return false;
-        return true;
-      }),
-    [source, country, level]
-  );
-
+export function StatsOverview({ referees = STAT_REFEREES }: { referees?: StatReferee[] }) {
   const totalTests = useMemo(
     () =>
       referees.reduce(
@@ -60,45 +39,8 @@ export function StatsOverview({ referees: source = STAT_REFEREES }: { referees?:
     [referees]
   );
 
-  const filtersActive = country !== "all" || level !== "all";
-
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <span className="text-sm font-medium text-text-secondary">Filter</span>
-        <Select
-          value={country}
-          onChange={(v) => setCountry(String(v))}
-          options={[
-            { value: "all", label: "All countries" },
-            ...countries.map((c) => ({ value: c, label: `${COUNTRY_FLAGS[c] ?? ""} ${c}` })),
-          ]}
-          className="sm:w-52"
-        />
-        <Select
-          value={level}
-          onChange={(v) => setLevel(String(v))}
-          options={[
-            { value: "all", label: "All referee categories" },
-            ...REFEREE_LEVELS.map((l) => ({ value: l, label: l })),
-          ]}
-          className="sm:w-56"
-        />
-        {filtersActive && (
-          <button
-            type="button"
-            onClick={() => {
-              setCountry("all");
-              setLevel("all");
-            }}
-            className="text-sm text-text-muted transition-colors hover:text-accent"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
       {/* Hero metrics (respond to filters) */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="space-y-1">
@@ -106,9 +48,7 @@ export function StatsOverview({ referees: source = STAT_REFEREES }: { referees?:
           <p className="text-3xl font-bold text-cyan-500">
             <AnimatedNumber key={referees.length} value={referees.length} />
           </p>
-          <p className="text-xs text-text-muted">
-            {filtersActive ? "matching filters" : "tracked this season"}
-          </p>
+          <p className="text-xs text-text-muted">in current scope</p>
         </Card>
         <Card className="space-y-1">
           <p className="text-sm text-text-secondary">Tests completed</p>
@@ -125,9 +65,7 @@ export function StatsOverview({ referees: source = STAT_REFEREES }: { referees?:
           <p className={`text-3xl font-bold ${scoreTextColor(averageMark)}`}>
             <AnimatedNumber key={averageMark.toFixed(2)} value={averageMark} decimals={2} />
           </p>
-          <p className="text-xs text-text-muted">
-            {filtersActive ? "selected referees" : "all referees"}
-          </p>
+          <p className="text-xs text-text-muted">all referees in scope</p>
         </Card>
       </div>
 

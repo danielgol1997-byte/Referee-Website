@@ -25,7 +25,7 @@ import { TrendChart } from "./TrendChart";
 import { ScoreBadge } from "./ScoreBadge";
 import { InfoTip } from "./InfoTip";
 import { scoreTextColor } from "./score-utils";
-import type { FilterableAssociation } from "./StatsFilterBar";
+import { StatsFilterBar, type FilterableAssociation } from "./StatsFilterBar";
 import { useStatsFilters } from "@/lib/stats-filters-context";
 import { applyStatsFilters } from "@/lib/apply-stats-filters";
 
@@ -38,6 +38,7 @@ export function CategoryStatsView({
   hasDualScope = false,
   associations = [],
   federationCountryCode = null,
+  federationLabel = null,
   conferenceName = null,
 }: {
   slug: string;
@@ -46,10 +47,11 @@ export function CategoryStatsView({
   hasDualScope?: boolean;
   associations?: FilterableAssociation[];
   federationCountryCode?: string | null;
+  federationLabel?: string | null;
   conferenceName?: Conference | null;
 }) {
   const router = useRouter();
-  const { filters, clearAll, hasActiveFilters } = useStatsFilters();
+  const { filters } = useStatsFilters();
   const referees = useMemo(
     () =>
       applyStatsFilters(baseReferees, filters, {
@@ -80,7 +82,7 @@ export function CategoryStatsView({
   })).filter((g) => g.referees.length > 0);
 
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
+    <div className="mx-auto max-w-screen-xl px-6 py-8 space-y-6">
       {/* Breadcrumb + prev/next navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <nav className="flex items-center gap-2 text-text-muted">
@@ -119,6 +121,18 @@ export function CategoryStatsView({
           Site-wide performance in {category.name} tests
         </p>
       </div>
+
+      {/* Filters */}
+      <StatsFilterBar
+        isSuperAdmin={isSuperAdmin}
+        associations={associations}
+        hasDualScope={hasDualScope}
+        federationLabel={federationLabel}
+        conferenceLabel={conferenceName}
+        referees={baseReferees}
+        federationCountryCode={federationCountryCode}
+        conferenceName={conferenceName}
+      />
 
       {/* Summary metrics */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -191,18 +205,6 @@ export function CategoryStatsView({
               record.
             </p>
           </div>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearAll}
-              className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition-all hover:bg-accent/20"
-            >
-              Filters applied
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
         </div>
         <Card padded={false}>
           <div className="overflow-x-auto">
