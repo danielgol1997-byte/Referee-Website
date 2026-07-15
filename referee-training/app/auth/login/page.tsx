@@ -9,10 +9,23 @@ import { Input } from "@/components/ui/input";
 
 function safeCallbackUrl(value: string | null) {
   if (!value) return "/";
-  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
-    return "/";
+
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
+    return value;
   }
-  return value;
+
+  if (typeof window !== "undefined") {
+    try {
+      const url = new URL(value);
+      if (url.origin === window.location.origin) {
+        return `${url.pathname}${url.search}${url.hash}` || "/";
+      }
+    } catch {
+      return "/";
+    }
+  }
+
+  return "/";
 }
 
 export default function LoginPage() {
