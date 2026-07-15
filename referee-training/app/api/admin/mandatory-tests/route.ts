@@ -57,8 +57,11 @@ export async function POST(req: Request) {
       includeVar = false,
     } = body ?? {};
 
+    const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+    const shouldCreateUserGeneratedTest = !isSuperAdmin || Boolean(isUserGenerated);
+
     // Only super admins can create mandatory tests
-    if (isMandatory && session.user.role !== "SUPER_ADMIN") {
+    if (isMandatory && !isSuperAdmin) {
       return NextResponse.json({ error: "Only super admins can create mandatory tests" }, { status: 403 });
     }
 
@@ -79,9 +82,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Category not found." }, { status: 400 });
     }
 
-    // Respect the isUserGenerated flag from the request
-    // - Tests from "Build Your Own Test" section: isUserGenerated = true (user's personal tests)
-    // - Tests from super admin page: isUserGenerated = false (public/mandatory tests)
+    // Only super admins can publish tests into the shared pool. Regular users may
+    // create their own saved tests, but those must remain user-generated.
     const test = await prisma.mandatoryTest.create({
       data: {
         title,
@@ -93,8 +95,8 @@ export async function POST(req: Request) {
         passingScore: passingScore ?? null,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         isActive,
-        isMandatory,
-        isUserGenerated,
+        isMandatory: isSuperAdmin ? isMandatory : false,
+        isUserGenerated: shouldCreateUserGeneratedTest,
         includeVar,
         createdById: session.user.id,
       },
