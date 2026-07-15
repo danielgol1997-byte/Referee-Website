@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import type { Prisma, RestartType, SanctionType } from "@prisma/client";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     
@@ -14,19 +22,19 @@ export async function GET(request: NextRequest) {
     
     // Parse filters
     const laws = lawsParam ? lawsParam.split(',').map(Number) : [];
-    const restarts = restartsParam ? restartsParam.split(',') : [];
-    const sanctions = sanctionsParam ? sanctionsParam.split(',') : [];
+    const restarts = restartsParam ? restartsParam.split(',') as RestartType[] : [];
+    const sanctions = sanctionsParam ? sanctionsParam.split(',') as SanctionType[] : [];
     const tags = tagsParam ? tagsParam.split(',') : [];
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.VideoClipWhereInput = {
       isActive: true,
-      AND: []
     };
+    const andFilters: Prisma.VideoClipWhereInput[] = [];
 
     // Text search
     if (q) {
-      where.AND.push({
+      andFilters.push({
         OR: [
           { title: { contains: q, mode: 'insensitive' } },
           { description: { contains: q, mode: 'insensitive' } },
@@ -36,28 +44,28 @@ export async function GET(request: NextRequest) {
 
     // Law filter
     if (laws.length > 0) {
-      where.AND.push({
+      andFilters.push({
         lawNumbers: { hasSome: laws }
       });
     }
 
     // Restart filter
     if (restarts.length > 0) {
-      where.AND.push({
+      andFilters.push({
         restartType: { in: restarts }
       });
     }
 
     // Sanction filter
     if (sanctions.length > 0) {
-      where.AND.push({
+      andFilters.push({
         sanctionType: { in: sanctions }
       });
     }
 
     // Tag filter
     if (tags.length > 0) {
-      where.AND.push({
+      andFilters.push({
         tags: {
           some: {
             tagId: { in: tags }
@@ -68,16 +76,15 @@ export async function GET(request: NextRequest) {
 
     // Category filter
     if (categorySlug) {
-      where.AND.push({
+      andFilters.push({
         videoCategory: {
           slug: categorySlug
         }
       });
     }
 
-    // If no filters, remove AND array
-    if (where.AND.length === 0) {
-      delete where.AND;
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     // Fetch videos

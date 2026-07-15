@@ -7,6 +7,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+function safeCallbackUrl(value: string | null) {
+  if (!value) return "/";
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+    return "/";
+  }
+  return value;
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-dark-800" />}>
@@ -19,7 +27,7 @@ function LoginPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   // Default to home page "/" instead of "/stats" to allow users to access any page
-  const callbackUrl = params.get("callbackUrl") ?? "/";
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
