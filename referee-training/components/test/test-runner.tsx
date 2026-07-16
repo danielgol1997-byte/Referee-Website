@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/ui/video-player";
 
 type AnswerOption = {
@@ -181,7 +180,7 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
       for (const questionId in answers) {
         const answer = answers[questionId];
         if (answer.selectedOptionId) {
-          await fetch(`/api/tests/${sessionId}/answer`, {
+          const res = await fetch(`/api/tests/${sessionId}/answer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -189,12 +188,16 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
               selectedOptionId: answer.selectedOptionId,
             }),
           });
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(data?.error ?? "Could not submit test");
+          }
         }
       }
       // Navigate to results
       router.push(resultsHref);
-    } catch {
-      setError("Could not submit test");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit test");
     } finally {
       setSubmitting(false);
     }
@@ -360,11 +363,11 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
               if (Math.abs(offset) > 4) return null;
               
               // Transform values based on offset from the rotating position
-              let translateX = offset * 80;
-              let translateZ = -Math.abs(offset) * 50;
-              let scale = 1 - Math.abs(offset) * 0.15;
-              let opacity = Math.max(0.2, 1 - Math.abs(offset) * 0.25);
-              let zIndex = 30 - Math.abs(offset) * 5;
+              const translateX = offset * 80;
+              const translateZ = -Math.abs(offset) * 50;
+              const scale = 1 - Math.abs(offset) * 0.15;
+              const opacity = Math.max(0.2, 1 - Math.abs(offset) * 0.25);
+              const zIndex = 30 - Math.abs(offset) * 5;
               
               const isAnswered = !!answers[questions[index].id]?.selectedOptionId;
               const isCurrent = !isDragging && index === current;
