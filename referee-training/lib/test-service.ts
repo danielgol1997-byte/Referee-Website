@@ -12,6 +12,10 @@ type CreateSessionParams = {
   includeVar?: boolean;
 };
 
+type QuestionWithAnswers = Prisma.QuestionGetPayload<{
+  include: { answerOptions: true };
+}>;
+
 /**
  * Fisher-Yates shuffle algorithm for true randomization
  * This ensures uniform distribution unlike Array.sort()
@@ -45,7 +49,7 @@ export async function createTestSession({
     throw new Error("Category not found");
   }
 
-  let selected: any[] = [];
+  let selected: QuestionWithAnswers[] = [];
 
   // Check if this is a mandatory test with specific question IDs
   if (mandatoryTestId) {
@@ -53,8 +57,18 @@ export async function createTestSession({
       where: { id: mandatoryTestId },
     });
 
+    if (!mandatoryTest) {
+      throw new Error("Test not found");
+    }
+    if (!mandatoryTest.isActive) {
+      throw new Error("Test is not active");
+    }
+    if (mandatoryTest.isUserGenerated && mandatoryTest.createdById !== userId) {
+      throw new Error("Test not found");
+    }
+
     // If test has specific question IDs, use those (question-specific test)
-    if (mandatoryTest?.questionIds && mandatoryTest.questionIds.length > 0) {
+    if (mandatoryTest.questionIds && mandatoryTest.questionIds.length > 0) {
       // Question-specific test: use the exact questions, but randomize their order
       // Filter for active questions only, consistent with regular question selection
       const specificQuestions = await prisma.question.findMany({
@@ -217,6 +231,12 @@ export async function recordAnswer({
   if (!session || session.userId !== userId) {
     throw new Error("Session not found");
   }
+  if (session.completedAt) {
+    throw new Error("Session already completed");
+  }
+  if (!session.questionIds.includes(questionId)) {
+    throw new Error("Question is not part of this test session");
+  }
 
   const question = await prisma.question.findUnique({
     where: { id: questionId },
@@ -267,6 +287,11 @@ export async function getSessionSummary(userId: string, sessionId: string) {
         },
       },
       category: true,
+      mandatoryTest: {
+        select: {
+          passingScore: true,
+        },
+      },
     },
   });
 
@@ -274,17 +299,57 @@ export async function getSessionSummary(userId: string, sessionId: string) {
     throw new Error("Session not found");
   }
 
-  const correctCount = session.testAnswers.filter((a) => a.isCorrect).length;
+  const sessionQuestionIds = new Set(session.questionIds);
+  const testAnswers = session.testAnswers.filter((a) => sessionQuestionIds.has(a.questionId));
+  const correctCount = testAnswers.filter((a) => a.isCorrect).length;
   const total = session.totalQuestions;
   const score = correctCount;
 
-  if (session.score !== score || !session.completedAt) {
-    await prisma.testSession.update({
-      where: { id: session.id },
-      data: { score, completedAt: new Date() },
+  const completedAt = session.completedAt ?? new Date();
+  const shouldUpdateSession = session.score !== score || !session.completedAt;
+
+  if (shouldUpdateSession || session.mandatoryTestId) {
+    await prisma.$transaction(async (tx) => {
+      if (shouldUpdateSession) {
+        await tx.testSession.update({
+          where: { id: session.id },
+          data: { score, completedAt },
+        });
+      }
+
+      if (session.mandatoryTestId) {
+        await tx.userTestCompletion.upsert({
+          where: {
+            userId_mandatoryTestId: {
+              userId: session.userId,
+              mandatoryTestId: session.mandatoryTestId,
+            },
+          },
+          create: {
+            userId: session.userId,
+            mandatoryTestId: session.mandatoryTestId,
+            testSessionId: session.id,
+            completedAt,
+            score,
+            passed:
+              session.mandatoryTest?.passingScore == null
+                ? null
+                : score >= session.mandatoryTest.passingScore,
+          },
+          update: {
+            testSessionId: session.id,
+            completedAt,
+            score,
+            passed:
+              session.mandatoryTest?.passingScore == null
+                ? null
+                : score >= session.mandatoryTest.passingScore,
+          },
+        });
+      }
     });
   }
 
-  return { session: { ...session, score }, correctCount, total };
+  return { session: { ...session, score, testAnswers }, correctCount, total };
 }
 
