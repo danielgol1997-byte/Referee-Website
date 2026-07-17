@@ -4,6 +4,7 @@
  * 
  * Usage: node prisma/update-questions.js
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
