@@ -7,6 +7,10 @@
 
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
+const {
+  isHistoricalAnswerReferenceError,
+  replaceAnswerOptionsSafely,
+} = require('./answer-option-maintenance');
 
 // Configuration
 const NEW_FILE_PATH = '/Users/daniel/Downloads/Fixed IFAB lotg Q&A.txt';
@@ -140,6 +144,8 @@ async function updateQuestions() {
 
   let updatedCount = 0;
   let notFoundCount = 0;
+  let skippedHistoricalCount = 0;
+  let errorCount = 0;
 
   // 3. Update Loop
   for (const dbQ of targetQuestions) {
@@ -150,31 +156,29 @@ async function updateQuestions() {
 
     if (match) {
       // Perform Update
-      await prisma.$transaction(async (tx) => {
-        // Delete old answers
-        await tx.answerOption.deleteMany({
-          where: { questionId: dbQ.id }
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.question.update({
+            where: { id: dbQ.id },
+            data: {
+              explanation: match.explanation,
+              lawNumbers: match.lawNumbers,
+            }
+          });
+
+          await replaceAnswerOptionsSafely(tx, dbQ.id, match.answerOptions);
         });
 
-        // Update question text/explanation/laws and create new answers
-        await tx.question.update({
-          where: { id: dbQ.id },
-          data: {
-            explanation: match.explanation,
-            lawNumbers: match.lawNumbers,
-            answerOptions: {
-              create: match.answerOptions.map((opt, idx) => ({
-                label: opt.label,
-                code: `OPT_${idx}`,
-                isCorrect: opt.isCorrect,
-                order: idx,
-              })),
-            }
-          }
-        });
-      });
-      updatedCount++;
-      if (updatedCount % 10 === 0) process.stdout.write("."); // Progress dot
+        updatedCount++;
+        if (updatedCount % 10 === 0) process.stdout.write("."); // Progress dot
+      } catch (err) {
+        if (isHistoricalAnswerReferenceError(err)) {
+          skippedHistoricalCount++;
+        } else {
+          console.error(`\nError updating question ${dbQ.id}:`, err.message);
+          errorCount++;
+        }
+      }
     } else {
       notFoundCount++;
       // console.log(`\nNo match found for question ID ${dbQ.id}: "${dbQ.text.substring(0, 50)}..."`);
@@ -184,6 +188,8 @@ async function updateQuestions() {
   console.log("\n\n✅ Update Complete!");
   console.log(`Updated: ${updatedCount}`);
   console.log(`Unmatched/Skipped: ${notFoundCount}`);
+  console.log(`Skipped (historical answers): ${skippedHistoricalCount}`);
+  console.log(`Errors: ${errorCount}`);
   console.log(`Total Scanned: ${targetQuestions.length}`);
 }
 

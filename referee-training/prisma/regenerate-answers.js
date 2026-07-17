@@ -8,6 +8,10 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
+const {
+  isHistoricalAnswerReferenceError,
+  replaceAnswerOptionsSafely,
+} = require('./answer-option-maintenance');
 const prisma = new PrismaClient();
 
 // ============= ANSWER GENERATION LOGIC =============
@@ -391,6 +395,7 @@ async function regenerateAnswers() {
   console.log(`Found ${questions.length} total questions.\n`);
   
   let skippedCount = 0;
+  let skippedHistoricalCount = 0;
   let updatedCount = 0;
   let errorCount = 0;
   
@@ -414,20 +419,7 @@ async function regenerateAnswers() {
       newAnswers.sort(() => Math.random() - 0.5);
       
       await prisma.$transaction(async (tx) => {
-        await tx.answerOption.deleteMany({ where: { questionId: q.id } });
-        await tx.question.update({
-          where: { id: q.id },
-          data: {
-            answerOptions: {
-              create: newAnswers.map((opt, idx) => ({
-                label: opt.label,
-                code: `OPT_${idx}`,
-                isCorrect: opt.isCorrect,
-                order: idx,
-              })),
-            }
-          }
-        });
+        await replaceAnswerOptionsSafely(tx, q.id, newAnswers);
       });
       
       updatedCount++;
@@ -435,6 +427,11 @@ async function regenerateAnswers() {
         console.log(`Progress: ${updatedCount} updated...`);
       }
     } catch (err) {
+      if (isHistoricalAnswerReferenceError(err)) {
+        skippedHistoricalCount++;
+        continue;
+      }
+
       console.error(`Error updating question ${q.id}:`, err.message);
       errorCount++;
     }
@@ -443,6 +440,7 @@ async function regenerateAnswers() {
   console.log('\n✅ Answer regeneration complete!');
   console.log(`Updated: ${updatedCount}`);
   console.log(`Skipped (manually edited): ${skippedCount}`);
+  console.log(`Skipped (historical answers): ${skippedHistoricalCount}`);
   console.log(`Errors: ${errorCount}`);
   console.log(`Total: ${questions.length}`);
 }
