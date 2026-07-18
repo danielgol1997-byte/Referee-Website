@@ -2,20 +2,17 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/ui/video-player";
 
 type AnswerOption = {
   id: string;
   label: string;
   code: string;
-  isCorrect: boolean;
 };
 
 type Question = {
   id: string;
   text: string;
-  explanation: string;
   videoClip?: {
     fileUrl: string;
     thumbnailUrl?: string | null;
@@ -360,11 +357,11 @@ export function TestRunner({ sessionId, resultsHref }: { sessionId: string; resu
               if (Math.abs(offset) > 4) return null;
               
               // Transform values based on offset from the rotating position
-              let translateX = offset * 80;
-              let translateZ = -Math.abs(offset) * 50;
-              let scale = 1 - Math.abs(offset) * 0.15;
-              let opacity = Math.max(0.2, 1 - Math.abs(offset) * 0.25);
-              let zIndex = 30 - Math.abs(offset) * 5;
+              const translateX = offset * 80;
+              const translateZ = -Math.abs(offset) * 50;
+              const scale = 1 - Math.abs(offset) * 0.15;
+              const opacity = Math.max(0.2, 1 - Math.abs(offset) * 0.25);
+              const zIndex = 30 - Math.abs(offset) * 5;
               
               const isAnswered = !!answers[questions[index].id]?.selectedOptionId;
               const isCurrent = !isDragging && index === current;
