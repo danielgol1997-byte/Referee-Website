@@ -35,7 +35,24 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const questions = await prisma.question.findMany({
     where: { id: { in: testSession.questionIds } },
-    include: { answerOptions: true, videoClip: true },
+    select: {
+      id: true,
+      text: true,
+      answerOptions: {
+        select: {
+          id: true,
+          label: true,
+          code: true,
+        },
+      },
+      videoClip: {
+        select: {
+          fileUrl: true,
+          thumbnailUrl: true,
+          title: true,
+        },
+      },
+    },
   });
 
   // preserve the order of questionIds
