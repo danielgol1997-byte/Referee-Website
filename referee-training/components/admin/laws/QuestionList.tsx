@@ -37,8 +37,11 @@ type QuestionWithRelations = Question & {
 };
 
 type EditFormAnswer = {
+  id?: string;
   label: string;
+  code?: string;
   isCorrect: boolean;
+  order?: number;
 };
 
 type EditForm = {
@@ -160,8 +163,11 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
       explanation: question.explanation,
       difficulty: question.difficulty || 2,
       answers: question.answerOptions.map((opt) => ({
+        id: opt.id,
         label: opt.label,
+        code: opt.code,
         isCorrect: opt.isCorrect,
+        order: opt.order,
       })),
     });
   };
@@ -208,10 +214,11 @@ export function QuestionList({ refreshKey = 0 }: { refreshKey?: number }) {
           explanation: editForm.explanation,
           difficulty: editForm.difficulty,
           answerOptions: editForm.answers.map((a, idx) => ({
+            id: a.id,
             label: a.label,
-            code: `OPT_${idx}`,
+            code: a.code ?? `OPT_${idx}`,
             isCorrect: a.isCorrect,
-            order: idx,
+            order: a.order ?? idx,
           })),
         }),
       });
