@@ -1,4 +1,6 @@
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
@@ -12,7 +14,49 @@ function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+type AppJwt = JWT & {
+  role?: Role;
+  country?: string | null;
+  userMissing?: boolean;
+};
+
+async function syncTokenUser(token: AppJwt) {
+  if (!token.sub) {
+    token.userMissing = true;
+    return token;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: token.sub },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+      role: true,
+      country: true,
+    },
+  });
+
+  if (!user) {
+    token.userMissing = true;
+    token.role = undefined;
+    token.country = undefined;
+    return token;
+  }
+
+  token.sub = user.id;
+  token.email = user.email;
+  token.name = user.name;
+  token.picture = user.image;
+  token.role = user.role;
+  token.country = user.country;
+  token.userMissing = false;
+  return token;
+}
+
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
   debug: env.NEXTAUTH_DEBUG === "true" || env.NODE_ENV === "development",
   // Critical: must be stable in production/serverless, or auth will appear "randomly logged out".
   secret: env.NEXTAUTH_SECRET,
@@ -99,24 +143,32 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "credentials" && !user.email) {
+        return false;
+      }
+      return true;
+    },
     async session({ session, token }) {
+      const appToken = token as AppJwt;
+      if (appToken.userMissing) {
+        session.user = undefined;
+        return session;
+      }
+
       if (session.user) {
-        const tokenWithRole = token as { role?: Role; country?: string | null; sub?: string };
-        session.user.id = tokenWithRole.sub ?? "";
-        session.user.role = tokenWithRole.role ?? Role.REFEREE;
-        session.user.country = tokenWithRole.country ?? null;
+        session.user.id = appToken.sub ?? "";
+        session.user.role = appToken.role ?? Role.REFEREE;
+        session.user.country = appToken.country ?? null;
       }
       return session;
     },
     async jwt({ token, user }) {
-      // On sign in, user object is passed. Store role in token.
-      if (user) {
-        const userWithRole = user as { role?: Role; country?: string | null };
-        token.role = userWithRole.role;
-        token.country = userWithRole.country;
+      const appToken = token as AppJwt;
+      if (user?.id) {
+        appToken.sub = user.id;
       }
-      // Ensure role persists on token for middleware access
-      return token;
+      return syncTokenUser(appToken);
     },
   },
 };
