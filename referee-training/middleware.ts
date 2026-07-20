@@ -25,7 +25,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token }) => {
         // If not authorized, NextAuth will redirect to signIn with callbackUrl automatically.
-        return !!token;
+        return !!token && !!token.role && !token.userMissing;
       },
     },
     pages: {
