@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { storeVideoAsset } from "@/lib/video-storage";
+
+export const runtime = "nodejs";
 
 export async function PUT(
   request: NextRequest,
@@ -36,29 +36,11 @@ export async function PUT(
     const thumbnailFile = formData.get('thumbnail') as File | null;
 
     if (videoFile) {
-      const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
-      if (!existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
-      }
-
-      const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-      const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const videoPath = join(uploadDir, videoFileName);
-      await writeFile(videoPath, videoBuffer);
-      videoUrl = `/videos/uploads/${videoFileName}`;
+      videoUrl = await storeVideoAsset(videoFile);
     }
 
     if (thumbnailFile) {
-      const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
-      if (!existsSync(thumbnailDir)) {
-        await mkdir(thumbnailDir, { recursive: true });
-      }
-
-      const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
-      await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+      thumbnailUrl = await storeVideoAsset(thumbnailFile, "thumbnails");
     }
 
     // Parse form data

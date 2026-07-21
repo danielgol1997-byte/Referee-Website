@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { storeVideoAsset } from "@/lib/video-storage";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -49,32 +49,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Video file is required' }, { status: 400 });
     }
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
+    const videoUrl = await storeVideoAsset(videoFile);
 
-    const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
-    if (!existsSync(thumbnailDir)) {
-      await mkdir(thumbnailDir, { recursive: true });
-    }
-
-    // Save video file
-    const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-    const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const videoPath = join(uploadDir, videoFileName);
-    await writeFile(videoPath, videoBuffer);
-    const videoUrl = `/videos/uploads/${videoFileName}`;
-
-    // Save thumbnail if provided
     let thumbnailUrl: string | undefined;
     if (thumbnailFile) {
-      const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
-      await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+      thumbnailUrl = await storeVideoAsset(thumbnailFile, "thumbnails");
     }
 
     // Get library category
