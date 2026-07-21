@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { storeVideoAsset } from "@/lib/video-storage";
+import { RestartType, SanctionType, VideoType } from "@prisma/client";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -49,32 +50,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Video file is required' }, { status: 400 });
     }
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
+    const videoUrl = await storeVideoAsset(videoFile);
 
-    const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
-    if (!existsSync(thumbnailDir)) {
-      await mkdir(thumbnailDir, { recursive: true });
-    }
-
-    // Save video file
-    const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-    const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const videoPath = join(uploadDir, videoFileName);
-    await writeFile(videoPath, videoBuffer);
-    const videoUrl = `/videos/uploads/${videoFileName}`;
-
-    // Save thumbnail if provided
     let thumbnailUrl: string | undefined;
     if (thumbnailFile) {
-      const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
-      await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+      thumbnailUrl = await storeVideoAsset(thumbnailFile, "thumbnails");
     }
 
     // Get library category
@@ -95,12 +75,12 @@ export async function POST(request: NextRequest) {
     // Parse form data
     const title = formData.get('title') as string;
     const description = formData.get('description') as string | null;
-    const videoType = formData.get('videoType') as string;
+    const videoType = formData.get('videoType') as VideoType;
     const videoCategoryId = formData.get('videoCategoryId') as string;
     const lawNumbers = JSON.parse(formData.get('lawNumbers') as string || '[]');
     const tagIds = JSON.parse(formData.get('tagIds') as string || '[]');
-    const sanctionType = (formData.get('sanctionType') as string) || null;
-    const restartType = (formData.get('restartType') as string) || null;
+    const sanctionType = ((formData.get('sanctionType') as string) || null) as SanctionType | null;
+    const restartType = ((formData.get('restartType') as string) || null) as RestartType | null;
     const correctDecision = (formData.get('correctDecision') as string) || null;
     const decisionExplanation = (formData.get('decisionExplanation') as string) || null;
     const keyPoints = JSON.parse(formData.get('keyPoints') as string || '[]').filter((p: string) => p.trim());
@@ -117,12 +97,12 @@ export async function POST(request: NextRequest) {
         description,
         fileUrl: videoUrl,
         thumbnailUrl,
-        videoType: videoType as any,
+        videoType,
         categoryId: libraryCategory.id,
         videoCategoryId: videoCategoryId || null,
         lawNumbers,
-        sanctionType: sanctionType as any,
-        restartType: restartType as any,
+        sanctionType,
+        restartType,
         correctDecision,
         decisionExplanation,
         keyPoints,
