@@ -14,11 +14,12 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     const lawNumbersRaw = body?.lawNumbers;
-    const mandatoryTestId = body?.mandatoryTestId as string | undefined;
-    const includeVarProvided = body?.includeVar !== undefined;
+    const mandatoryTestId =
+      typeof body?.mandatoryTestId === "string" && body.mandatoryTestId.trim()
+        ? body.mandatoryTestId
+        : undefined;
     const includeVar = body?.includeVar === true;
-    
-    // If mandatoryTestId is provided, fetch the test to get its totalQuestions
+
     let totalQuestions = typeof body?.totalQuestions === "number" 
       ? body.totalQuestions 
       : body?.totalQuestions 
@@ -32,28 +33,36 @@ export async function POST(req: Request) {
             .filter((n) => !Number.isNaN(n) && n >= 1 && n <= 17)
         : undefined;
 
-    // If mandatoryTestId is provided, use the test's configuration
+    // Stored tests define their own scope. Never let clients weaken a mandatory
+    // or public pool test by overriding question count, laws, or VAR inclusion.
     let finalIncludeVar = includeVar;
     if (mandatoryTestId) {
-      const test = await prisma.mandatoryTest.findUnique({
-        where: { id: mandatoryTestId },
+      const test = await prisma.mandatoryTest.findFirst({
+        where: {
+          id: mandatoryTestId,
+          category: { slug: "laws-of-the-game" },
+          isActive: true,
+          OR: [
+            { isMandatory: true },
+            { isMandatory: false, isUserGenerated: false },
+            { isMandatory: false, isUserGenerated: true, createdById: session.user.id },
+          ],
+        },
+        select: {
+          totalQuestions: true,
+          lawNumbers: true,
+          includeVar: true,
+        },
       });
-      
-      if (test) {
-        // Use test's totalQuestions if not explicitly provided in request
-        if (totalQuestions === undefined) {
-          totalQuestions = test.totalQuestions;
-        }
-        // Use test's lawNumbers if not explicitly provided in request
-        // Empty array means all laws, so pass undefined
-        if (!lawNumbers) {
-          lawNumbers = test.lawNumbers.length > 0 ? test.lawNumbers : undefined;
-        }
-        // Use test's includeVar if not explicitly provided in request
-        if (!includeVarProvided) {
-          finalIncludeVar = test.includeVar;
-        }
+
+      if (!test) {
+        return NextResponse.json({ error: "Test not found" }, { status: 404 });
       }
+
+      totalQuestions = test.totalQuestions;
+      // Empty array means all laws, so pass undefined.
+      lawNumbers = test.lawNumbers.length > 0 ? test.lawNumbers : undefined;
+      finalIncludeVar = test.includeVar;
     }
 
     // Default to 10 if still undefined
