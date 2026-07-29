@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // Default to 10 if still undefined
     const finalTotalQuestions = totalQuestions && totalQuestions > 0 ? totalQuestions : 10;
 
-    const { session: testSession, questions } = await createTestSession({
+    const { session: testSession } = await createTestSession({
       userId: session.user.id,
       type: QuestionType.LOTG_TEXT,
       categorySlug: "laws-of-the-game",
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       includeVar: finalIncludeVar,
     });
 
-    return NextResponse.json({ session: testSession, questions });
+    return NextResponse.json({ session: testSession });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to start test";
     return NextResponse.json({ error: message }, { status: 400 });
