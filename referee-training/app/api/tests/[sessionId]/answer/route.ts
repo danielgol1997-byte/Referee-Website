@@ -22,13 +22,13 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const result = await recordAnswer({
+    await recordAnswer({
       userId: session.user.id,
       sessionId: resolvedParams.sessionId,
       questionId,
       selectedOptionId,
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to record answer";
     return NextResponse.json({ error: message }, { status: 400 });
