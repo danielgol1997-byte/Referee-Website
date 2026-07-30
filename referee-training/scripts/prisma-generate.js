@@ -4,10 +4,15 @@ if (!process.env.DIRECT_DATABASE_URL && process.env.DATABASE_URL) {
   process.env.DIRECT_DATABASE_URL = process.env.DATABASE_URL;
 }
 
-const result = spawnSync("prisma", ["generate"], {
+const prismaCli = require.resolve("prisma/build/index.js");
+const result = spawnSync(process.execPath, [prismaCli, "generate"], {
   env: process.env,
-  shell: process.platform === "win32",
   stdio: "inherit",
 });
+
+if (result.error) {
+  console.error(`Failed to run Prisma generate: ${result.error.message}`);
+  process.exit(1);
+}
 
 process.exit(result.status ?? 1);
