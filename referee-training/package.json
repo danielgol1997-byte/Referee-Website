@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/prisma-generate.js && next build",
+    "build": "node scripts/prisma-generate.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "node scripts/prisma-generate.js",
+    "postinstall": "node scripts/prisma-generate.mjs",
     "clear-questions": "node prisma/clear-questions-and-tests.js"
   },
   "prisma": {
