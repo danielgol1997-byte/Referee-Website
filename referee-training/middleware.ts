@@ -1,39 +1,19 @@
 import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
-import type { NextRequestWithAuth } from "next-auth/middleware";
 import { env } from "@/lib/env";
 
-export default withAuth(
-  function middleware(req: NextRequestWithAuth) {
-    const token = req.nextauth.token;
-    const role = token?.role;
-    const pathname = req.nextUrl.pathname;
-
-    // Role-gated areas: if you're authenticated but not allowed, don't bounce to login.
-    // Redirect to home (or you can later replace with a dedicated /forbidden page).
-    if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-
-    if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-
-    return NextResponse.next();
+export default withAuth({
+  callbacks: {
+    authorized: ({ token }) => {
+      // Middleware can only decode the existing JWT. Server-side guards enforce
+      // current roles after the auth callback refreshes them from Prisma.
+      return !!token;
+    },
   },
-  {
-    callbacks: {
-      authorized: ({ token }) => {
-        // If not authorized, NextAuth will redirect to signIn with callbackUrl automatically.
-        return !!token;
-      },
-    },
-    pages: {
-      signIn: "/auth/login",
-    },
-    secret: env.NEXTAUTH_SECRET,
-  }
-);
+  pages: {
+    signIn: "/auth/login",
+  },
+  secret: env.NEXTAUTH_SECRET,
+});
 
 export const config = {
   matcher: [

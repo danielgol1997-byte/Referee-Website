@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
@@ -10,6 +11,29 @@ import { env } from "./env";
 
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+async function refreshTokenIdentity(token: JWT): Promise<JWT> {
+  if (!token.sub) {
+    token.role = Role.REFEREE;
+    token.country = null;
+    return token;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: token.sub },
+    select: {
+      role: true,
+      country: true,
+    },
+  });
+
+  // Privileged API checks read from the JWT-backed session, so keep role data
+  // synchronized with the database instead of trusting a month-old cookie.
+  token.role = user?.role ?? Role.REFEREE;
+  token.country = user?.country ?? null;
+
+  return token;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -109,14 +133,14 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async jwt({ token, user }) {
-      // On sign in, user object is passed. Store role in token.
       if (user) {
-        const userWithRole = user as { role?: Role; country?: string | null };
+        const userWithRole = user as { id?: string; role?: Role; country?: string | null };
+        token.sub = userWithRole.id ?? token.sub;
         token.role = userWithRole.role;
         token.country = userWithRole.country;
       }
-      // Ensure role persists on token for middleware access
-      return token;
+
+      return refreshTokenIdentity(token);
     },
   },
 };
