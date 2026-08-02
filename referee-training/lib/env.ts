@@ -9,6 +9,16 @@ import { z } from "zod";
  *   "logged in on / but other pages redirect to /auth/login".
  */
 
+const optionalNonEmptyString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().optional()
+);
+
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().url().optional()
+);
+
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
@@ -17,16 +27,16 @@ const EnvSchema = z.object({
 
   // Strongly recommended in production, but we don't hard-require because
   // Vercel sets `VERCEL_URL` and some setups derive NEXTAUTH_URL elsewhere.
-  NEXTAUTH_URL: z.string().url().optional(),
+  NEXTAUTH_URL: optionalUrl,
 
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  APPLE_CLIENT_ID: z.string().optional(),
-  APPLE_CLIENT_SECRET: z.string().optional(),
-  FACEBOOK_CLIENT_ID: z.string().optional(),
-  FACEBOOK_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: optionalNonEmptyString,
+  GOOGLE_CLIENT_SECRET: optionalNonEmptyString,
+  APPLE_CLIENT_ID: optionalNonEmptyString,
+  APPLE_CLIENT_SECRET: optionalNonEmptyString,
+  FACEBOOK_CLIENT_ID: optionalNonEmptyString,
+  FACEBOOK_CLIENT_SECRET: optionalNonEmptyString,
 
-  NEXTAUTH_DEBUG: z.string().optional(),
+  NEXTAUTH_DEBUG: optionalNonEmptyString,
 });
 
 const parsed = EnvSchema.safeParse(process.env);
