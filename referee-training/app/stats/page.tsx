@@ -16,7 +16,7 @@ export default async function MyTrainingPage() {
 
   const userId = session.user.id;
 
-  const [categories, history] = await Promise.all([
+  const [categories, history, scoreSummary] = await Promise.all([
     prisma.category.findMany({
       orderBy: { order: "asc" },
       select: {
@@ -48,12 +48,18 @@ export default async function MyTrainingPage() {
         category: { select: { name: true } },
       },
     }),
+    prisma.testSession.aggregate({
+      where: {
+        userId,
+        score: { not: null },
+      },
+      _count: { _all: true },
+      _avg: { score: true },
+    }),
   ]);
 
-  const totalTests = history.length;
-  const average =
-    history.filter((h) => h.score !== null).reduce((sum, h) => sum + (h.score ?? 0), 0) /
-    (history.filter((h) => h.score !== null).length || 1);
+  const totalTests = scoreSummary._count._all;
+  const average = scoreSummary._avg.score ?? 0;
 
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-10 space-y-8">
