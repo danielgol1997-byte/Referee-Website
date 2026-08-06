@@ -12,6 +12,10 @@ type CreateSessionParams = {
   includeVar?: boolean;
 };
 
+type QuestionWithAnswers = Prisma.QuestionGetPayload<{
+  include: { answerOptions: true };
+}>;
+
 /**
  * Fisher-Yates shuffle algorithm for true randomization
  * This ensures uniform distribution unlike Array.sort()
@@ -25,6 +29,18 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+function normalizeQuestionCount(totalQuestions: number) {
+  return Number.isInteger(totalQuestions) && totalQuestions > 0 ? totalQuestions : 10;
+}
+
+function assertEnoughQuestionsAvailable(available: number, required: number) {
+  if (available < required) {
+    throw new Error(
+      `Only ${available} active question${available === 1 ? "" : "s"} available, but ${required} required.`
+    );
+  }
+}
+
 export async function createTestSession({
   userId,
   type,
@@ -35,6 +51,7 @@ export async function createTestSession({
   mandatoryTestId,
   includeVar = false,
 }: CreateSessionParams) {
+  const requiredQuestionCount = normalizeQuestionCount(totalQuestions);
   const where: Prisma.CategoryWhereInput = {};
   if (categorySlug) where.slug = categorySlug;
   if (categoryType) where.type = categoryType;
@@ -45,7 +62,7 @@ export async function createTestSession({
     throw new Error("Category not found");
   }
 
-  let selected: any[] = [];
+  let selected: QuestionWithAnswers[] = [];
 
   // Check if this is a mandatory test with specific question IDs
   if (mandatoryTestId) {
@@ -71,6 +88,7 @@ export async function createTestSession({
 
       // Randomize the order of the specific questions
       selected = shuffleArray(specificQuestions);
+      assertEnoughQuestionsAvailable(selected.length, requiredQuestionCount);
     }
   }
 
@@ -101,9 +119,11 @@ export async function createTestSession({
       throw new Error("No questions available for this category.");
     }
 
+    assertEnoughQuestionsAvailable(allQuestions.length, requiredQuestionCount);
+
     // Use Fisher-Yates shuffle for true randomization
     const shuffled = shuffleArray(allQuestions);
-    selected = shuffled.slice(0, totalQuestions);
+    selected = shuffled.slice(0, requiredQuestionCount);
   }
 
   const session = await prisma.testSession.create({
