@@ -12,6 +12,10 @@ type CreateSessionParams = {
   includeVar?: boolean;
 };
 
+type QuestionWithAnswers = Prisma.QuestionGetPayload<{
+  include: { answerOptions: true };
+}>;
+
 /**
  * Fisher-Yates shuffle algorithm for true randomization
  * This ensures uniform distribution unlike Array.sort()
@@ -58,7 +62,7 @@ export async function createTestSession({
     throw new Error("Category not found");
   }
 
-  let selected: any[] = [];
+  let selected: QuestionWithAnswers[] = [];
 
   // Check if this is a mandatory test with specific question IDs
   if (mandatoryTestId) {
