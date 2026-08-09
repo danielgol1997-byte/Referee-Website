@@ -3,8 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { existsSync } from "fs";
+import {
+  getThumbnailMediaUrl,
+  getThumbnailUploadDir,
+  getThumbnailUploadPath,
+  getVideoMediaUrl,
+  getVideoUploadDir,
+  getVideoUploadPath,
+  sanitizeUploadFileName,
+} from "@/lib/video-media";
 
 export async function GET() {
   try {
@@ -50,31 +58,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
+    const uploadDir = getVideoUploadDir();
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
     }
 
-    const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
+    const thumbnailDir = getThumbnailUploadDir();
     if (!existsSync(thumbnailDir)) {
       await mkdir(thumbnailDir, { recursive: true });
     }
 
     // Save video file
     const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-    const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const videoPath = join(uploadDir, videoFileName);
+    const videoFileName = sanitizeUploadFileName(videoFile.name);
+    const videoPath = getVideoUploadPath(videoFileName);
     await writeFile(videoPath, videoBuffer);
-    const videoUrl = `/videos/uploads/${videoFileName}`;
+    const videoUrl = getVideoMediaUrl(videoFileName);
 
     // Save thumbnail if provided
     let thumbnailUrl: string | undefined;
     if (thumbnailFile) {
       const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
+      const thumbnailFileName = sanitizeUploadFileName(thumbnailFile.name);
+      const thumbnailPath = getThumbnailUploadPath(thumbnailFileName);
       await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+      thumbnailUrl = getThumbnailMediaUrl(thumbnailFileName);
     }
 
     // Get library category
