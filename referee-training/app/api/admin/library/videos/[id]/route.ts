@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
+import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
+import {
+  getThumbnailMediaUrl,
+  getThumbnailUploadDir,
+  getThumbnailUploadPath,
+  getVideoMediaUrl,
+  getVideoUploadDir,
+  getVideoUploadPath,
+  sanitizeUploadFileName,
+} from "@/lib/video-media";
 
 export async function PUT(
   request: NextRequest,
@@ -36,29 +44,29 @@ export async function PUT(
     const thumbnailFile = formData.get('thumbnail') as File | null;
 
     if (videoFile) {
-      const uploadDir = join(process.cwd(), 'public', 'videos', 'uploads');
+      const uploadDir = getVideoUploadDir();
       if (!existsSync(uploadDir)) {
         await mkdir(uploadDir, { recursive: true });
       }
 
       const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
-      const videoFileName = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const videoPath = join(uploadDir, videoFileName);
+      const videoFileName = sanitizeUploadFileName(videoFile.name);
+      const videoPath = getVideoUploadPath(videoFileName);
       await writeFile(videoPath, videoBuffer);
-      videoUrl = `/videos/uploads/${videoFileName}`;
+      videoUrl = getVideoMediaUrl(videoFileName);
     }
 
     if (thumbnailFile) {
-      const thumbnailDir = join(process.cwd(), 'public', 'videos', 'uploads', 'thumbnails');
+      const thumbnailDir = getThumbnailUploadDir();
       if (!existsSync(thumbnailDir)) {
         await mkdir(thumbnailDir, { recursive: true });
       }
 
       const thumbnailBuffer = Buffer.from(await thumbnailFile.arrayBuffer());
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const thumbnailPath = join(thumbnailDir, thumbnailFileName);
+      const thumbnailFileName = sanitizeUploadFileName(thumbnailFile.name);
+      const thumbnailPath = getThumbnailUploadPath(thumbnailFileName);
       await writeFile(thumbnailPath, thumbnailBuffer);
-      thumbnailUrl = `/videos/uploads/thumbnails/${thumbnailFileName}`;
+      thumbnailUrl = getThumbnailMediaUrl(thumbnailFileName);
     }
 
     // Parse form data

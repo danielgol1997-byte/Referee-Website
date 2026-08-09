@@ -43,6 +43,7 @@ export const config = {
     "/stats",
     "/admin/:path*",
     "/super-admin/:path*",
+    "/videos/uploads/:path*",
   ],
 };
 
