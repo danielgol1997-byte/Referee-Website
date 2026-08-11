@@ -7,6 +7,7 @@ import { compare } from "bcryptjs";
 import { prisma } from "./prisma";
 import { Role } from "@prisma/client";
 import { env } from "./env";
+import { authSessionCookie, useSecureAuthCookies } from "./auth-cookies";
 
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -20,7 +21,10 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  useSecureCookies: env.NODE_ENV === "production",
+  useSecureCookies: useSecureAuthCookies,
+  cookies: {
+    sessionToken: authSessionCookie,
+  },
   jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 days - must match session maxAge
   },
