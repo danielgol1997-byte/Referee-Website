@@ -2,6 +2,7 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 import { env } from "@/lib/env";
+import { authSessionCookieName } from "@/lib/auth-cookies";
 
 export default withAuth(
   function middleware(req: NextRequestWithAuth) {
@@ -30,6 +31,11 @@ export default withAuth(
     },
     pages: {
       signIn: "/auth/login",
+    },
+    cookies: {
+      sessionToken: {
+        name: authSessionCookieName,
+      },
     },
     secret: env.NEXTAUTH_SECRET,
   }
