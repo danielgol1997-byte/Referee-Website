@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const includeVar = searchParams.get("includeVar") === "true";
 
     // Build the filter for questions
-    const questionFilter: any = {
+    const questionFilter: Prisma.QuestionWhereInput = {
       type: "LOTG_TEXT",
       isActive: true,
     };
