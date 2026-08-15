@@ -12,6 +12,10 @@ type CreateSessionParams = {
   includeVar?: boolean;
 };
 
+type QuestionWithAnswerOptions = Prisma.QuestionGetPayload<{
+  include: { answerOptions: true };
+}>;
+
 /**
  * Fisher-Yates shuffle algorithm for true randomization
  * This ensures uniform distribution unlike Array.sort()
@@ -45,7 +49,7 @@ export async function createTestSession({
     throw new Error("Category not found");
   }
 
-  let selected: any[] = [];
+  let selected: QuestionWithAnswerOptions[] = [];
 
   // Check if this is a mandatory test with specific question IDs
   if (mandatoryTestId) {
@@ -185,9 +189,31 @@ export async function getMandatoryTestsForUser(userId: string, categorySlug?: st
       isMandatory: true, // Only mandatory tests
       categoryId: category?.id,
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      categoryId: true,
+      dueDate: true,
+      lawNumbers: true,
+      totalQuestions: true,
+      passingScore: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      isMandatory: true,
+      isUserGenerated: true,
+      includeVar: true,
       completions: {
         where: { userId },
+        select: {
+          id: true,
+          testSessionId: true,
+          completedAt: true,
+          score: true,
+          passed: true,
+          createdAt: true,
+        },
       },
     },
     orderBy: { dueDate: "asc" },

@@ -30,6 +30,22 @@ export async function GET() {
           { createdById: session.user.id, isUserGenerated: true }, // User's own tests
         ],
       },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        categoryId: true,
+        dueDate: true,
+        lawNumbers: true,
+        totalQuestions: true,
+        passingScore: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        isMandatory: true,
+        isUserGenerated: true,
+        includeVar: true,
+      },
       orderBy: { createdAt: "desc" },
     });
 

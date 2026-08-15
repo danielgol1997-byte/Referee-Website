@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const includeVar = searchParams.get("includeVar") === "true";
 
     // Build the filter for questions
-    const questionFilter: any = {
+    const questionFilter: Prisma.QuestionWhereInput = {
       type: "LOTG_TEXT",
       isActive: true,
     };
@@ -43,14 +44,41 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Get all questions
+    // Get all questions. Do not expose answer correctness in the study list API:
+    // these questions are also used by active tests and mandatory assessments.
     const questions = await prisma.question.findMany({
       where: questionFilter,
-      include: {
+      select: {
+        id: true,
+        type: true,
+        categoryId: true,
+        videoClipId: true,
+        text: true,
+        explanation: true,
+        difficulty: true,
+        createdAt: true,
+        updatedAt: true,
+        isActive: true,
+        lawNumbers: true,
+        isVar: true,
         answerOptions: {
+          select: {
+            id: true,
+            questionId: true,
+            label: true,
+            code: true,
+            order: true,
+          },
           orderBy: { order: "asc" },
         },
-        category: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            type: true,
+          },
+        },
       },
       orderBy: [
         { createdAt: "asc" },
