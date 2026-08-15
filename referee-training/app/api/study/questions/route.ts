@@ -43,14 +43,41 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Get all questions
+    // Get all questions. Do not expose answer correctness in the study list API:
+    // these questions are also used by active tests and mandatory assessments.
     const questions = await prisma.question.findMany({
       where: questionFilter,
-      include: {
+      select: {
+        id: true,
+        type: true,
+        categoryId: true,
+        videoClipId: true,
+        text: true,
+        explanation: true,
+        difficulty: true,
+        createdAt: true,
+        updatedAt: true,
+        isActive: true,
+        lawNumbers: true,
+        isVar: true,
         answerOptions: {
+          select: {
+            id: true,
+            questionId: true,
+            label: true,
+            code: true,
+            order: true,
+          },
           orderBy: { order: "asc" },
         },
-        category: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            type: true,
+          },
+        },
       },
       orderBy: [
         { createdAt: "asc" },

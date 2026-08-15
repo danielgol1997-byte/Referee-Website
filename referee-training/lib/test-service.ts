@@ -185,9 +185,31 @@ export async function getMandatoryTestsForUser(userId: string, categorySlug?: st
       isMandatory: true, // Only mandatory tests
       categoryId: category?.id,
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      categoryId: true,
+      dueDate: true,
+      lawNumbers: true,
+      totalQuestions: true,
+      passingScore: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      isMandatory: true,
+      isUserGenerated: true,
+      includeVar: true,
       completions: {
         where: { userId },
+        select: {
+          id: true,
+          testSessionId: true,
+          completedAt: true,
+          score: true,
+          passed: true,
+          createdAt: true,
+        },
       },
     },
     orderBy: { dueDate: "asc" },
