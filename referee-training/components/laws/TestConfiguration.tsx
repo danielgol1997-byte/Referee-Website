@@ -117,6 +117,7 @@ export function TestConfiguration() {
                 categorySlug: "laws-of-the-game",
                 lawNumbers: selectedLaws,
                 totalQuestions: questionCount,
+                includeVar,
                 isActive: true,
                 isMandatory: false,
                 isUserGenerated: true,
@@ -139,6 +140,7 @@ export function TestConfiguration() {
                 lawNumbers: selectedLaws.length > 0 ? selectedLaws : undefined,
                 totalQuestions: questionCount,
                 mandatoryTestId: testId,
+                includeVar,
               }),
             });
             const testData = await res.json();
@@ -161,6 +163,7 @@ export function TestConfiguration() {
             categorySlug: "laws-of-the-game",
             lawNumbers: selectedLaws,
             totalQuestions: questionCount,
+            includeVar,
             isActive: true,
             isMandatory: false,
             isUserGenerated: true,
@@ -187,6 +190,7 @@ export function TestConfiguration() {
           lawNumbers: selectedLaws.length > 0 ? selectedLaws : undefined,
           totalQuestions: questionCount,
           mandatoryTestId: testId,
+          includeVar,
         }),
       });
       const data = await res.json();
