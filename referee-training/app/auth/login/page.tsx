@@ -57,7 +57,13 @@ function LoginPageInner() {
     }
 
     // Make navigation deterministic: ensure the session exists before leaving this page.
-    await waitForSession();
+    const sessionReady = await waitForSession();
+    if (!sessionReady) {
+      setLoading(false);
+      setError("Signed in, but we could not confirm your session. Please try again.");
+      return;
+    }
+
     setLoading(false);
     router.replace(callbackUrl);
     router.refresh();
