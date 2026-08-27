@@ -99,9 +99,38 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!auth.ok) return unauthorized();
 
   const resolvedParams = await params;
+  const questionId = resolvedParams.id;
 
   try {
-    await prisma.question.delete({ where: { id: resolvedParams.id } });
+    const [existingAnswer, activeSession, mandatoryTest] = await Promise.all([
+      prisma.testAnswer.findFirst({
+        where: { questionId },
+        select: { id: true },
+      }),
+      prisma.testSession.findFirst({
+        where: {
+          questionIds: { has: questionId },
+          completedAt: null,
+        },
+        select: { id: true },
+      }),
+      prisma.mandatoryTest.findFirst({
+        where: { questionIds: { has: questionId } },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingAnswer || activeSession || mandatoryTest) {
+      return NextResponse.json(
+        {
+          error:
+            "Question cannot be deleted while it is referenced by answers, active sessions, or mandatory tests.",
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.question.delete({ where: { id: questionId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[ADMIN][QUESTION][DELETE]", error);
