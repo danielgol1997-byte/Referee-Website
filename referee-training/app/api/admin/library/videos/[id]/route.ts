@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { RestartType, SanctionType, VideoType } from "@prisma/client";
+import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
@@ -87,11 +88,11 @@ export async function PUT(
         description,
         fileUrl: videoUrl,
         thumbnailUrl,
-        videoType: videoType as any,
+        videoType: videoType as VideoType,
         videoCategoryId: videoCategoryId || null,
         lawNumbers,
-        sanctionType: sanctionType as any,
-        restartType: restartType as any,
+        sanctionType: sanctionType as SanctionType | null,
+        restartType: restartType as RestartType | null,
         correctDecision,
         decisionExplanation,
         keyPoints,
@@ -143,6 +144,22 @@ export async function DELETE(
 
     if (!video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    }
+
+    const referencedQuestionCount = await prisma.question.count({
+      where: { videoClipId: id },
+    });
+
+    if (referencedQuestionCount > 0) {
+      return NextResponse.json(
+        {
+          error:
+            referencedQuestionCount === 1
+              ? 'Cannot delete this video because it is used by 1 question.'
+              : `Cannot delete this video because it is used by ${referencedQuestionCount} questions.`,
+        },
+        { status: 409 }
+      );
     }
 
     // Delete video tags first
