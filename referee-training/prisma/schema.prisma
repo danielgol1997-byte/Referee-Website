@@ -115,7 +115,7 @@ model Question {
   isVar         Boolean        @default(false)
   answerOptions AnswerOption[]
   category      Category       @relation(fields: [categoryId], references: [id])
-  videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id])
+  videoClip     VideoClip?     @relation(fields: [videoClipId], references: [id], onDelete: Restrict)
   testAnswers   TestAnswer[]
 }
 
