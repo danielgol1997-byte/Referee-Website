@@ -4,12 +4,79 @@ import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import FacebookProvider from "next-auth/providers/facebook";
 import { compare } from "bcryptjs";
+import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { Role } from "@prisma/client";
 import { env } from "./env";
 
+const MAX_FAILED_CREDENTIAL_ATTEMPTS = 5;
+const CREDENTIAL_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const CREDENTIAL_LOCKOUT_MS = 15 * 60 * 1000;
+
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function credentialAttemptKey(email: string) {
+  return createHash("sha256")
+    .update(email.trim().toLowerCase())
+    .digest("hex");
+}
+
+async function assertCredentialLoginAllowed(key: string) {
+  const attempt = await prisma.credentialLoginAttempt.findUnique({
+    where: { key },
+    select: { lockedUntil: true },
+  });
+
+  if (attempt?.lockedUntil && attempt.lockedUntil > new Date()) {
+    throw new Error("Too many failed login attempts. Please wait before trying again.");
+  }
+}
+
+async function recordFailedCredentialLogin(key: string) {
+  const now = new Date();
+  const existing = await prisma.credentialLoginAttempt.findUnique({
+    where: { key },
+    select: { failedCount: true, firstFailedAt: true },
+  });
+
+  const windowExpired =
+    !existing || now.getTime() - existing.firstFailedAt.getTime() > CREDENTIAL_ATTEMPT_WINDOW_MS;
+
+  if (windowExpired) {
+    await prisma.credentialLoginAttempt.upsert({
+      where: { key },
+      create: {
+        key,
+        failedCount: 1,
+        firstFailedAt: now,
+        lockedUntil: null,
+      },
+      update: {
+        failedCount: 1,
+        firstFailedAt: now,
+        lockedUntil: null,
+      },
+    });
+    return;
+  }
+
+  const failedCount = existing.failedCount + 1;
+  await prisma.credentialLoginAttempt.update({
+    where: { key },
+    data: {
+      failedCount,
+      lockedUntil:
+        failedCount >= MAX_FAILED_CREDENTIAL_ATTEMPTS
+          ? new Date(now.getTime() + CREDENTIAL_LOCKOUT_MS)
+          : null,
+    },
+  });
+}
+
+async function clearFailedCredentialLogins(key: string) {
+  await prisma.credentialLoginAttempt.deleteMany({ where: { key } });
 }
 
 export const authOptions: NextAuthOptions = {
@@ -36,8 +103,12 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        const email = credentials.email.trim();
+        const attemptKey = credentialAttemptKey(email);
+        await assertCredentialLoginAllowed(attemptKey);
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
         });
 
         if (!user?.password) {
@@ -46,8 +117,11 @@ export const authOptions: NextAuthOptions = {
 
         const isValid = await compare(credentials.password, user.password);
         if (!isValid) {
+          await recordFailedCredentialLogin(attemptKey);
           return null;
         }
+
+        await clearFailedCredentialLogins(attemptKey);
 
         return {
           id: user.id,
