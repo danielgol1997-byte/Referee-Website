@@ -5,8 +5,13 @@ import type { Category, LibraryArticle } from "@prisma/client";
 
 export const revalidate = 60;
 
-export default async function LibraryPage({ searchParams }: { searchParams: { q?: string } }) {
-  const q = searchParams.q ?? "";
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const q = resolvedSearchParams.q ?? "";
   let articles: (LibraryArticle & { category: Category | null })[] = [];
   try {
     articles = await prisma.libraryArticle.findMany({
